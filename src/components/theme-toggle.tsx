@@ -4,8 +4,13 @@ import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
-  const { setTheme, resolvedTheme, mounted } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
   const [isDark, setIsDark] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
     if (mounted) {
