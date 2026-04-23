@@ -10,8 +10,8 @@ import {
   Megaphone,
   TrendingUp,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import DashboardLayout from "@/components/DashboardLayout";
+import { organizerMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -126,14 +126,8 @@ const OrganizerDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 pt-24 pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+    <DashboardLayout title="Organizer Dashboard" subtitle="Run your events like a pro" menu={organizerMenu}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
@@ -465,11 +459,8 @@ const OrganizerDashboard = () => {
               )}
             </motion.div>
           </AnimatePresence>
-        </motion.div>
-      </div>
-
-      <Footer />
-    </div>
+      </motion.div>
+    </DashboardLayout>
   );
 };
 
