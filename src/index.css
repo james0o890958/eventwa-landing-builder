@@ -8,32 +8,32 @@
   :root {
     /* Light theme (default) */
     --background: 0 0% 100%;
-    --foreground: 220 15% 10%;
+    --foreground: 220 20% 6%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 10%;
+    --card-foreground: 220 20% 6%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
+    --popover-foreground: 220 20% 6%;
 
-    --primary: 16 90% 55%;
+    --primary: 16 90% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 10% 96%;
-    --secondary-foreground: 220 15% 10%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 220 20% 6%;
 
-    --muted: 220 10% 96%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 12% 32%;
 
-    --accent: 270 60% 60%;
+    --accent: 270 65% 52%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 75% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 90%;
-    --input: 220 10% 90%;
-    --ring: 16 90% 55%;
+    --border: 220 13% 82%;
+    --input: 220 13% 82%;
+    --ring: 16 90% 50%;
 
     --radius: 0.75rem;
 
