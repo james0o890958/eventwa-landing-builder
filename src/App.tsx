@@ -50,6 +50,15 @@ import HelpCreateEvents from "./pages/HelpCreateEvents.tsx";
 import HelpPaymentIssues from "./pages/HelpPaymentIssues.tsx";
 import HelpPromoteEvents from "./pages/HelpPromoteEvents.tsx";
 import HelpBecomeOrganizer from "./pages/HelpBecomeOrganizer.tsx";
+import Following from "./pages/Following.tsx";
+import OrganizerEvents from "./pages/OrganizerEvents.tsx";
+import OrganizerAttendees from "./pages/OrganizerAttendees.tsx";
+import OrganizerChatrooms from "./pages/OrganizerChatrooms.tsx";
+import EventChatroomPage from "./pages/EventChatroomPage.tsx";
+import PromoteEvent from "./pages/PromoteEvent.tsx";
+import OrganizerSubscriptions from "./pages/OrganizerSubscriptions.tsx";
+import OrganizerSettings from "./pages/OrganizerSettings.tsx";
+import OrganizerAnalytics from "./pages/OrganizerAnalytics.tsx";
 
 const queryClient = new QueryClient();
 
@@ -88,7 +97,16 @@ const App = () => (
             <Route path="/checkout/confirmation" element={<TicketConfirmation />} />
             <Route path="/my-tickets" element={<MyTickets />} />
             <Route path="/saved-events" element={<SavedEvents />} />
-            <Route path="/notifications" element={<Notifications />} />
+             <Route path="/notifications" element={<Notifications />} />
+             <Route path="/following" element={<Following />} />
+             <Route path="/organizer/events" element={<OrganizerEvents />} />
+             <Route path="/organizer/attendees" element={<OrganizerAttendees />} />
+             <Route path="/organizer/chatrooms" element={<OrganizerChatrooms />} />
+             <Route path="/organizer/event/:id/chatroom" element={<EventChatroomPage />} />
+             <Route path="/organizer/event/:id/promote" element={<PromoteEvent />} />
+             <Route path="/organizer/subscriptions" element={<OrganizerSubscriptions />} />
+             <Route path="/organizer/settings" element={<OrganizerSettings />} />
+             <Route path="/organizer/analytics" element={<OrganizerAnalytics />} />
             <Route path="/notifications/settings" element={<NotificationSettings />} />
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/help/find-tickets" element={<FindMyTickets />} />
