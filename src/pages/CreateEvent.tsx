@@ -43,6 +43,16 @@ interface TicketTier {
   description: string;
 }
 
+interface AgendaItem {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+}
+
 interface FormData {
   // Step 1 — Basic Info
   title: string;
@@ -69,8 +79,19 @@ interface FormData {
   websiteUrl: string;
   openForSponsorship: boolean;
   sponsorshipDetails: string;
-  agenda: { time: string; title: string; description: string }[];
+  agenda: AgendaItem[];
   rules: string;
+
+  // Dress code
+  dressCodeType: "none" | "color" | "image";
+  dressCodeColor: string;
+  dressCodeNote: string;
+  dressCodeImageUrl: string;
+
+  // Meals
+  mealsProvided: boolean;
+  mealOptions: string[];
+  mealNotes: string;
 }
 
 // ─── Steps config ─────────────────────────────────────────────────────────────
@@ -92,6 +113,19 @@ const DEFAULT_TICKET: TicketTier = {
   description: "",
 };
 
+const MEAL_PRESETS = [
+  "Breakfast",
+  "Lunch",
+  "Dinner",
+  "Snacks",
+  "Buffet",
+  "Cocktails",
+  "Vegetarian",
+  "Vegan",
+  "Halal",
+  "Gluten-Free",
+];
+
 const INITIAL: FormData = {
   title: "",
   description: "",
@@ -111,8 +145,25 @@ const INITIAL: FormData = {
   websiteUrl: "",
   openForSponsorship: false,
   sponsorshipDetails: "",
-  agenda: [{ time: "", title: "", description: "" }],
+  agenda: [
+    {
+      id: "a1",
+      title: "",
+      description: "",
+      startDate: "",
+      startTime: "",
+      endDate: "",
+      endTime: "",
+    },
+  ],
   rules: "",
+  dressCodeType: "none",
+  dressCodeColor: "#1a1a1a",
+  dressCodeNote: "",
+  dressCodeImageUrl: "",
+  mealsProvided: false,
+  mealOptions: [],
+  mealNotes: "",
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
