@@ -19,10 +19,7 @@ import {
   Wifi,
   WifiOff,
   Handshake,
-  Shirt,
-  UtensilsCrossed,
-  Upload,
-  X,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -255,11 +252,22 @@ const CreateEvent = () => {
   // ── Agenda ─────────────────────────────────────────────────────────────────
 
   const addAgendaItem = () =>
-    set("agenda", [...form.agenda, { time: "", title: "", description: "" }]);
+    set("agenda", [
+      ...form.agenda,
+      {
+        id: `a${Date.now()}`,
+        title: "",
+        description: "",
+        startDate: "",
+        startTime: "",
+        endDate: "",
+        endTime: "",
+      },
+    ]);
 
   const updateAgenda = (
     index: number,
-    field: "time" | "title" | "description",
+    field: keyof Omit<AgendaItem, "id">,
     value: string,
   ) =>
     set(
@@ -272,6 +280,27 @@ const CreateEvent = () => {
       "agenda",
       form.agenda.filter((_, i) => i !== index),
     );
+
+  // ── Meals ──────────────────────────────────────────────────────────────────
+
+  const toggleMeal = (meal: string) => {
+    const exists = form.mealOptions.includes(meal);
+    set(
+      "mealOptions",
+      exists
+        ? form.mealOptions.filter((m) => m !== meal)
+        : [...form.mealOptions, meal],
+    );
+  };
+
+  // ── Dress code image upload (local preview) ────────────────────────────────
+
+  const onDressImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    set("dressCodeImageUrl", url);
+  };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -846,50 +875,101 @@ const CreateEvent = () => {
                   "Optional external link for more information.",
                 )}
 
-                {/* Agenda */}
+                {/* Agenda — multi-session with start/end dates & times */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-foreground">
                     Event Schedule / Agenda
                   </Label>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Add one or more sessions, each with its own start and end date & time.
+                  </p>
                   <div className="space-y-3">
                     {form.agenda.map((item, i) => (
                       <div
-                        key={i}
-                        className="grid gap-2 rounded-xl border border-border/50 bg-secondary/30 p-3 sm:grid-cols-[auto_1fr_1fr_auto]"
+                        key={item.id}
+                        className="relative rounded-xl border border-border/50 bg-secondary/30 p-4 space-y-3"
                       >
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-foreground">
+                            Session {i + 1}
+                          </p>
+                          {form.agenda.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeAgenda(i)}
+                              className="rounded-full p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
                         <Input
-                          placeholder="7:00 PM"
-                          value={item.time}
-                          onChange={(e) =>
-                            updateAgenda(i, "time", e.target.value)
-                          }
-                          className={`${inputCls} w-24`}
-                        />
-                        <Input
-                          placeholder="Session title"
+                          placeholder="Session title (e.g. Opening Keynote)"
                           value={item.title}
                           onChange={(e) =>
                             updateAgenda(i, "title", e.target.value)
                           }
                           className={inputCls}
                         />
-                        <Input
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Start Date</Label>
+                            <Input
+                              type="date"
+                              value={item.startDate}
+                              onChange={(e) =>
+                                updateAgenda(i, "startDate", e.target.value)
+                              }
+                              className={inputCls}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Start Time</Label>
+                            <Input
+                              type="time"
+                              value={item.startTime}
+                              onChange={(e) =>
+                                updateAgenda(i, "startTime", e.target.value)
+                              }
+                              className={inputCls}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">End Date</Label>
+                            <Input
+                              type="date"
+                              value={item.endDate}
+                              onChange={(e) =>
+                                updateAgenda(i, "endDate", e.target.value)
+                              }
+                              className={inputCls}
+                              min={item.startDate || undefined}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">End Time</Label>
+                            <Input
+                              type="time"
+                              value={item.endTime}
+                              onChange={(e) =>
+                                updateAgenda(i, "endTime", e.target.value)
+                              }
+                              className={inputCls}
+                            />
+                          </div>
+                        </div>
+
+                        <Textarea
                           placeholder="Brief description (optional)"
                           value={item.description}
                           onChange={(e) =>
                             updateAgenda(i, "description", e.target.value)
                           }
-                          className={inputCls}
+                          className={`${inputCls} resize-none`}
+                          rows={2}
                         />
-                        {form.agenda.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeAgenda(i)}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
                       </div>
                     ))}
                     <button
@@ -898,9 +978,208 @@ const CreateEvent = () => {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/30 py-2.5 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
                     >
                       <Plus className="h-4 w-4" />
-                      Add Schedule Item
+                      Add Another Session
                     </button>
                   </div>
+                </div>
+
+                {/* Dress Code */}
+                <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium text-foreground text-sm">
+                        Dress Code
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Specify a color theme or upload a reference image
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { v: "none" as const, label: "No Dress Code" },
+                      { v: "color" as const, label: "Color Theme" },
+                      { v: "image" as const, label: "Reference Image" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => set("dressCodeType", opt.v)}
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                          form.dressCodeType === opt.v
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border/50 text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <AnimatePresence mode="wait">
+                    {form.dressCodeType === "color" && (
+                      <motion.div
+                        key="color"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-3 overflow-hidden"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={form.dressCodeColor}
+                            onChange={(e) =>
+                              set("dressCodeColor", e.target.value)
+                            }
+                            className="h-12 w-16 cursor-pointer rounded-lg border border-border/50 bg-transparent"
+                          />
+                          <Input
+                            value={form.dressCodeColor}
+                            onChange={(e) =>
+                              set("dressCodeColor", e.target.value)
+                            }
+                            className={`${inputCls} font-mono`}
+                            placeholder="#000000"
+                          />
+                          <div
+                            className="h-12 flex-1 rounded-lg border border-border/50"
+                            style={{ backgroundColor: form.dressCodeColor }}
+                          />
+                        </div>
+                        <Input
+                          placeholder="e.g. All white, Black tie, Afro-luxe"
+                          value={form.dressCodeNote}
+                          onChange={(e) =>
+                            set("dressCodeNote", e.target.value)
+                          }
+                          className={inputCls}
+                        />
+                      </motion.div>
+                    )}
+
+                    {form.dressCodeType === "image" && (
+                      <motion.div
+                        key="image"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-3 overflow-hidden"
+                      >
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background py-6 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+                          <Image className="h-5 w-5" />
+                          {form.dressCodeImageUrl ? "Replace Image" : "Upload Reference Image"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={onDressImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        {form.dressCodeImageUrl && (
+                          <div className="relative h-48 overflow-hidden rounded-xl border border-border/50">
+                            <img
+                              src={form.dressCodeImageUrl}
+                              alt="Dress code reference"
+                              className="h-full w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => set("dressCodeImageUrl", "")}
+                              className="absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <Input
+                          placeholder="Optional note (e.g. Inspired by the look above)"
+                          value={form.dressCodeNote}
+                          onChange={(e) =>
+                            set("dressCodeNote", e.target.value)
+                          }
+                          className={inputCls}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Meals */}
+                <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🍽️</span>
+                      <div>
+                        <p className="font-medium text-foreground text-sm">
+                          Meals & Refreshments
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Will food or drinks be served at this event?
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => set("mealsProvided", !form.mealsProvided)}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${
+                        form.mealsProvided ? "bg-primary" : "bg-border"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          form.mealsProvided ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {form.mealsProvided && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden space-y-3"
+                      >
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-2 block">
+                            Select what will be served (multiple allowed)
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            {MEAL_PRESETS.map((meal) => {
+                              const selected = form.mealOptions.includes(meal);
+                              return (
+                                <button
+                                  key={meal}
+                                  type="button"
+                                  onClick={() => toggleMeal(meal)}
+                                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                                    selected
+                                      ? "border-primary bg-primary text-primary-foreground"
+                                      : "border-border/50 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                  }`}
+                                >
+                                  {selected && "✓ "}
+                                  {meal}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <Textarea
+                          placeholder="Additional meal details (e.g. cuisine, dietary notes, drink list)"
+                          value={form.mealNotes}
+                          onChange={(e) => set("mealNotes", e.target.value)}
+                          className={`${inputCls} resize-none`}
+                          rows={2}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Rules */}
