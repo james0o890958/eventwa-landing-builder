@@ -11,8 +11,8 @@ import {
   MapPin,
   BellRing,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import DashboardLayout from "@/components/DashboardLayout";
+import { attendeeMenu } from "@/config/dashboardMenus";
 import EventCard from "@/components/EventCard";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -166,15 +166,9 @@ const UserDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 pt-24 pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          {/* Profile header */}
+    <DashboardLayout title="My Dashboard" subtitle="Welcome back to your event hub" menu={attendeeMenu}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        {/* Profile header */}
           <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-primary/30">
@@ -355,11 +349,8 @@ const UserDashboard = () => {
               )}
             </motion.div>
           </AnimatePresence>
-        </motion.div>
-      </div>
-
-      <Footer />
-    </div>
+      </motion.div>
+    </DashboardLayout>
   );
 };
 
