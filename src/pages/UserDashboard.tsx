@@ -349,11 +349,8 @@ const UserDashboard = () => {
               )}
             </motion.div>
           </AnimatePresence>
-        </motion.div>
-      </div>
-
-      <Footer />
-    </div>
+      </motion.div>
+    </DashboardLayout>
   );
 };
 
