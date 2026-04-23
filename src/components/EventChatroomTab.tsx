@@ -17,7 +17,7 @@ interface EventChatroomTabProps {
   activeTab?: string;
 }
 
-export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrganizer }: EventChatroomTabProps) => {
+export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrganizer, activeTab }: EventChatroomTabProps) => {
   const [messages, setMessages] = useState<MockMessage[]>([]);
   const [input, setInput] = useState("");
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState<MockMessage | null>(null);

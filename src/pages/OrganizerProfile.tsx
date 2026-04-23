@@ -25,7 +25,10 @@ import { mockEvents } from "@/data/mockEvents";
 import { useAuth } from "@/contexts/AuthContext";
 import { organizerSlug } from "@/lib/utils";
 
-import { organizerSlug } from "@/lib/utils";
+interface SocialLinks {
+  instagram?: string;
+  twitter?: string;
+}
 
 const getOrganizers = () => {
   const organizerMap: Record<string, { events: typeof mockEvents; totalEvents: number; totalAttendees: number }> = {};
@@ -68,8 +71,8 @@ const getOrganizers = () => {
     reviews: Math.floor(Math.random() * 100) + 10,
     color: colors[index % colors.length],
     verified: data.totalEvents > 5,
-    website: "",
-    socialLinks: {},
+    website: "" as string,
+    socialLinks: {} as SocialLinks,
   }));
 };
 
