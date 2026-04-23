@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { organizerSlug } from "@/lib/utils";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { mockEvents } from "@/data/mockEvents";
@@ -38,14 +39,6 @@ interface OrganizerCard {
   category: string;
   color: string;
 }
-
-// Helper function to generate slug from name
-const generateSlug = (name: string): string => {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-};
 
 const GRADIENT_COLORS = [
   "from-pink-500 to-rose-600",
@@ -76,7 +69,7 @@ function deriveOrganizers(): OrganizerCard[] {
   }
   return Object.entries(map)
     .map(([name, stats], i) => ({
-      id: generateSlug(name),
+      id: organizerSlug(name),
       name,
       initials: name
         .split(" ")
@@ -627,10 +620,9 @@ const OrganizersPage = () => {
                 transition={{ delay: i * 0.06 }}
                 className="rounded-2xl border border-border/50 bg-card p-5 text-center transition-all hover:border-primary/30 hover:shadow-card"
               >
-                {/* Clickable organizer card - navigate to profile on avatar/name click */}
-                <div 
-                  className="cursor-pointer" 
-                  onClick={() => navigate(`/organizer/${org.id}`)}
+                <Link
+                  to={`/organizer/${org.id}`}
+                  className="mb-4 block cursor-pointer text-center transition hover:text-primary"
                 >
                   <Avatar className="mx-auto mb-3 h-16 w-16">
                     <AvatarFallback
@@ -652,7 +644,7 @@ const OrganizersPage = () => {
                       : org.totalAttendees.toLocaleString()}{" "}
                     attendees
                   </p>
-                </div>
+                </Link>
                 
                 {/* Action buttons */}
                 <div className="flex gap-2">

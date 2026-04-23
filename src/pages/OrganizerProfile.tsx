@@ -23,63 +23,57 @@ import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
 import { mockEvents } from "@/data/mockEvents";
 import { useAuth } from "@/contexts/AuthContext";
+import { organizerSlug } from "@/lib/utils";
 
-const ORGANIZERS = [
-  {
-    id: "lagos-music-hub",
-    name: "Lagos Music Hub",
-    initials: "LMH",
-    bio: "Nigeria's leading music event platform. Bringing you the best live music experiences across Lagos and beyond.",
-    location: "Lagos, Nigeria",
-    totalEvents: 12,
-    totalAttendees: 45200,
-    rating: 4.8,
-    reviews: 156,
-    color: "from-pink-500 to-rose-600",
-    verified: true,
-    website: "https://lagosmusichub.com",
-    socialLinks: {
-      instagram: "@lagosmusichub",
-      twitter: "@lagosmusichub",
-    },
-  },
-  {
-    id: "abuja-tech-summit",
-    name: "Abuja Tech Summit",
-    initials: "ATS",
-    bio: "Nigeria's premier tech conference. Connecting innovators, developers, and tech enthusiasts.",
-    location: "Abuja, Nigeria",
-    totalEvents: 8,
-    totalAttendees: 18500,
-    rating: 4.9,
-    reviews: 89,
-    color: "from-blue-500 to-cyan-600",
-    verified: true,
-    website: "https://abuja.tech",
-    socialLinks: {
-      instagram: "@abuja_tech",
-      twitter: "@abuja_tech",
-    },
-  },
-  {
-    id: "ph-festival-crew",
-    name: "PH Festival Crew",
-    initials: "PFC",
-    bio: "Port Harcourt's biggest event crew. Music, food, and culture.",
-    location: "Port Harcourt, Nigeria",
-    totalEvents: 15,
-    totalAttendees: 67800,
-    rating: 4.7,
-    reviews: 234,
-    color: "from-violet-500 to-purple-600",
-    verified: false,
+import { organizerSlug } from "@/lib/utils";
+
+const getOrganizers = () => {
+  const organizerMap: Record<string, { events: typeof mockEvents; totalEvents: number; totalAttendees: number }> = {};
+
+  for (const event of mockEvents) {
+    if (!organizerMap[event.organizer]) {
+      organizerMap[event.organizer] = { events: [], totalEvents: 0, totalAttendees: 0 };
+    }
+    organizerMap[event.organizer].events.push(event);
+    organizerMap[event.organizer].totalEvents += 1;
+    organizerMap[event.organizer].totalAttendees += event.attendees;
+  }
+
+  const colors = [
+    "from-pink-500 to-rose-600",
+    "from-violet-500 to-purple-600",
+    "from-blue-500 to-cyan-600",
+    "from-green-500 to-emerald-600",
+    "from-amber-500 to-orange-600",
+    "from-teal-500 to-emerald-600",
+    "from-indigo-500 to-blue-600",
+    "from-red-500 to-pink-600",
+  ];
+
+  return Object.entries(organizerMap).map(([name, data], index) => ({
+    id: organizerSlug(name),
+    name,
+    initials: name
+      .split(" ")
+      .slice(0, 3)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 3),
+    bio: "Professional event organizer bringing amazing experiences to Nigeria.",
+    location: "Nigeria",
+    totalEvents: data.totalEvents,
+    totalAttendees: data.totalAttendees,
+    rating: 4.5 + Math.random() * 0.5,
+    reviews: Math.floor(Math.random() * 100) + 10,
+    color: colors[index % colors.length],
+    verified: data.totalEvents > 5,
     website: "",
-    socialLinks: {
-      instagram: "@phfestival",
-      twitter: "@phfestival",
-    },
-  },
-];
+    socialLinks: {},
+  }));
+};
+
+const ORGANIZERS = getOrganizers();
 
 const OrganizerProfile = () => {
   const { id } = useParams();
@@ -95,6 +89,10 @@ const OrganizerProfile = () => {
     }
   }, [session, authLoading, navigate, id]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   if (authLoading || !session) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -109,10 +107,10 @@ const OrganizerProfile = () => {
   const today = new Date("2026-04-21");
 
   const upcomingEvents = mockEvents.filter(
-    (e) => new Date(e.date) >= today,
+    (e) => new Date(e.date) >= today && e.organizer === organizer.name,
   );
   const pastEvents = mockEvents.filter(
-    (e) => new Date(e.date) < today,
+    (e) => new Date(e.date) < today && e.organizer === organizer.name,
   );
 
   const toggleFollow = () => {

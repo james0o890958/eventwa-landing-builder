@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { mockEvents } from "@/data/mockEvents";
+import { organizerSlug } from "@/lib/utils";
 
 interface OrganizerInfo {
   name: string;
@@ -79,15 +81,19 @@ const PopularOrganizers = () => {
               transition={{ delay: i * 0.07 }}
               className="flex items-center gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-card transition-colors hover:border-primary/30"
             >
-              <Avatar className="h-14 w-14 shrink-0">
-                <AvatarFallback
-                  className={`bg-gradient-to-br ${org.colorClass} text-sm font-bold text-white`}
-                >
-                  {org.initials}
-                </AvatarFallback>
-              </Avatar>
+              <Link
+                to={`/organizer/${organizerSlug(org.name)}`}
+                className="flex min-w-0 flex-1 items-center gap-4 text-left transition hover:text-primary"
+              >
+                <Avatar className="h-14 w-14 shrink-0">
+                  <AvatarFallback
+                    className={`bg-gradient-to-br ${org.colorClass} text-sm font-bold text-white`}
+                  >
+                    {org.initials}
+                  </AvatarFallback>
+                </Avatar>
 
-              <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
                 <p className="truncate font-display font-semibold text-foreground">
                   {org.name}
                 </p>
@@ -105,6 +111,7 @@ const PopularOrganizers = () => {
                   </span>
                 </div>
               </div>
+              </Link>
 
               <Button
                 size="sm"

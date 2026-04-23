@@ -32,6 +32,7 @@ import {
   Handshake,
   MessageSquare,
 } from "lucide-react";
+import { organizerSlug } from "@/lib/utils";
 import { 
   Sheet, 
   SheetContent, 
@@ -591,7 +592,7 @@ const EventDetail = () => {
               <Users className="h-4 w-4 text-primary" />
               {event.attendees.toLocaleString()} attending
             </span>
-            <Link to={`/organizer/${event.organizer.toLowerCase().replace(/\s+/g, "-")}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+            <Link to={`/organizer/${organizerSlug(event.organizer)}`} className="flex items-center gap-2 hover:text-primary transition-colors">
               <User className="h-4 w-4 text-primary" />
               {event.organizer}
             </Link>
@@ -714,7 +715,7 @@ const EventDetail = () => {
                   <div className="rounded-2xl border border-border/50 bg-card p-6">
                     <h2 className="mb-4 font-display text-xl font-semibold text-foreground">Organizer</h2>
                     <Link 
-                      to={`/organizer/${event.organizer.toLowerCase().replace(/\s+/g, "-")}`}
+                      to={`/organizer/${organizerSlug(event.organizer)}`}
                       className="flex items-center gap-3 mb-4 group cursor-pointer"
                     >
                       <Avatar className="h-11 w-11 shrink-0 transition-transform group-hover:scale-105">
@@ -750,7 +751,7 @@ const EventDetail = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedUser(event.organizer.toLowerCase().replace(/\s+/g, "-"))}
+                        onClick={() => setSelectedUser(organizerSlug(event.organizer))}
                         className="flex-1 border-border/50 text-xs"
                       >
                         <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -872,15 +873,16 @@ const EventDetail = () => {
                   <EventBlogSection category={event.category} />
                 </TabsContent>
 
-                {/* ── CHAT TAB ─────────────────────────────────────────────── */}
-                <TabsContent value="chat" className="mt-0">
-                  <EventChatroomTab 
-                    eventId={event.id} 
-                    organizerName={event.organizer} 
-                    onSelectUser={setSelectedUser}
-                    isOrganizer={isOrganizer}
-                  />
-                </TabsContent>
+                 {/* ── CHAT TAB ─────────────────────────────────────────────── */}
+                 <TabsContent value="chat" className="mt-0">
+                   <EventChatroomTab 
+                     eventId={event.id} 
+                     organizerName={event.organizer} 
+                     onSelectUser={setSelectedUser}
+                     isOrganizer={isOrganizer}
+                     activeTab={activeTab}
+                   />
+                 </TabsContent>
               </Tabs>
             </div>
 

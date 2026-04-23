@@ -54,19 +54,19 @@ import HelpBecomeOrganizer from "./pages/HelpBecomeOrganizer.tsx";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <Routes>
+   <QueryClientProvider client={queryClient}>
+     <TooltipProvider>
+       <Toaster />
+       <BrowserRouter>
+         <ThemeProvider
+           attribute="class"
+           defaultTheme="dark"
+           enableSystem
+           disableTransitionOnChange
+         >
+           <AuthProvider>
+             <Sonner />
+             <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/event/:id" element={<EventDetail />} />
             <Route path="/category/:id" element={<CategoryEvents />} />

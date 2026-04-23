@@ -14,6 +14,7 @@ interface EventChatroomTabProps {
   organizerName: string;
   onSelectUser?: (userId: string) => void;
   isOrganizer?: boolean;
+  activeTab?: string;
 }
 
 export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrganizer }: EventChatroomTabProps) => {
@@ -21,6 +22,7 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
   const [input, setInput] = useState("");
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState<MockMessage | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Load initial messages
   useEffect(() => {
@@ -44,6 +46,13 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
+
+  // Focus input when chat tab is active
+  useEffect(() => {
+    if (activeTab === "chat") {
+      inputRef.current?.focus();
+    }
+  }, [activeTab]);
 
   const sendMessage = () => {
     if (!input.trim()) return;
@@ -203,12 +212,13 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
         <div className="p-4 border-t border-border/50 bg-card">
           <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex flex-col gap-2">
             <div className="flex gap-2">
-              <Input
-                placeholder="Message the group..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-secondary border-border/50 h-11"
-              />
+               <Input
+                 ref={inputRef}
+                 placeholder="Message the group..."
+                 value={input}
+                 onChange={(e) => setInput(e.target.value)}
+                 className="flex-1 bg-secondary border-border/50 h-11"
+               />
               <Button type="submit" size="icon" className="h-11 w-11 gradient-primary text-primary-foreground shrink-0 shadow-glow">
                 <Send className="h-4 w-4" />
               </Button>
