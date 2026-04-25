@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import EventCard from "@/components/EventCard";
 import EventsSection from "@/components/EventsSection";
+import EventsNearYou from "@/components/EventsNearYou";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,48 +22,91 @@ import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications";
 
+type NotifCategory = "reminder" | "ticket" | "suggestion" | "announcement" | "nearby";
+
 const MOCK_NOTIFICATIONS = [
   {
     id: "n1",
-    Icon: MapPin,
-    title: "New event near you",
-    desc: "Burna Boy Live is happening near Victoria Island",
+    Icon: Bell,
+    title: "Event reminder",
+    desc: "Felabration 2026 starts in 3 days — don't forget your ticket!",
     time: "2 hours ago",
     unread: true,
+    category: "reminder" as NotifCategory,
   },
   {
     id: "n2",
     Icon: Ticket,
     title: "Ticket confirmed",
-    desc: "Your ticket for Lagos Carnival 2026 is ready",
+    desc: "Your ticket for Lagos Carnival 2026 is ready. Tap to view QR code.",
     time: "Yesterday",
     unread: true,
+    category: "ticket" as NotifCategory,
   },
   {
     id: "n3",
-    Icon: Bell,
-    title: "Event reminder",
-    desc: "Felabration 2026 starts in 3 days",
-    time: "2 days ago",
-    unread: false,
+    Icon: Calendar,
+    title: "Suggested for you",
+    desc: "Based on your love for Afrobeats, you might enjoy Wizkid Fest 2026",
+    time: "Yesterday",
+    unread: true,
+    category: "suggestion" as NotifCategory,
   },
   {
     id: "n4",
-    Icon: BellRing,
-    title: "Organizer announcement",
-    desc: "Gates open 1 hour earlier for Wizkid Fest",
-    time: "3 days ago",
+    Icon: Bell,
+    title: "Event reminder",
+    desc: "Lagos Tech Summit is tomorrow at 9:00 AM. See you there!",
+    time: "2 days ago",
     unread: false,
+    category: "reminder" as NotifCategory,
   },
   {
     id: "n5",
+    Icon: Ticket,
+    title: "Ticket confirmed",
+    desc: "Payment received — your VIP pass for Detty December is secured.",
+    time: "3 days ago",
+    unread: false,
+    category: "ticket" as NotifCategory,
+  },
+  {
+    id: "n6",
     Icon: Calendar,
-    title: "New events this weekend",
-    desc: "5 events happening near Lagos this weekend",
+    title: "New event suggestion",
+    desc: "You saved 3 jazz events. Check out Lagos Jazz Night this Friday.",
+    time: "4 days ago",
+    unread: false,
+    category: "suggestion" as NotifCategory,
+  },
+  {
+    id: "n7",
+    Icon: MapPin,
+    title: "New event near you",
+    desc: "Burna Boy Live is happening near Victoria Island",
+    time: "5 days ago",
+    unread: false,
+    category: "nearby" as NotifCategory,
+  },
+  {
+    id: "n8",
+    Icon: BellRing,
+    title: "Organizer announcement",
+    desc: "Gates open 1 hour earlier for Wizkid Fest",
     time: "1 week ago",
     unread: false,
+    category: "announcement" as NotifCategory,
   },
 ] as const;
+
+const NOTIF_FILTERS: { id: "all" | NotifCategory; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "reminder", label: "Reminders" },
+  { id: "ticket", label: "Tickets" },
+  { id: "suggestion", label: "Suggestions" },
+  { id: "nearby", label: "Nearby" },
+  { id: "announcement", label: "Announcements" },
+];
 
 interface EmptyStateProps {
   Icon: React.ElementType;
@@ -93,6 +137,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
@@ -298,10 +343,8 @@ const UserDashboard = () => {
                         ))}
                       </div>
                       <div className="mt-10">
-                        <EventsSection
-                          title="Events Near You"
-                          subtitle="Happening in your area"
-                          events={mockEvents.filter((e) => new Date(e.date) >= now).slice(0, 6)}
+                        <EventsNearYou
+                          events={mockEvents.filter((e) => new Date(e.date) >= now)}
                         />
                       </div>
                     </>
@@ -333,52 +376,96 @@ const UserDashboard = () => {
                 ))}
 
               {/* Notifications */}
-              {activeTab === "notifications" && (
-                <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
-                  {MOCK_NOTIFICATIONS.map((notif, i) => (
-                    <div
-                      key={notif.id}
-                      className={[
-                        "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40",
-                        i < MOCK_NOTIFICATIONS.length - 1
-                          ? "border-b border-border/30"
-                          : "",
-                        notif.unread ? "bg-primary/5" : "",
-                      ].join(" ")}
-                    >
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                          notif.unread ? "gradient-primary" : "bg-secondary"
-                        }`}
-                      >
-                        <notif.Icon
-                          className={`h-5 w-5 ${
-                            notif.unread
-                              ? "text-white"
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {notif.title}
-                          </p>
-                          {notif.unread && (
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
-                          {notif.desc}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground/60">
-                          {notif.time}
-                        </p>
-                      </div>
+              {activeTab === "notifications" && (() => {
+                const filtered =
+                  notifFilter === "all"
+                    ? MOCK_NOTIFICATIONS
+                    : MOCK_NOTIFICATIONS.filter((n) => n.category === notifFilter);
+                return (
+                  <>
+                    <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                      {NOTIF_FILTERS.map((f) => {
+                        const count =
+                          f.id === "all"
+                            ? MOCK_NOTIFICATIONS.length
+                            : MOCK_NOTIFICATIONS.filter((n) => n.category === f.id).length;
+                        if (count === 0) return null;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => setNotifFilter(f.id)}
+                            className={[
+                              "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all",
+                              notifFilter === f.id
+                                ? "gradient-primary text-primary-foreground shadow-glow"
+                                : "bg-secondary text-muted-foreground hover:text-foreground",
+                            ].join(" ")}
+                          >
+                            {f.label}
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                notifFilter === f.id
+                                  ? "bg-white/20"
+                                  : "bg-primary/10 text-primary"
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
+                    {filtered.length === 0 ? (
+                      <EmptyState
+                        Icon={Bell}
+                        title="No notifications"
+                        desc="You're all caught up in this category."
+                      />
+                    ) : (
+                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
+                        {filtered.map((notif, i) => (
+                          <div
+                            key={notif.id}
+                            className={[
+                              "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40",
+                              i < filtered.length - 1 ? "border-b border-border/30" : "",
+                              notif.unread ? "bg-primary/5" : "",
+                            ].join(" ")}
+                          >
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                notif.unread ? "gradient-primary" : "bg-secondary"
+                              }`}
+                            >
+                              <notif.Icon
+                                className={`h-5 w-5 ${
+                                  notif.unread ? "text-primary-foreground" : "text-muted-foreground"
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {notif.title}
+                                </p>
+                                {notif.unread && (
+                                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-sm text-muted-foreground">
+                                {notif.desc}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground/60">
+                                {notif.time}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </motion.div>
           </AnimatePresence>
 
