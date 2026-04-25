@@ -552,6 +552,152 @@ const UserProfile = () => {
                   </div>
                 )}
 
+                {/* RECOMMENDATIONS */}
+                {active === "recommendations" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        Recommendation Preferences
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Choose the event categories and locations you want us to surface for you.
+                      </p>
+                    </div>
+
+                    {/* Existing recommendations */}
+                    <div className="space-y-3">
+                      {recommendations.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                          No preferences yet. Add your first recommendation below.
+                        </div>
+                      ) : (
+                        recommendations.map((r) => {
+                          const cat = CATEGORY_OPTIONS.find((c) => c.value === r.category);
+                          const isEditing = editingId === r.id;
+                          return (
+                            <div
+                              key={r.id}
+                              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition-all ${
+                                isEditing
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                  : "border-border/50 bg-secondary/20"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" className="capitalize">
+                                  {cat?.label ?? r.category}
+                                </Badge>
+                                <span className="text-muted-foreground">in</span>
+                                <Badge variant="outline">{r.location}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => editRecommendation(r)}
+                                  className="gap-1"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Update
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => deleteRecommendation(r.id)}
+                                  className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Add / Edit row */}
+                    <div className="rounded-xl border border-border/50 bg-card p-4">
+                      <p className="mb-3 text-sm font-medium text-foreground">
+                        {editingId ? "Edit recommendation" : "Add a recommendation"}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Category</Label>
+                          <Select value={draftCategory} onValueChange={setDraftCategory}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORY_OPTIONS.map((c) => (
+                                <SelectItem key={c.value} value={c.value}>
+                                  {c.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Location</Label>
+                          <Select value={draftLocation} onValueChange={setDraftLocation}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allLocationOptions.map((l) => (
+                                <SelectItem key={l.value} value={l.value}>
+                                  {l.label}
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    {l.label === l.group ? "(state)" : `· ${l.group}`}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button
+                            onClick={addRecommendation}
+                            className="gradient-primary text-primary-foreground shadow-glow gap-1"
+                          >
+                            {editingId ? (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Update
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-4 w-4" />
+                                Add
+                              </>
+                            )}
+                          </Button>
+                          {editingId && (
+                            <Button
+                              variant="ghost"
+                              onClick={resetDraft}
+                              className="gap-1"
+                            >
+                              <X className="h-4 w-4" />
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={saveRecommendations}
+                        className="gradient-primary text-primary-foreground shadow-glow gap-2"
+                      >
+                        <Check className="h-4 w-4" />
+                        Save Preferences
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* PRIVACY */}
                 {active === "privacy" && (
                   <div className="space-y-6">
