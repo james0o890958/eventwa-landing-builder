@@ -13,6 +13,10 @@ import {
   Check,
   Smartphone,
   AlertTriangle,
+  Sparkles,
+  Plus,
+  Pencil,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +24,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { locations as locationData } from "@/data/mockLocations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +52,7 @@ type Section =
   | "password"
   | "twofa"
   | "notifications"
+  | "recommendations"
   | "privacy"
   | "danger";
 
@@ -52,9 +66,28 @@ const SECTIONS: {
   { id: "password", label: "Password", Icon: Lock, desc: "Change your password" },
   { id: "twofa", label: "Two-Factor Auth", Icon: ShieldCheck, desc: "Extra account security" },
   { id: "notifications", label: "Notifications", Icon: Bell, desc: "Manage email & push alerts" },
+  { id: "recommendations", label: "Recommendations", Icon: Sparkles, desc: "Pick categories & locations you love" },
   { id: "privacy", label: "Privacy", Icon: EyeOff, desc: "Control your visibility" },
   { id: "danger", label: "Danger Zone", Icon: Trash2, desc: "Delete your account" },
 ];
+
+const CATEGORY_OPTIONS = [
+  { value: "sports", label: "Sports" },
+  { value: "movies", label: "Movies" },
+  { value: "music", label: "Music" },
+  { value: "religious", label: "Religious" },
+  { value: "conferences", label: "Conferences" },
+  { value: "social", label: "Social" },
+  { value: "festivals", label: "Festivals" },
+  { value: "gaming", label: "Gaming" },
+  { value: "exhibitions", label: "Exhibitions" },
+];
+
+interface RecommendationPref {
+  id: string;
+  category: string;
+  location: string;
+}
 
 const UserProfile = () => {
   const { user, signOut } = useAuth();
@@ -95,6 +128,68 @@ const UserProfile = () => {
   const [hideHostedEvents, setHideHostedEvents] = useState(false);
   const [allowDMsFromAnyone, setAllowDMsFromAnyone] = useState(true);
   const [showOnlineStatus, setShowOnlineStatus] = useState(true);
+
+  // Recommendations
+  const [recommendations, setRecommendations] = useState<RecommendationPref[]>([
+    { id: "r1", category: "music", location: "Lagos" },
+  ]);
+  const [draftCategory, setDraftCategory] = useState<string>("");
+  const [draftLocation, setDraftLocation] = useState<string>("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const allLocationOptions = locationData.flatMap((s) => [
+    { value: s.name, label: s.name, group: s.name },
+    ...s.cities.map((c) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name })),
+  ]);
+
+  const resetDraft = () => {
+    setDraftCategory("");
+    setDraftLocation("");
+    setEditingId(null);
+  };
+
+  const addRecommendation = () => {
+    if (!draftCategory || !draftLocation) {
+      toast.error("Pick a category and a location");
+      return;
+    }
+    const dup = recommendations.some(
+      (r) => r.category === draftCategory && r.location === draftLocation && r.id !== editingId,
+    );
+    if (dup) {
+      toast.error("That combination already exists");
+      return;
+    }
+    if (editingId) {
+      setRecommendations((prev) =>
+        prev.map((r) =>
+          r.id === editingId ? { ...r, category: draftCategory, location: draftLocation } : r,
+        ),
+      );
+      toast.success("Recommendation updated");
+    } else {
+      setRecommendations((prev) => [
+        ...prev,
+        { id: `r${Date.now()}`, category: draftCategory, location: draftLocation },
+      ]);
+      toast.success("Recommendation added");
+    }
+    resetDraft();
+  };
+
+  const editRecommendation = (r: RecommendationPref) => {
+    setEditingId(r.id);
+    setDraftCategory(r.category);
+    setDraftLocation(r.location);
+  };
+
+  const deleteRecommendation = (id: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== id));
+    if (editingId === id) resetDraft();
+    toast.success("Recommendation removed");
+  };
+
+  const saveRecommendations = () => toast.success("Recommendation preferences saved");
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -453,6 +548,152 @@ const UserProfile = () => {
                         advanced notification settings
                       </Link>
                       .
+                    </div>
+                  </div>
+                )}
+
+                {/* RECOMMENDATIONS */}
+                {active === "recommendations" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        Recommendation Preferences
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Choose the event categories and locations you want us to surface for you.
+                      </p>
+                    </div>
+
+                    {/* Existing recommendations */}
+                    <div className="space-y-3">
+                      {recommendations.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                          No preferences yet. Add your first recommendation below.
+                        </div>
+                      ) : (
+                        recommendations.map((r) => {
+                          const cat = CATEGORY_OPTIONS.find((c) => c.value === r.category);
+                          const isEditing = editingId === r.id;
+                          return (
+                            <div
+                              key={r.id}
+                              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition-all ${
+                                isEditing
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                  : "border-border/50 bg-secondary/20"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" className="capitalize">
+                                  {cat?.label ?? r.category}
+                                </Badge>
+                                <span className="text-muted-foreground">in</span>
+                                <Badge variant="outline">{r.location}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => editRecommendation(r)}
+                                  className="gap-1"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Update
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => deleteRecommendation(r.id)}
+                                  className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Add / Edit row */}
+                    <div className="rounded-xl border border-border/50 bg-card p-4">
+                      <p className="mb-3 text-sm font-medium text-foreground">
+                        {editingId ? "Edit recommendation" : "Add a recommendation"}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Category</Label>
+                          <Select value={draftCategory} onValueChange={setDraftCategory}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORY_OPTIONS.map((c) => (
+                                <SelectItem key={c.value} value={c.value}>
+                                  {c.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Location</Label>
+                          <Select value={draftLocation} onValueChange={setDraftLocation}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allLocationOptions.map((l) => (
+                                <SelectItem key={l.value} value={l.value}>
+                                  {l.label}
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    {l.label === l.group ? "(state)" : `· ${l.group}`}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button
+                            onClick={addRecommendation}
+                            className="gradient-primary text-primary-foreground shadow-glow gap-1"
+                          >
+                            {editingId ? (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Update
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-4 w-4" />
+                                Add
+                              </>
+                            )}
+                          </Button>
+                          {editingId && (
+                            <Button
+                              variant="ghost"
+                              onClick={resetDraft}
+                              className="gap-1"
+                            >
+                              <X className="h-4 w-4" />
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={saveRecommendations}
+                        className="gradient-primary text-primary-foreground shadow-glow gap-2"
+                      >
+                        <Check className="h-4 w-4" />
+                        Save Preferences
+                      </Button>
                     </div>
                   </div>
                 )}
