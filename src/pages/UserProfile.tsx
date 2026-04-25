@@ -129,6 +129,68 @@ const UserProfile = () => {
   const [allowDMsFromAnyone, setAllowDMsFromAnyone] = useState(true);
   const [showOnlineStatus, setShowOnlineStatus] = useState(true);
 
+  // Recommendations
+  const [recommendations, setRecommendations] = useState<RecommendationPref[]>([
+    { id: "r1", category: "music", location: "Lagos" },
+  ]);
+  const [draftCategory, setDraftCategory] = useState<string>("");
+  const [draftLocation, setDraftLocation] = useState<string>("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const allLocationOptions = locationData.flatMap((s) => [
+    { value: s.name, label: s.name, group: s.name },
+    ...s.cities.map((c) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name })),
+  ]);
+
+  const resetDraft = () => {
+    setDraftCategory("");
+    setDraftLocation("");
+    setEditingId(null);
+  };
+
+  const addRecommendation = () => {
+    if (!draftCategory || !draftLocation) {
+      toast.error("Pick a category and a location");
+      return;
+    }
+    const dup = recommendations.some(
+      (r) => r.category === draftCategory && r.location === draftLocation && r.id !== editingId,
+    );
+    if (dup) {
+      toast.error("That combination already exists");
+      return;
+    }
+    if (editingId) {
+      setRecommendations((prev) =>
+        prev.map((r) =>
+          r.id === editingId ? { ...r, category: draftCategory, location: draftLocation } : r,
+        ),
+      );
+      toast.success("Recommendation updated");
+    } else {
+      setRecommendations((prev) => [
+        ...prev,
+        { id: `r${Date.now()}`, category: draftCategory, location: draftLocation },
+      ]);
+      toast.success("Recommendation added");
+    }
+    resetDraft();
+  };
+
+  const editRecommendation = (r: RecommendationPref) => {
+    setEditingId(r.id);
+    setDraftCategory(r.category);
+    setDraftLocation(r.location);
+  };
+
+  const deleteRecommendation = (id: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== id));
+    if (editingId === id) resetDraft();
+    toast.success("Recommendation removed");
+  };
+
+  const saveRecommendations = () => toast.success("Recommendation preferences saved");
+
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
