@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import EventCard from "@/components/EventCard";
 import EventsSection from "@/components/EventsSection";
+import EventsNearYou from "@/components/EventsNearYou";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,48 +22,91 @@ import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications";
 
+type NotifCategory = "reminder" | "ticket" | "suggestion" | "announcement" | "nearby";
+
 const MOCK_NOTIFICATIONS = [
   {
     id: "n1",
-    Icon: MapPin,
-    title: "New event near you",
-    desc: "Burna Boy Live is happening near Victoria Island",
+    Icon: Bell,
+    title: "Event reminder",
+    desc: "Felabration 2026 starts in 3 days — don't forget your ticket!",
     time: "2 hours ago",
     unread: true,
+    category: "reminder" as NotifCategory,
   },
   {
     id: "n2",
     Icon: Ticket,
     title: "Ticket confirmed",
-    desc: "Your ticket for Lagos Carnival 2026 is ready",
+    desc: "Your ticket for Lagos Carnival 2026 is ready. Tap to view QR code.",
     time: "Yesterday",
     unread: true,
+    category: "ticket" as NotifCategory,
   },
   {
     id: "n3",
-    Icon: Bell,
-    title: "Event reminder",
-    desc: "Felabration 2026 starts in 3 days",
-    time: "2 days ago",
-    unread: false,
+    Icon: Calendar,
+    title: "Suggested for you",
+    desc: "Based on your love for Afrobeats, you might enjoy Wizkid Fest 2026",
+    time: "Yesterday",
+    unread: true,
+    category: "suggestion" as NotifCategory,
   },
   {
     id: "n4",
-    Icon: BellRing,
-    title: "Organizer announcement",
-    desc: "Gates open 1 hour earlier for Wizkid Fest",
-    time: "3 days ago",
+    Icon: Bell,
+    title: "Event reminder",
+    desc: "Lagos Tech Summit is tomorrow at 9:00 AM. See you there!",
+    time: "2 days ago",
     unread: false,
+    category: "reminder" as NotifCategory,
   },
   {
     id: "n5",
+    Icon: Ticket,
+    title: "Ticket confirmed",
+    desc: "Payment received — your VIP pass for Detty December is secured.",
+    time: "3 days ago",
+    unread: false,
+    category: "ticket" as NotifCategory,
+  },
+  {
+    id: "n6",
     Icon: Calendar,
-    title: "New events this weekend",
-    desc: "5 events happening near Lagos this weekend",
+    title: "New event suggestion",
+    desc: "You saved 3 jazz events. Check out Lagos Jazz Night this Friday.",
+    time: "4 days ago",
+    unread: false,
+    category: "suggestion" as NotifCategory,
+  },
+  {
+    id: "n7",
+    Icon: MapPin,
+    title: "New event near you",
+    desc: "Burna Boy Live is happening near Victoria Island",
+    time: "5 days ago",
+    unread: false,
+    category: "nearby" as NotifCategory,
+  },
+  {
+    id: "n8",
+    Icon: BellRing,
+    title: "Organizer announcement",
+    desc: "Gates open 1 hour earlier for Wizkid Fest",
     time: "1 week ago",
     unread: false,
+    category: "announcement" as NotifCategory,
   },
 ] as const;
+
+const NOTIF_FILTERS: { id: "all" | NotifCategory; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "reminder", label: "Reminders" },
+  { id: "ticket", label: "Tickets" },
+  { id: "suggestion", label: "Suggestions" },
+  { id: "nearby", label: "Nearby" },
+  { id: "announcement", label: "Announcements" },
+];
 
 interface EmptyStateProps {
   Icon: React.ElementType;
