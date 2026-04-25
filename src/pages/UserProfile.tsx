@@ -52,6 +52,7 @@ type Section =
   | "password"
   | "twofa"
   | "notifications"
+  | "recommendations"
   | "privacy"
   | "danger";
 
@@ -65,9 +66,28 @@ const SECTIONS: {
   { id: "password", label: "Password", Icon: Lock, desc: "Change your password" },
   { id: "twofa", label: "Two-Factor Auth", Icon: ShieldCheck, desc: "Extra account security" },
   { id: "notifications", label: "Notifications", Icon: Bell, desc: "Manage email & push alerts" },
+  { id: "recommendations", label: "Recommendations", Icon: Sparkles, desc: "Pick categories & locations you love" },
   { id: "privacy", label: "Privacy", Icon: EyeOff, desc: "Control your visibility" },
   { id: "danger", label: "Danger Zone", Icon: Trash2, desc: "Delete your account" },
 ];
+
+const CATEGORY_OPTIONS = [
+  { value: "sports", label: "Sports" },
+  { value: "movies", label: "Movies" },
+  { value: "music", label: "Music" },
+  { value: "religious", label: "Religious" },
+  { value: "conferences", label: "Conferences" },
+  { value: "social", label: "Social" },
+  { value: "festivals", label: "Festivals" },
+  { value: "gaming", label: "Gaming" },
+  { value: "exhibitions", label: "Exhibitions" },
+];
+
+interface RecommendationPref {
+  id: string;
+  category: string;
+  location: string;
+}
 
 const UserProfile = () => {
   const { user, signOut } = useAuth();
