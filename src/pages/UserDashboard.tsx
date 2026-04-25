@@ -336,18 +336,11 @@ const UserDashboard = () => {
               {activeTab === "saved" && (
                 <>
                   {savedEvents.length > 0 ? (
-                    <>
-                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {savedEvents.map((e, i) => (
-                          <EventCard key={e.id} event={e} index={i} />
-                        ))}
-                      </div>
-                      <div className="mt-10">
-                        <EventsNearYou
-                          events={mockEvents.filter((e) => new Date(e.date) >= now)}
-                        />
-                      </div>
-                    </>
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {savedEvents.map((e, i) => (
+                        <EventCard key={e.id} event={e} index={i} />
+                      ))}
+                    </div>
                   ) : (
                     <EmptyState
                       Icon={Bookmark}
@@ -356,6 +349,12 @@ const UserDashboard = () => {
                       cta={{ label: "Explore Events", to: "/explore" }}
                     />
                   )}
+
+                  <div className="mt-10">
+                    <EventsNearYou
+                      events={mockEvents.filter((e) => new Date(e.date) >= now)}
+                    />
+                  </div>
                 </>
               )}
 
