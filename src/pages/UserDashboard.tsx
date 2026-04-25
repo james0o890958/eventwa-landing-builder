@@ -343,10 +343,8 @@ const UserDashboard = () => {
                         ))}
                       </div>
                       <div className="mt-10">
-                        <EventsSection
-                          title="Events Near You"
-                          subtitle="Happening in your area"
-                          events={mockEvents.filter((e) => new Date(e.date) >= now).slice(0, 6)}
+                        <EventsNearYou
+                          events={mockEvents.filter((e) => new Date(e.date) >= now)}
                         />
                       </div>
                     </>
@@ -378,52 +376,96 @@ const UserDashboard = () => {
                 ))}
 
               {/* Notifications */}
-              {activeTab === "notifications" && (
-                <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
-                  {MOCK_NOTIFICATIONS.map((notif, i) => (
-                    <div
-                      key={notif.id}
-                      className={[
-                        "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40",
-                        i < MOCK_NOTIFICATIONS.length - 1
-                          ? "border-b border-border/30"
-                          : "",
-                        notif.unread ? "bg-primary/5" : "",
-                      ].join(" ")}
-                    >
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                          notif.unread ? "gradient-primary" : "bg-secondary"
-                        }`}
-                      >
-                        <notif.Icon
-                          className={`h-5 w-5 ${
-                            notif.unread
-                              ? "text-white"
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {notif.title}
-                          </p>
-                          {notif.unread && (
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
-                          {notif.desc}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground/60">
-                          {notif.time}
-                        </p>
-                      </div>
+              {activeTab === "notifications" && (() => {
+                const filtered =
+                  notifFilter === "all"
+                    ? MOCK_NOTIFICATIONS
+                    : MOCK_NOTIFICATIONS.filter((n) => n.category === notifFilter);
+                return (
+                  <>
+                    <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                      {NOTIF_FILTERS.map((f) => {
+                        const count =
+                          f.id === "all"
+                            ? MOCK_NOTIFICATIONS.length
+                            : MOCK_NOTIFICATIONS.filter((n) => n.category === f.id).length;
+                        if (count === 0) return null;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => setNotifFilter(f.id)}
+                            className={[
+                              "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all",
+                              notifFilter === f.id
+                                ? "gradient-primary text-primary-foreground shadow-glow"
+                                : "bg-secondary text-muted-foreground hover:text-foreground",
+                            ].join(" ")}
+                          >
+                            {f.label}
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                notifFilter === f.id
+                                  ? "bg-white/20"
+                                  : "bg-primary/10 text-primary"
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
+                    {filtered.length === 0 ? (
+                      <EmptyState
+                        Icon={Bell}
+                        title="No notifications"
+                        desc="You're all caught up in this category."
+                      />
+                    ) : (
+                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
+                        {filtered.map((notif, i) => (
+                          <div
+                            key={notif.id}
+                            className={[
+                              "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40",
+                              i < filtered.length - 1 ? "border-b border-border/30" : "",
+                              notif.unread ? "bg-primary/5" : "",
+                            ].join(" ")}
+                          >
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                notif.unread ? "gradient-primary" : "bg-secondary"
+                              }`}
+                            >
+                              <notif.Icon
+                                className={`h-5 w-5 ${
+                                  notif.unread ? "text-primary-foreground" : "text-muted-foreground"
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {notif.title}
+                                </p>
+                                {notif.unread && (
+                                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-sm text-muted-foreground">
+                                {notif.desc}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground/60">
+                                {notif.time}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </motion.div>
           </AnimatePresence>
 
