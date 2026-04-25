@@ -137,6 +137,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
