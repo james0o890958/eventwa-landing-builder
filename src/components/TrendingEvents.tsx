@@ -1,12 +1,19 @@
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import EventCard from "@/components/EventCard";
-import { mockEvents } from "@/data/mockEvents";
+import { mockEvents, type Event } from "@/data/mockEvents";
 
-const trending = [...mockEvents].sort((a, b) => b.attendees - a.attendees).slice(0, 6);
+interface TrendingEventsProps {
+  events?: Event[];
+}
 
-const TrendingEvents = () => {
+const TrendingEvents = ({ events = mockEvents }: TrendingEventsProps) => {
+  const trending = useMemo(() => 
+    [...events].sort((a, b) => b.attendees - a.attendees).slice(0, 6),
+    [events]
+  );
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">

@@ -85,10 +85,18 @@ const TABS: { id: FilterTab; label: string; emoji: string }[] = [
 
 interface EventsNearYouProps {
   events: Event[];
+  city?: string | null;
+  onCityChange?: (city: string | null) => void;
 }
 
-const EventsNearYou = ({ events }: EventsNearYouProps) => {
-  const [city, setCity] = useState<string | null>(null);
+const EventsNearYou = ({ events, city: externalCity, onCityChange }: EventsNearYouProps) => {
+  const [internalCity, setInternalCity] = useState<string | null>(null);
+  
+  const city = externalCity !== undefined ? externalCity : internalCity;
+  const setCity = (newCity: string | null) => {
+    if (onCityChange) onCityChange(newCity);
+    else setInternalCity(newCity);
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);

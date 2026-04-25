@@ -1,14 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, UserCheck, Search, Star, Calendar } from "lucide-react";
-import DashboardLayout from "@/components/DashboardLayout";
-import { attendeeMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { mockEvents } from "@/data/mockEvents";
-import { organizerSlug } from "@/lib/utils";
+import OrganizerLink from "@/components/OrganizerLink";
 
 const Following = () => {
   const organizers = Array.from(new Set(mockEvents.map((e) => e.organizer))).slice(0, 6);
@@ -21,11 +18,7 @@ const Following = () => {
     setFollowing((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
 
   return (
-    <DashboardLayout
-      title="Organizers I Follow"
-      subtitle="Stay updated with your favorite event organizers"
-      menu={attendeeMenu}
-    >
+    <div>
       <div className="mb-6 flex items-center gap-2 rounded-2xl border border-border/50 bg-card px-4 py-2 shadow-card">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input
@@ -56,12 +49,10 @@ const Following = () => {
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <Link
-                    to={`/organizer/${organizerSlug(name)}`}
+                  <OrganizerLink
+                    organizerName={name}
                     className="block truncate font-display font-semibold text-foreground hover:text-primary"
-                  >
-                    {name}
-                  </Link>
+                  />
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> {eventCount} events
@@ -99,7 +90,7 @@ const Following = () => {
           <p className="text-sm text-muted-foreground">No organizers found</p>
         </div>
       )}
-    </DashboardLayout>
+    </div>
   );
 };
 

@@ -14,7 +14,7 @@ export interface MenuItem {
 }
 
 interface DashboardLayoutProps {
-  title: string;
+  title?: string;
   subtitle?: string;
   menu: MenuItem[];
   menuTitle?: string;
@@ -31,10 +31,12 @@ const DashboardLayout = ({ title, subtitle, menu, menuTitle = "Menu", children }
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-16">
+        {title && (
         <div className="mb-6">
           <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
+      )}
 
         <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
           {/* Sidebar */}

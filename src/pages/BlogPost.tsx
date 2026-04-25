@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Clock, User, Calendar, Send, Heart, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, Clock, User, Calendar, Send, Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { mockBlogs } from "@/data/mockBlogs";
@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import OrganizerLink from "@/components/OrganizerLink";
+import { isOrganizer } from "@/lib/utils";
 
 interface Comment {
   id: string;
@@ -44,6 +46,7 @@ const BlogPost = () => {
     },
   ]);
   const [newComment, setNewComment] = useState("");
+  const [savedPosts, setSavedPosts] = useState<string[]>(JSON.parse(localStorage.getItem('savedPosts') || '[]'));
 
   if (!post) {
     return (
@@ -58,6 +61,8 @@ const BlogPost = () => {
       </div>
     );
   }
+
+  const isSaved = savedPosts.includes(post.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,7 +92,17 @@ const BlogPost = () => {
           </h1>
 
           <div className="mb-8 flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2"><User className="h-4 w-4 text-primary" />{post.author}</span>
+            <span className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              {isOrganizer(post.author) ? (
+                <OrganizerLink
+                  organizerName={post.author}
+                  className="hover:text-primary transition-colors"
+                />
+              ) : (
+                post.author
+              )}
+            </span>
             <span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{new Date(post.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
             <span className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />{post.readTime} read</span>
           </div>
@@ -112,6 +127,22 @@ const BlogPost = () => {
               <button className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
                 <Share2 className="h-5 w-5" />
                 <span>Share</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Please sign in to save posts");
+                    return;
+                  }
+                  const newSaved = isSaved ? savedPosts.filter(id => id !== post.id) : [...savedPosts, post.id];
+                  setSavedPosts(newSaved);
+                  localStorage.setItem('savedPosts', JSON.stringify(newSaved));
+                  toast.success(isSaved ? "Post unsaved" : "Post saved");
+                }}
+                className={`flex items-center gap-2 transition-colors ${isSaved ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+              >
+                <Bookmark className="h-5 w-5" />
+                <span>{isSaved ? 'Saved' : 'Save'}</span>
               </button>
             </div>
           </div>

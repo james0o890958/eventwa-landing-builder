@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,8 @@ import CategoryEvents from "./pages/CategoryEvents.tsx";
 import Explore from "./pages/Explore.tsx";
 import Blog from "./pages/Blog.tsx";
 import BlogPost from "./pages/BlogPost.tsx";
+import DashboardLayout from "./components/DashboardLayout.tsx";
+import { attendeeMenu } from "./config/dashboardMenus.ts";
 import UserDashboard from "./pages/UserDashboard.tsx";
 import UserProfile from "./pages/UserProfile.tsx";
 import OrganizerDashboard from "./pages/OrganizerDashboard.tsx";
@@ -82,7 +84,30 @@ const App = () => (
             <Route path="/explore" element={<Explore />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:id" element={<BlogPost />} />
-            <Route path="/dashboard" element={<UserDashboard />} />
+            <Route
+              path="/dashboard"
+              element={
+                <DashboardLayout menu={attendeeMenu}>
+                  <Outlet />
+                </DashboardLayout>
+              }
+            >
+              <Route index element={<UserDashboard />} />
+              <Route path="my-tickets" element={<MyTickets />} />
+              <Route path="saved-events" element={<SavedEvents />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="following" element={<Following />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="profile/me" element={<UserProfile />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            <Route path="/my-tickets" element={<Navigate to="/dashboard/my-tickets" replace />} />
+            <Route path="/saved-events" element={<Navigate to="/dashboard/saved-events" replace />} />
+            <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
+            <Route path="/following" element={<Navigate to="/dashboard/following" replace />} />
+            <Route path="/notifications" element={<Navigate to="/dashboard/notifications" replace />} />
+            <Route path="/profile/me" element={<Navigate to="/dashboard/profile/me" replace />} />
+            <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
             <Route path="/organizer" element={<OrganizerDashboard />} />
             <Route path="/organizer/dashboard" element={<OrganizerDashboard />} />
             <Route path="/organizer/create-event" element={<CreateEvent />} />
@@ -95,18 +120,14 @@ const App = () => (
             <Route path="/profile/:id" element={<UserProfile />} />
             <Route path="/checkout/:eventId" element={<Checkout />} />
             <Route path="/checkout/confirmation" element={<TicketConfirmation />} />
-            <Route path="/my-tickets" element={<MyTickets />} />
-            <Route path="/saved-events" element={<SavedEvents />} />
-             <Route path="/notifications" element={<Notifications />} />
-             <Route path="/following" element={<Following />} />
-             <Route path="/organizer/events" element={<OrganizerEvents />} />
-             <Route path="/organizer/attendees" element={<OrganizerAttendees />} />
-             <Route path="/organizer/chatrooms" element={<OrganizerChatrooms />} />
-             <Route path="/organizer/event/:id/chatroom" element={<EventChatroomPage />} />
-             <Route path="/organizer/event/:id/promote" element={<PromoteEvent />} />
-             <Route path="/organizer/subscriptions" element={<OrganizerSubscriptions />} />
-             <Route path="/organizer/settings" element={<OrganizerSettings />} />
-             <Route path="/organizer/analytics" element={<OrganizerAnalytics />} />
+            <Route path="/organizer/events" element={<OrganizerEvents />} />
+            <Route path="/organizer/attendees" element={<OrganizerAttendees />} />
+            <Route path="/organizer/chatrooms" element={<OrganizerChatrooms />} />
+            <Route path="/organizer/event/:id/chatroom" element={<EventChatroomPage />} />
+            <Route path="/organizer/event/:id/promote" element={<PromoteEvent />} />
+            <Route path="/organizer/subscriptions" element={<OrganizerSubscriptions />} />
+            <Route path="/organizer/settings" element={<OrganizerSettings />} />
+            <Route path="/organizer/analytics" element={<OrganizerAnalytics />} />
             <Route path="/notifications/settings" element={<NotificationSettings />} />
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/help/find-tickets" element={<FindMyTickets />} />

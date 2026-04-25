@@ -14,8 +14,6 @@ import {
   Settings,
   ArrowLeft,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 
 interface Notification {
@@ -204,10 +202,8 @@ const Notifications = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto max-w-3xl px-4 pt-24 pb-16">
+    <div className="bg-background">
+      <div className="container mx-auto max-w-3xl px-4 pb-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -423,8 +419,6 @@ const Notifications = () => {
           </div>
         )}
       </div>
-
-      <Footer />
     </div>
   );
 };

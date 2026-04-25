@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,13 +11,13 @@ import {
   MapPin,
   BellRing,
 } from "lucide-react";
-import DashboardLayout from "@/components/DashboardLayout";
-import { attendeeMenu } from "@/config/dashboardMenus";
 import EventCard from "@/components/EventCard";
+import EventsSection from "@/components/EventsSection";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
+import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications";
 
@@ -116,6 +116,24 @@ const UserDashboard = () => {
     .filter((e) => new Date(e.date) < now)
     .slice(0, 3);
 
+  const upcomingEventIds = mockEvents
+    .filter((e) => new Date(e.date) >= now)
+    .map((e) => e.id);
+  const pastEventIds = mockEvents
+    .filter((e) => new Date(e.date) < now)
+    .map((e) => e.id);
+
+  const suggestedEvents = useMemo(
+    () =>
+      generateEventSuggestions({
+        allEvents: mockEvents,
+        savedEventIds: savedIds,
+        excludeEventIds: [...upcomingEventIds, ...pastEventIds],
+        maxSuggestions: 6,
+      }),
+    [savedIds.join(","), upcomingEventIds.join(","), pastEventIds.join(",")]
+  );
+
   const TABS: {
     id: Tab;
     label: string;
@@ -157,20 +175,22 @@ const UserDashboard = () => {
       count: 5,
       action: () => navigate("/messages"),
     },
-    {
-      label: "Settings",
-      Icon: Settings,
-      count: null,
-      action: () => navigate("/settings"),
-    },
   ];
 
   return (
-    <DashboardLayout title="My Dashboard" subtitle="Welcome back to your event hub" menu={attendeeMenu}>
+    <>
+      <div className="mb-6">
+        <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
+          My Dashboard
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Welcome back to your event hub
+        </p>
+      </div>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         {/* Profile header */}
-          <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-            <div className="relative">
+        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-primary/30">
                 <AvatarFallback className="gradient-primary text-primary-foreground text-2xl font-bold">
                   {initials}
@@ -268,21 +288,33 @@ const UserDashboard = () => {
                 ))}
 
               {/* Saved */}
-              {activeTab === "saved" &&
-                (savedEvents.length > 0 ? (
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {savedEvents.map((e, i) => (
-                      <EventCard key={e.id} event={e} index={i} />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    Icon={Bookmark}
-                    title="No saved events yet"
-                    desc="Bookmark events you're interested in to find them here."
-                    cta={{ label: "Explore Events", to: "/explore" }}
-                  />
-                ))}
+              {activeTab === "saved" && (
+                <>
+                  {savedEvents.length > 0 ? (
+                    <>
+                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {savedEvents.map((e, i) => (
+                          <EventCard key={e.id} event={e} index={i} />
+                        ))}
+                      </div>
+                      <div className="mt-10">
+                        <EventsSection
+                          title="Events Near You"
+                          subtitle="Happening in your area"
+                          events={mockEvents.filter((e) => new Date(e.date) >= now).slice(0, 6)}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <EmptyState
+                      Icon={Bookmark}
+                      title="No saved events yet"
+                      desc="Bookmark events you're interested in to find them here."
+                      cta={{ label: "Explore Events", to: "/explore" }}
+                    />
+                  )}
+                </>
+              )}
 
               {/* Past */}
               {activeTab === "past" &&
@@ -349,9 +381,21 @@ const UserDashboard = () => {
               )}
             </motion.div>
           </AnimatePresence>
-      </motion.div>
-    </DashboardLayout>
-  );
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <EventsSection
+              title="Suggested For You"
+              subtitle="Events we think you'll love"
+              events={suggestedEvents}
+            />
+          </motion.div>
+        </motion.div>
+      </>
+    );
 };
 
 export default UserDashboard;

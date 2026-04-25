@@ -14,8 +14,6 @@ import {
   Smartphone,
   AlertTriangle,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -129,10 +127,8 @@ const UserProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto max-w-6xl px-4 pt-24 pb-16">
+    <div className="bg-background">
+      <div className="container mx-auto max-w-6xl px-4 pb-10">
         <Link
           to="/dashboard"
           className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -589,8 +585,6 @@ const UserProfile = () => {
           </main>
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 };

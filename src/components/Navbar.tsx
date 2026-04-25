@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Menu, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen } from "lucide-react";
+import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import CategoryMegaMenu from "@/components/CategoryMegaMenu";
+import LocationMenu from "@/components/LocationMenu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,11 +16,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const Navbar = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
+interface NavbarProps {
+  selectedLocation?: string;
+  onLocationSelect?: (location: string) => void;
+}
+
+const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [localCity, setLocalCity] = useState<string>("Lagos");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const usercity = selectedLocation || localCity;
+  const setUsercity = onLocationSelect || setLocalCity;
+
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -30,73 +47,126 @@ const Navbar = () => {
     : user?.email?.slice(0, 2).toUpperCase() ?? "?";
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-            <Ticket className="h-5 w-5 text-primary-foreground" />
+    <>
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 md:px-6">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 mr-8">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary shrink-0">
+            <Ticket className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-display text-xl font-bold text-foreground">
+          <span className="font-display text-lg font-bold text-foreground">
             Even<span className="text-gradient">tly</span>
           </span>
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
-          <Link to="/" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+        {/* Navigation Menus (Left) */}
+        <div className="hidden md:flex items-center gap-1">
+          <Link
+            to="/"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
             Home
           </Link>
-          <Link to="/explore" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <Link
+            to="/explore"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
             Explore
           </Link>
-          <CategoryMegaMenu />
-          <Link to="/organizers" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+
+          <CategoryMegaMenu sidebar={false} />
+
+          <Link
+            to="/organizers"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
             Organizers
           </Link>
-          <Link to="/blog" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+
+          <Link
+            to="/blog"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
             Blog
           </Link>
+
+          {/* Search Section */}
+          <div className="flex items-center ml-2">
+            <AnimatePresence mode="wait">
+              {!searchOpen ? (
+                <motion.button
+                  key="search-icon"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  onClick={() => setSearchOpen(true)}
+                  className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Search className="h-4 w-4" />
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="search-input"
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 240, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary px-3 py-1.5 ml-2"
+                >
+                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    ref={searchInputRef}
+                    placeholder="Search events..."
+                    className="border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0 h-5"
+                    onBlur={() => {
+                      if (!searchInputRef.current?.value) setSearchOpen(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setSearchOpen(false);
+                    }}
+                  />
+                  <button
+                    onClick={() => setSearchOpen(false)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Search + Location inline */}
-          {searchOpen ? (
-            <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-3 py-1">
-              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input
-                placeholder="Search events..."
-                className="w-32 border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0 h-8"
-                autoFocus
-                onBlur={() => setSearchOpen(false)}
-              />
-              <div className="h-4 w-px bg-border/50" />
-              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-              <button onClick={() => setSearchOpen(false)}>
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setSearchOpen(true)} className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
-              <Search className="h-5 w-5" />
-            </button>
-          )}
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
+        {/* Right Section */}
+        <div className="ml-auto flex items-center gap-4">
+          {/* Location */}
+          <div className="hidden sm:flex items-center">
+            <LocationMenu
+              selectedLocation={usercity}
+              onLocationSelect={(location) => setUsercity(location)}
+            />
           </div>
 
+          <ThemeToggle />
+
+          {/* User Menu */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary">
-                  <Avatar className="h-9 w-9 border border-border/50">
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">{initials}</AvatarFallback>
+                <button className="flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
+                  <Avatar className="h-8 w-8 border border-border/50">
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                      {initials}
+                    </AvatarFallback>
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-card border-border/50">
-                <DropdownMenuItem className="text-muted-foreground text-xs cursor-default">
-                  {user.email}
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56 bg-card border-border/50 mt-2">
+                <div className="px-3 py-2 border-b border-border/30">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {user.user_metadata?.display_name || "User"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                </div>
                 <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" /> Dashboard
                 </DropdownMenuItem>
@@ -114,40 +184,18 @@ const Navbar = () => {
           ) : (
             <Button
               size="sm"
-              className="hidden gradient-primary text-primary-foreground shadow-glow hover:opacity-90 md:inline-flex"
+              className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
               onClick={() => navigate("/auth")}
             >
               Sign In
             </Button>
           )}
-
-          <button
-            className="rounded-full p-2 text-muted-foreground md:hidden"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
-      </div>
+      </nav>
 
-      {mobileOpen && (
-        <div className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
-          <div className="flex flex-col gap-2 p-4">
-            <Link to="/" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Home</Link>
-            <Link to="/explore" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Explore</Link>
-            <Link to="/organizers" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Organizers</Link>
-            <Link to="/blog" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Blog</Link>
-            <Link to="/dashboard" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Dashboard</Link>
-            <Link to="/messages" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary" onClick={() => setMobileOpen(false)}>Messages</Link>
-            {user ? (
-              <Button className="mt-2 gradient-primary text-primary-foreground" onClick={() => { handleSignOut(); setMobileOpen(false); }}>Sign Out</Button>
-            ) : (
-              <Button className="mt-2 gradient-primary text-primary-foreground" onClick={() => { navigate("/auth"); setMobileOpen(false); }}>Sign In</Button>
-            )}
-          </div>
-        </div>
-      )}
-    </nav>
+      {/* Spacer to push content down */}
+      <div className="h-16" />
+    </>
   );
 };
 

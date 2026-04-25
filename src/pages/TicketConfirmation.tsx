@@ -11,7 +11,7 @@ import {
   ArrowLeft,
   Home,
 } from "lucide-react";
-import { organizerSlug } from "@/lib/utils";
+import OrganizerLink from "@/components/OrganizerLink";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -223,12 +223,10 @@ const TicketConfirmation = () => {
                   Organizer
                 </p>
                 <p className="font-medium text-foreground truncate">
-                  <Link
-                    to={`/organizer/${organizerSlug(event.organizer)}`}
+                  <OrganizerLink
+                    organizerName={event.organizer}
                     className="hover:text-primary hover:underline"
-                  >
-                    {event.organizer}
-                  </Link>
+                  />
                 </p>
               </div>
             </div>

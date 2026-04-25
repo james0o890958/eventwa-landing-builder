@@ -12,8 +12,6 @@ import {
   ChevronRight,
   ArrowLeft,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
@@ -142,10 +140,8 @@ const Settings = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
-      <Navbar />
-
-      <div className="container mx-auto px-4 pt-24 pb-16">
+    <div className="bg-gradient-to-b from-background via-background to-secondary/20">
+      <div className="container mx-auto px-4 pb-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -233,8 +229,6 @@ const Settings = () => {
           </div>
         </motion.div>
       </div>
-
-      <Footer />
     </div>
   );
 };

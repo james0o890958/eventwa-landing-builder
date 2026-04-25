@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MessageSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import ConversationList from "@/components/ConversationList";
 import MessageThread from "@/components/MessageThread";
 import { mockConversations, mockUsers, type MockConversation } from "@/data/mockUsers";
@@ -40,9 +38,8 @@ const Messages = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
-      <div className="flex-1 pt-16">
+    <div className="flex flex-col bg-background">
+      <div className="flex-1 pt-4">
         <div className="container mx-auto max-w-5xl px-4 py-4">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-2 gap-1 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
@@ -79,7 +76,6 @@ const Messages = () => {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

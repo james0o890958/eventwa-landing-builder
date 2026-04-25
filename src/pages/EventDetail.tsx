@@ -32,7 +32,7 @@ import {
   Handshake,
   MessageSquare,
 } from "lucide-react";
-import { organizerSlug } from "@/lib/utils";
+import OrganizerLink from "@/components/OrganizerLink";
 import { 
   Sheet, 
   SheetContent, 
@@ -415,6 +415,10 @@ const EventDetail = () => {
     );
   }
 
+  function organizerSlug(organizer: string): import("react").SetStateAction<string> {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -592,10 +596,13 @@ const EventDetail = () => {
               <Users className="h-4 w-4 text-primary" />
               {event.attendees.toLocaleString()} attending
             </span>
-            <Link to={`/organizer/${organizerSlug(event.organizer)}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+            <OrganizerLink
+              organizerName={event.organizer}
+              className="flex items-center gap-2 hover:text-primary transition-colors"
+            >
               <User className="h-4 w-4 text-primary" />
               {event.organizer}
-            </Link>
+            </OrganizerLink>
           </div>
 
           {/* Attend CTA button (mobile only) */}
@@ -615,7 +622,7 @@ const EventDetail = () => {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
             <div className="lg:col-span-2">
-              <Tabs defaultValue="details" className="w-full">
+              <Tabs defaultValue="details" className="w-full" onValueChange={setActiveTab}>
                 <TabsList className="w-full flex rounded-xl bg-muted/50 py-1 px-3 mb-8">
                   <TabsTrigger value="details" className="flex-1 rounded-lg py-2.5 transition-all">Details</TabsTrigger>
                   <TabsTrigger value="reviews" className="flex-1 rounded-lg py-2.5 transition-all">Reviews</TabsTrigger>
@@ -714,8 +721,8 @@ const EventDetail = () => {
                   {/* Organizer Section */}
                   <div className="rounded-2xl border border-border/50 bg-card p-6">
                     <h2 className="mb-4 font-display text-xl font-semibold text-foreground">Organizer</h2>
-                    <Link 
-                      to={`/organizer/${organizerSlug(event.organizer)}`}
+                    <OrganizerLink
+                      organizerName={event.organizer}
                       className="flex items-center gap-3 mb-4 group cursor-pointer"
                     >
                       <Avatar className="h-11 w-11 shrink-0 transition-transform group-hover:scale-105">
@@ -727,7 +734,7 @@ const EventDetail = () => {
                         <p className="font-medium text-foreground truncate text-sm group-hover:text-primary transition-colors">{event.organizer}</p>
                         <p className="text-xs text-muted-foreground">Event Organizer</p>
                       </div>
-                    </Link>
+                    </OrganizerLink>
                     <div className="flex gap-2">
                       <Button
                         size="sm"

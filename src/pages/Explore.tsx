@@ -298,7 +298,7 @@ const Explore = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 pt-24 pb-16">
+      <div className="container mx-auto px-4 pt-6 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

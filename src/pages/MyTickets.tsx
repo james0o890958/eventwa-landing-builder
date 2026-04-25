@@ -14,8 +14,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { mockEvents } from "@/data/mockEvents";
@@ -196,10 +194,8 @@ const MyTickets = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 pt-24 pb-16">
+    <div className="bg-background">
+      <div className="container mx-auto px-4 pb-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -484,8 +480,6 @@ const MyTickets = () => {
           </div>
         )}
       </div>
-
-      <Footer />
     </div>
   );
 };

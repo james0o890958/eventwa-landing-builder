@@ -21,7 +21,6 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
   const [messages, setMessages] = useState<MockMessage[]>([]);
   const [input, setInput] = useState("");
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState<MockMessage | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load initial messages
@@ -41,11 +40,6 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
     // Set the latest announcement as pinned by default for demo
     setPinnedAnnouncement(initialMessages.filter(m => m.senderId === "organizer").pop() || null);
   }, [organizerName]);
-
-  // Scroll to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [messages]);
 
   // Focus input when chat tab is active
   useEffect(() => {
@@ -204,7 +198,6 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
                 </div>
               );
             })}
-            <div ref={chatEndRef} />
           </div>
         </ScrollArea>
 
