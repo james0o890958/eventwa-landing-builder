@@ -137,6 +137,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
 
   const displayName =
