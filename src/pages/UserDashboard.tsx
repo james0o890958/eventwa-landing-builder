@@ -148,10 +148,17 @@ const UserDashboard = () => {
     try {
       const stored = localStorage.getItem("savedEvents");
       if (stored) setSavedIds(JSON.parse(stored) as string[]);
+      const recent = localStorage.getItem("recentlyViewedEvents");
+      if (recent) setRecentlyViewedIds(JSON.parse(recent) as string[]);
     } catch {
       // ignore parse errors
     }
   }, []);
+
+  const recentlyViewedEvents = recentlyViewedIds
+    .map((rid) => mockEvents.find((e) => e.id === rid))
+    .filter((e): e is typeof mockEvents[number] => Boolean(e))
+    .slice(0, 6);
 
   const now = new Date();
   const upcomingEvents = mockEvents
