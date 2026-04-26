@@ -137,6 +137,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
 
   const displayName =
@@ -147,10 +148,17 @@ const UserDashboard = () => {
     try {
       const stored = localStorage.getItem("savedEvents");
       if (stored) setSavedIds(JSON.parse(stored) as string[]);
+      const recent = localStorage.getItem("recentlyViewedEvents");
+      if (recent) setRecentlyViewedIds(JSON.parse(recent) as string[]);
     } catch {
       // ignore parse errors
     }
   }, []);
+
+  const recentlyViewedEvents = recentlyViewedIds
+    .map((rid) => mockEvents.find((e) => e.id === rid))
+    .filter((e): e is typeof mockEvents[number] => Boolean(e))
+    .slice(0, 6);
 
   const now = new Date();
   const upcomingEvents = mockEvents
@@ -467,6 +475,20 @@ const UserDashboard = () => {
               })()}
             </motion.div>
           </AnimatePresence>
+
+          {recentlyViewedEvents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <EventsSection
+                title="Recently Viewed"
+                subtitle="Pick up where you left off"
+                events={recentlyViewedEvents}
+              />
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

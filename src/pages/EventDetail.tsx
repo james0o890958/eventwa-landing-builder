@@ -228,6 +228,19 @@ const EventDetail = () => {
   const { user } = useAuth();
   const event = mockEvents.find((e) => e.id === id);
 
+  // ── Track recently viewed (last 6, most-recent first) ─────────────────────
+  useEffect(() => {
+    if (!id || !event) return;
+    try {
+      const raw = localStorage.getItem("recentlyViewedEvents");
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      const next = [id, ...list.filter((x) => x !== id)].slice(0, 6);
+      localStorage.setItem("recentlyViewedEvents", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }, [id, event]);
+
   // ── Auth & Attendance checks ────────────────────────────────────────────────
   const currentUser = user ? mockUsers.find((u) => u.id === user.id) : null;
   const isOrganizer = user?.user_metadata?.full_name === event?.organizer || user?.email === "organizer@example.com";
