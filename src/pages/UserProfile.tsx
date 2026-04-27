@@ -17,6 +17,7 @@ import {
   Plus,
   Pencil,
   X,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ type Section =
   | "twofa"
   | "notifications"
   | "recommendations"
+  | "payment"
   | "privacy"
   | "danger";
 
@@ -67,6 +69,7 @@ const SECTIONS: {
   { id: "twofa", label: "Two-Factor Auth", Icon: ShieldCheck, desc: "Extra account security" },
   { id: "notifications", label: "Notifications", Icon: Bell, desc: "Manage email & push alerts" },
   { id: "recommendations", label: "Recommendations", Icon: Sparkles, desc: "Pick categories & locations you love" },
+  { id: "payment", label: "Payment Methods", Icon: CreditCard, desc: "Manage your saved payment options" },
   { id: "privacy", label: "Privacy", Icon: EyeOff, desc: "Control your visibility" },
   { id: "danger", label: "Danger Zone", Icon: Trash2, desc: "Delete your account" },
 ];
