@@ -4,7 +4,6 @@ import {
   Bell,
   Shield,
   User,
-  CreditCard,
   Moon,
   Sun,
   Globe,
