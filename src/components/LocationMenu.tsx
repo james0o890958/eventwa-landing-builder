@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MapPin, Search, ChevronRight } from "lucide-react";
+import { MapPin, Search, ChevronRight, LocateFixed, Globe } from "lucide-react";
+import { toast } from "sonner";
 import { locations } from "@/data/mockLocations";
 import {
   Dialog,
@@ -35,12 +36,9 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
             <MapPin className="h-4 w-4" />
           </div>
-          <div className="flex flex-col items-start">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Location</span>
-            <span className="text-sm font-semibold text-foreground truncate max-w-[100px]">
-              {selectedLocation || "Select City"}
-            </span>
-          </div>
+          <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">
+            {selectedLocation || "Select City"}
+          </span>
         </button>
       </DialogTrigger>
       
