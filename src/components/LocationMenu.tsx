@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MapPin, Search, ChevronRight } from "lucide-react";
+import { MapPin, Search, ChevronRight, LocateFixed, Globe } from "lucide-react";
+import { toast } from "sonner";
 import { locations } from "@/data/mockLocations";
 import {
   Dialog,
@@ -35,12 +36,9 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
             <MapPin className="h-4 w-4" />
           </div>
-          <div className="flex flex-col items-start">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Location</span>
-            <span className="text-sm font-semibold text-foreground truncate max-w-[100px]">
-              {selectedLocation || "Select City"}
-            </span>
-          </div>
+          <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">
+            {selectedLocation || "Select City"}
+          </span>
         </button>
       </DialogTrigger>
       
@@ -50,14 +48,42 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
             <MapPin className="h-5 w-5 text-primary" />
             Select your location
           </DialogTitle>
-          <div className="relative mt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search for a state or city..."
-              className="pl-10 bg-secondary/50 border-border/30 focus-visible:ring-primary/30"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search for a state or city..."
+                className="pl-10 bg-secondary/50 border-border/30 focus-visible:ring-primary/30"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!("geolocation" in navigator)) {
+                  toast.error("Geolocation is not supported on this device");
+                  return;
+                }
+                toast.loading("Detecting your location…", { id: "geo" });
+                navigator.geolocation.getCurrentPosition(
+                  () => {
+                    // Mock reverse-geocode → Lagos for now
+                    onLocationSelect?.("Lagos, Lagos");
+                    toast.success("Location set to Lagos", { id: "geo" });
+                    setIsOpen(false);
+                  },
+                  (err) => {
+                    toast.error(err.message || "Couldn't get your location", { id: "geo" });
+                  },
+                  { timeout: 8000 },
+                );
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+            >
+              <LocateFixed className="h-4 w-4" />
+              Use my location
+            </button>
           </div>
         </DialogHeader>
 
@@ -94,7 +120,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           <div className="flex-1 bg-background/50">
             <ScrollArea className="h-full">
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center gap-3">
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                     Cities in <span className="text-primary">{currentStateData.name}</span>
                   </h3>
@@ -104,6 +130,26 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
+                  {/* All <state> option */}
+                  <button
+                    key={`all-${currentStateData.id}`}
+                    onClick={() => {
+                      onLocationSelect?.(`All ${currentStateData.name}`);
+                      setIsOpen(false);
+                    }}
+                    className="col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
+                  >
+                    <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Globe className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="text-sm font-semibold text-foreground">
+                      All {currentStateData.name}
+                    </span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      Anywhere in {currentStateData.name}
+                    </span>
+                  </button>
+
                   {currentStateData.cities.map((city) => (
                     <button
                       key={city.id}
