@@ -83,14 +83,8 @@ const Settings = () => {
         {
           Icon: User,
           label: "Profile Information",
-          desc: "Update your name, email, and avatar",
+          desc: "Update your name, email, avatar, and payment methods",
           to: "/profile",
-        },
-        {
-          Icon: CreditCard,
-          label: "Payment Methods",
-          desc: "Manage your saved payment options",
-          onClick: () => {},
         },
       ],
     },
