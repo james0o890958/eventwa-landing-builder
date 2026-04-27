@@ -33,8 +33,6 @@ export const organizerMenu: MenuItem[] = [
   { label: "Dashboard", to: "/organizer", Icon: LayoutDashboard, end: true },
   { label: "My Events", to: "/organizer/events", Icon: Calendar },
   { label: "Create Event", to: "/organizer/create-event", Icon: Plus },
-  { label: "Attendees", to: "/organizer/attendees", Icon: Users },
-  { label: "Chatrooms", to: "/organizer/chatrooms", Icon: MessagesSquare },
   { label: "Promote", to: "/organizer/promote", Icon: Megaphone },
   { label: "Analytics", to: "/organizer/analytics", Icon: BarChart3 },
   { label: "Subscriptions", to: "/organizer/subscriptions", Icon: CreditCard },
