@@ -16,8 +16,16 @@ import EventsSection from "@/components/EventsSection";
 import EventsNearYou from "@/components/EventsNearYou";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
+import { mockConversations, mockUsers } from "@/data/mockUsers";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications";
@@ -139,6 +147,20 @@ const UserDashboard = () => {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const chatContacts = mockConversations
+    .map((conv) => {
+      const u = mockUsers.find((x) => x.id === conv.userId);
+      const last = conv.messages[conv.messages.length - 1];
+      return u ? { user: u, last } : null;
+    })
+    .filter((c): c is { user: typeof mockUsers[number]; last: typeof mockConversations[number]["messages"][number] } => Boolean(c));
+
+  const openChat = (uid: string) => {
+    setChatOpen(false);
+    navigate(`/messages?user=${uid}#message-input`);
+  };
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
@@ -225,8 +247,8 @@ const UserDashboard = () => {
     {
       label: "Messages",
       Icon: MessageCircle,
-      count: 5,
-      action: () => navigate("/messages"),
+      count: chatContacts.length,
+      action: () => setChatOpen(true),
     },
   ];
 
