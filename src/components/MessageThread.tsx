@@ -17,10 +17,18 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Autofocus the input when the thread mounts or the contact changes
+  // so deep-links land directly on "Type a message"
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, [userId]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -82,6 +90,8 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
           className="flex gap-2"
         >
           <Input
+            ref={inputRef}
+            id="message-input"
             placeholder="Type a message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}

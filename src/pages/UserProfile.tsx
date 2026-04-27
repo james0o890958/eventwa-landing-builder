@@ -17,6 +17,7 @@ import {
   Plus,
   Pencil,
   X,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ type Section =
   | "twofa"
   | "notifications"
   | "recommendations"
+  | "payment"
   | "privacy"
   | "danger";
 
@@ -67,6 +69,7 @@ const SECTIONS: {
   { id: "twofa", label: "Two-Factor Auth", Icon: ShieldCheck, desc: "Extra account security" },
   { id: "notifications", label: "Notifications", Icon: Bell, desc: "Manage email & push alerts" },
   { id: "recommendations", label: "Recommendations", Icon: Sparkles, desc: "Pick categories & locations you love" },
+  { id: "payment", label: "Payment Methods", Icon: CreditCard, desc: "Manage your saved payment options" },
   { id: "privacy", label: "Privacy", Icon: EyeOff, desc: "Control your visibility" },
   { id: "danger", label: "Danger Zone", Icon: Trash2, desc: "Delete your account" },
 ];
@@ -136,6 +139,56 @@ const UserProfile = () => {
   const [draftCategory, setDraftCategory] = useState<string>("");
   const [draftLocation, setDraftLocation] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Payment methods
+  interface PaymentMethod {
+    id: string;
+    brand: string;
+    last4: string;
+    expiry: string;
+    isDefault: boolean;
+  }
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+    { id: "pm1", brand: "Visa", last4: "4242", expiry: "08/27", isDefault: true },
+  ]);
+  const [newCardName, setNewCardName] = useState("");
+  const [newCardNumber, setNewCardNumber] = useState("");
+  const [newCardExpiry, setNewCardExpiry] = useState("");
+  const [newCardCvc, setNewCardCvc] = useState("");
+
+  const addPaymentMethod = () => {
+    const digits = newCardNumber.replace(/\s/g, "");
+    if (!newCardName.trim() || digits.length < 12 || !newCardExpiry || newCardCvc.length < 3) {
+      toast.error("Fill all card fields");
+      return;
+    }
+    const brand = digits.startsWith("4") ? "Visa" : digits.startsWith("5") ? "Mastercard" : "Card";
+    setPaymentMethods((prev) => [
+      ...prev,
+      {
+        id: `pm${Date.now()}`,
+        brand,
+        last4: digits.slice(-4),
+        expiry: newCardExpiry,
+        isDefault: prev.length === 0,
+      },
+    ]);
+    setNewCardName("");
+    setNewCardNumber("");
+    setNewCardExpiry("");
+    setNewCardCvc("");
+    toast.success("Payment method added");
+  };
+
+  const setDefaultPayment = (id: string) => {
+    setPaymentMethods((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
+    toast.success("Default payment updated");
+  };
+
+  const removePayment = (id: string) => {
+    setPaymentMethods((prev) => prev.filter((p) => p.id !== id));
+    toast.success("Payment method removed");
+  };
 
   const allLocationOptions = locationData.flatMap((s) => [
     { value: s.name, label: s.name, group: s.name },
@@ -694,6 +747,99 @@ const UserProfile = () => {
                         <Check className="h-4 w-4" />
                         Save Preferences
                       </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PAYMENT */}
+                {active === "payment" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        Payment Methods
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Manage cards used for ticket purchases.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {paymentMethods.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                          No payment methods on file.
+                        </div>
+                      ) : (
+                        paymentMethods.map((pm) => (
+                          <div
+                            key={pm.id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-secondary/20 p-4"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-14 items-center justify-center rounded-md bg-card border border-border/50">
+                                <CreditCard className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  {pm.brand} •••• {pm.last4}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Expires {pm.expiry}</p>
+                              </div>
+                              {pm.isDefault && (
+                                <Badge variant="secondary" className="ml-2">Default</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {!pm.isDefault && (
+                                <Button size="sm" variant="outline" onClick={() => setDefaultPayment(pm.id)}>
+                                  Set default
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removePayment(pm.id)}
+                                className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-border/50 bg-card p-4">
+                      <p className="mb-3 text-sm font-medium text-foreground">Add a new card</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs text-muted-foreground">Cardholder name</Label>
+                          <Input value={newCardName} onChange={(e) => setNewCardName(e.target.value)} placeholder="Name on card" />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs text-muted-foreground">Card number</Label>
+                          <Input
+                            value={newCardNumber}
+                            onChange={(e) => setNewCardNumber(e.target.value)}
+                            placeholder="1234 5678 9012 3456"
+                            inputMode="numeric"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Expiry (MM/YY)</Label>
+                          <Input value={newCardExpiry} onChange={(e) => setNewCardExpiry(e.target.value)} placeholder="MM/YY" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">CVC</Label>
+                          <Input value={newCardCvc} onChange={(e) => setNewCardCvc(e.target.value)} placeholder="123" inputMode="numeric" />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <Button onClick={addPaymentMethod} className="gradient-primary text-primary-foreground shadow-glow gap-2">
+                          <Plus className="h-4 w-4" />
+                          Add Card
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}

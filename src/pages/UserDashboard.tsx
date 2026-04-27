@@ -16,8 +16,16 @@ import EventsSection from "@/components/EventsSection";
 import EventsNearYou from "@/components/EventsNearYou";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
+import { mockConversations, mockUsers } from "@/data/mockUsers";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications";
@@ -139,6 +147,20 @@ const UserDashboard = () => {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const chatContacts = mockConversations
+    .map((conv) => {
+      const u = mockUsers.find((x) => x.id === conv.userId);
+      const last = conv.messages[conv.messages.length - 1];
+      return u ? { user: u, last } : null;
+    })
+    .filter((c): c is { user: typeof mockUsers[number]; last: typeof mockConversations[number]["messages"][number] } => Boolean(c));
+
+  const openChat = (uid: string) => {
+    setChatOpen(false);
+    navigate(`/messages?user=${uid}#message-input`);
+  };
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
@@ -225,8 +247,8 @@ const UserDashboard = () => {
     {
       label: "Messages",
       Icon: MessageCircle,
-      count: 5,
-      action: () => navigate("/messages"),
+      count: chatContacts.length,
+      action: () => setChatOpen(true),
     },
   ];
 
@@ -502,6 +524,57 @@ const UserDashboard = () => {
             />
           </motion.div>
         </motion.div>
+
+        {/* Right off-canvas: Chat with attendees */}
+        <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+            <SheetHeader className="border-b border-border/50 p-5 text-left">
+              <SheetTitle className="font-display text-xl">Chat with attendees</SheetTitle>
+              <SheetDescription>Pick a contact to jump straight into the conversation.</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-2">
+              {chatContacts.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No conversations yet.
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {chatContacts.map(({ user: u, last }) => (
+                    <li key={u.id}>
+                      <button
+                        onClick={() => openChat(u.id)}
+                        className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-secondary/60"
+                      >
+                        <Avatar className="h-11 w-11">
+                          <AvatarFallback className="gradient-primary text-primary-foreground text-sm font-semibold">
+                            {u.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{last?.text ?? "Say hi 👋"}</p>
+                        </div>
+                        <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="border-t border-border/50 p-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setChatOpen(false);
+                  navigate("/messages");
+                }}
+              >
+                Open full inbox
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </>
     );
 };
