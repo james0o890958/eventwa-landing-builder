@@ -140,6 +140,56 @@ const UserProfile = () => {
   const [draftLocation, setDraftLocation] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Payment methods
+  interface PaymentMethod {
+    id: string;
+    brand: string;
+    last4: string;
+    expiry: string;
+    isDefault: boolean;
+  }
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+    { id: "pm1", brand: "Visa", last4: "4242", expiry: "08/27", isDefault: true },
+  ]);
+  const [newCardName, setNewCardName] = useState("");
+  const [newCardNumber, setNewCardNumber] = useState("");
+  const [newCardExpiry, setNewCardExpiry] = useState("");
+  const [newCardCvc, setNewCardCvc] = useState("");
+
+  const addPaymentMethod = () => {
+    const digits = newCardNumber.replace(/\s/g, "");
+    if (!newCardName.trim() || digits.length < 12 || !newCardExpiry || newCardCvc.length < 3) {
+      toast.error("Fill all card fields");
+      return;
+    }
+    const brand = digits.startsWith("4") ? "Visa" : digits.startsWith("5") ? "Mastercard" : "Card";
+    setPaymentMethods((prev) => [
+      ...prev,
+      {
+        id: `pm${Date.now()}`,
+        brand,
+        last4: digits.slice(-4),
+        expiry: newCardExpiry,
+        isDefault: prev.length === 0,
+      },
+    ]);
+    setNewCardName("");
+    setNewCardNumber("");
+    setNewCardExpiry("");
+    setNewCardCvc("");
+    toast.success("Payment method added");
+  };
+
+  const setDefaultPayment = (id: string) => {
+    setPaymentMethods((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
+    toast.success("Default payment updated");
+  };
+
+  const removePayment = (id: string) => {
+    setPaymentMethods((prev) => prev.filter((p) => p.id !== id));
+    toast.success("Payment method removed");
+  };
+
   const allLocationOptions = locationData.flatMap((s) => [
     { value: s.name, label: s.name, group: s.name },
     ...s.cities.map((c) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name })),
