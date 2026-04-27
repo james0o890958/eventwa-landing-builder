@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -11,6 +11,16 @@ import {
   Shield,
   Globe,
   Save,
+  Image as ImageIcon,
+  Share2,
+  MapPin,
+  Upload,
+  X,
+  Instagram,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
