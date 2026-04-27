@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -11,6 +11,16 @@ import {
   Shield,
   Globe,
   Save,
+  Image as ImageIcon,
+  Share2,
+  MapPin,
+  Upload,
+  X,
+  Instagram,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,9 +56,33 @@ const BecomeOrganizer = () => {
   // Privacy
   const [publicProfile, setPublicProfile] = useState(true);
 
+  // Logo
+  const [logo, setLogo] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Social media
+  const [instagram, setInstagram] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [youtube, setYoutube] = useState("");
+
+  // Location
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+
   // Region
   const [country, setCountry] = useState("Nigeria");
   const [currency, setCurrency] = useState("NGN (₦)");
+
+  const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLogo(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   // Redirect to auth if not logged in
   if (!session) {
@@ -145,6 +179,34 @@ const BecomeOrganizer = () => {
 
           {/* Setup form — mirrors OrganizerSettings sections */}
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6">
+            {/* Logo */}
+            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
+              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
+                <ImageIcon className="h-4 w-4 text-primary" /> Organization Logo
+              </h3>
+              <div className="flex items-center gap-4">
+                <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border/50 bg-muted flex items-center justify-center">
+                  {logo ? (
+                    <img src={logo} alt="Organization logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input ref={fileRef} type="file" accept="image/*" onChange={onLogoChange} className="hidden" />
+                  <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" /> Upload logo
+                  </Button>
+                  {logo && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setLogo(null)}>
+                      <X className="mr-2 h-4 w-4" /> Remove
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">PNG or JPG, square recommended (min 256×256).</p>
+                </div>
+              </div>
+            </section>
+
             {/* Brand */}
             <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
               <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
@@ -182,6 +244,56 @@ const BecomeOrganizer = () => {
                     placeholder="Bringing unforgettable experiences to Nigeria."
                     className="mt-1"
                   />
+                </div>
+              </div>
+            </section>
+
+            {/* Social media */}
+            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
+              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
+                <Share2 className="h-4 w-4 text-primary" /> Social Media Profiles
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="ig" className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" /> Instagram</Label>
+                  <Input id="ig" placeholder="@yourhandle" value={instagram} onChange={(e) => setInstagram(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="tw" className="flex items-center gap-2"><Twitter className="h-3.5 w-3.5" /> X (Twitter)</Label>
+                  <Input id="tw" placeholder="@yourhandle" value={twitter} onChange={(e) => setTwitter(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="fb" className="flex items-center gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook</Label>
+                  <Input id="fb" placeholder="facebook.com/yourpage" value={facebook} onChange={(e) => setFacebook(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="li" className="flex items-center gap-2"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</Label>
+                  <Input id="li" placeholder="linkedin.com/company/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className="mt-1" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="yt" className="flex items-center gap-2"><Youtube className="h-3.5 w-3.5" /> YouTube</Label>
+                  <Input id="yt" placeholder="youtube.com/@yourchannel" value={youtube} onChange={(e) => setYoutube(e.target.value)} className="mt-1" />
+                </div>
+              </div>
+            </section>
+
+            {/* Location */}
+            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
+              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
+                <MapPin className="h-4 w-4 text-primary" /> Location
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="address">Street address</Label>
+                  <Input id="address" placeholder="123 Event Avenue" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input id="city" placeholder="Lagos" value={city} onChange={(e) => setCity(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="state">State / Region</Label>
+                  <Input id="state" placeholder="Lagos State" value={state} onChange={(e) => setState(e.target.value)} className="mt-1" />
                 </div>
               </div>
             </section>
