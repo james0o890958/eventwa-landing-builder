@@ -56,9 +56,33 @@ const BecomeOrganizer = () => {
   // Privacy
   const [publicProfile, setPublicProfile] = useState(true);
 
+  // Logo
+  const [logo, setLogo] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Social media
+  const [instagram, setInstagram] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [youtube, setYoutube] = useState("");
+
+  // Location
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+
   // Region
   const [country, setCountry] = useState("Nigeria");
   const [currency, setCurrency] = useState("NGN (₦)");
+
+  const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLogo(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   // Redirect to auth if not logged in
   if (!session) {
