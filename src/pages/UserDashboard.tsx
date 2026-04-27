@@ -524,6 +524,57 @@ const UserDashboard = () => {
             />
           </motion.div>
         </motion.div>
+
+        {/* Right off-canvas: Chat with attendees */}
+        <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+            <SheetHeader className="border-b border-border/50 p-5 text-left">
+              <SheetTitle className="font-display text-xl">Chat with attendees</SheetTitle>
+              <SheetDescription>Pick a contact to jump straight into the conversation.</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-2">
+              {chatContacts.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No conversations yet.
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {chatContacts.map(({ user: u, last }) => (
+                    <li key={u.id}>
+                      <button
+                        onClick={() => openChat(u.id)}
+                        className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-secondary/60"
+                      >
+                        <Avatar className="h-11 w-11">
+                          <AvatarFallback className="gradient-primary text-primary-foreground text-sm font-semibold">
+                            {u.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{last?.text ?? "Say hi 👋"}</p>
+                        </div>
+                        <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="border-t border-border/50 p-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setChatOpen(false);
+                  navigate("/messages");
+                }}
+              >
+                Open full inbox
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </>
     );
 };
