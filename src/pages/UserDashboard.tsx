@@ -1,19 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar,
   Ticket,
   MessageCircle,
-  Settings,
   Bell,
   Bookmark,
   MapPin,
   BellRing,
+  ArrowLeft,
 } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 import EventCard from "@/components/EventCard";
 import EventsSection from "@/components/EventsSection";
 import EventsNearYou from "@/components/EventsNearYou";
+import ConversationList from "@/components/ConversationList";
+import MessageThread from "@/components/MessageThread";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -28,7 +31,7 @@ import { mockEvents } from "@/data/mockEvents";
 import { mockConversations, mockUsers } from "@/data/mockUsers";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 
-type Tab = "upcoming" | "saved" | "past" | "notifications";
+type Tab = "upcoming" | "saved" | "past" | "notifications" | "messages";
 
 type NotifCategory = "reminder" | "ticket" | "suggestion" | "announcement" | "nearby";
 
@@ -143,11 +146,59 @@ const EmptyState = ({ Icon, title, desc, cta }: EmptyStateProps) => (
 const UserDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("upcoming");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as Tab) || "upcoming";
+  const selectedUserId = searchParams.get("userId");
+  const chatViewOpen = searchParams.get("chat") === "true";
+
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
-  const [chatOpen, setChatOpen] = useState(false);
+
+  const selectedConversation = useMemo(() => {
+    if (!selectedUserId) return null;
+    const conv = mockConversations.find(c => c.userId === selectedUserId);
+    if (conv) return conv;
+    // Fallback for temporary conversation
+    const u = mockUsers.find(x => x.id === selectedUserId);
+    if (u) return { id: `temp-${selectedUserId}`, userId: selectedUserId, messages: [] };
+    return null;
+  }, [selectedUserId]);
+
+  // Only open the sheet if we're NOT on the dedicated messages tab
+  const chatOpen = (chatViewOpen || !!selectedConversation) && activeTab !== "messages";
+
+  const setActiveTab = (tab: Tab) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", tab);
+    setSearchParams(params);
+  };
+
+  const setSelectedConversation = (conv: typeof mockConversations[number] | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (conv) {
+      params.set("userId", conv.userId);
+      // Ensure we are in messages tab or show chat sheet
+      if (activeTab !== "messages") {
+        params.set("chat", "true");
+      }
+    } else {
+      params.delete("userId");
+    }
+    setSearchParams(params);
+  };
+
+  const setChatOpen = (open: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    if (open) {
+      params.set("chat", "true");
+    } else {
+      params.delete("chat");
+      params.delete("userId");
+    }
+    setSearchParams(params);
+  };
+
 
   const chatContacts = mockConversations
     .map((conv) => {
@@ -158,9 +209,24 @@ const UserDashboard = () => {
     .filter((c): c is { user: typeof mockUsers[number]; last: typeof mockConversations[number]["messages"][number] } => Boolean(c));
 
   const openChat = (uid: string) => {
-    setChatOpen(false);
-    navigate(`/messages?user=${uid}#message-input`);
+    const conv = mockConversations.find(c => c.userId === uid);
+    if (conv) {
+      setSelectedConversation(conv);
+      setChatOpen(true);
+    } else {
+      const user = mockUsers.find(u => u.id === uid);
+      if (user) {
+        setSelectedConversation({ id: `temp-${uid}`, userId: uid, messages: [] });
+        setChatOpen(true);
+      }
+    }
   };
+
+  const handleOpenMessages = () => {
+    setSelectedConversation(null);
+    setChatOpen(true);
+  };
+
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
@@ -224,6 +290,7 @@ const UserDashboard = () => {
     { id: "saved", label: "Saved", Icon: Bookmark, count: savedEvents.length },
     { id: "past", label: "Past", Icon: Ticket },
     { id: "notifications", label: "Notifications", Icon: Bell, count: 2 },
+    { id: "messages", label: "Messages", Icon: MessageCircle, count: chatContacts.length },
   ];
 
   const QUICK_ACTIONS: {
@@ -248,7 +315,7 @@ const UserDashboard = () => {
       label: "Messages",
       Icon: MessageCircle,
       count: chatContacts.length,
-      action: () => setChatOpen(true),
+      action: handleOpenMessages,
     },
   ];
 
@@ -495,7 +562,52 @@ const UserDashboard = () => {
                   </>
                 );
               })()}
+
+              {/* Messages Tab */}
+              {activeTab === "messages" && (
+                <div className="space-y-4">
+                  {selectedConversation ? (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <div className="flex items-center">
+                        <BackButton 
+                          label="Back to Messages" 
+                          onClick={() => setSelectedConversation(null)} 
+                        />
+                      </div>
+                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card h-[600px]">
+                        <MessageThread 
+                          userId={selectedConversation.userId}
+                          messages={selectedConversation.messages}
+                          onBack={() => setSelectedConversation(null)}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                      <div className="flex items-center">
+                        <BackButton 
+                          label="Back to Dashboard" 
+                          onClick={() => {
+                            const params = new URLSearchParams(searchParams);
+                            params.delete("tab");
+                            setSearchParams(params);
+                          }} 
+                        />
+                      </div>
+                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card h-[600px]">
+                        <ConversationList 
+                          activeConversationId={null}
+                          onSelectConversation={(conv) => {
+                            setSelectedConversation(conv);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
+
           </AnimatePresence>
 
           {recentlyViewedEvents.length > 0 && (
@@ -525,56 +637,82 @@ const UserDashboard = () => {
           </motion.div>
         </motion.div>
 
-        {/* Right off-canvas: Chat with attendees */}
+        {/* Right off-canvas: Direct Chat */}
         <Sheet open={chatOpen} onOpenChange={setChatOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-            <SheetHeader className="border-b border-border/50 p-5 text-left">
-              <SheetTitle className="font-display text-xl">Chat with attendees</SheetTitle>
-              <SheetDescription>Pick a contact to jump straight into the conversation.</SheetDescription>
+          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col border-l border-border/50 shadow-2xl">
+            <SheetHeader className="border-b border-border/50 p-4 flex-row items-center gap-3 space-y-0 bg-background/80 backdrop-blur-md sticky top-0 z-10">
+              {(selectedConversation || chatViewOpen) && (
+                <BackButton 
+                  className="shrink-0"
+                  onClick={() => {
+                    if (selectedConversation) {
+                      setSelectedConversation(null);
+                    } else {
+                      setChatOpen(false);
+                    }
+                  }}
+                />
+              )}
+              <div className="flex-1">
+                <SheetTitle className="font-display text-lg font-bold">
+                  {selectedConversation ? "Direct Chat" : "Chat with attendees"}
+                </SheetTitle>
+                <SheetDescription className="text-xs font-medium text-muted-foreground">
+                  {selectedConversation 
+                    ? `Messaging with ${mockUsers.find(u => u.id === selectedConversation.userId)?.name}` 
+                    : "Connect with event participants"}
+                </SheetDescription>
+              </div>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto p-2">
-              {chatContacts.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">
-                  No conversations yet.
-                </div>
+            
+            <div className="flex-1 overflow-hidden bg-card/30">
+              {selectedConversation ? (
+                <MessageThread 
+                  userId={selectedConversation.userId}
+                  messages={selectedConversation.messages}
+                  onBack={() => {
+                    setSelectedConversation(null);
+                    setActiveTab("messages");
+                  }}
+                />
               ) : (
-                <ul className="space-y-1">
-                  {chatContacts.map(({ user: u, last }) => (
-                    <li key={u.id}>
-                      <button
-                        onClick={() => openChat(u.id)}
-                        className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-secondary/60"
-                      >
-                        <Avatar className="h-11 w-11">
-                          <AvatarFallback className="gradient-primary text-primary-foreground text-sm font-semibold">
-                            {u.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{last?.text ?? "Say hi 👋"}</p>
-                        </div>
-                        <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <ConversationList 
+                  activeConversationId={null}
+                  onSelectConversation={(conv) => setSelectedConversation(conv)}
+                />
               )}
             </div>
-            <div className="border-t border-border/50 p-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setChatOpen(false);
-                  navigate("/messages");
-                }}
-              >
-                Open full inbox
-              </Button>
-            </div>
+
+            {!selectedConversation && (
+              <div className="border-t border-border/50 p-4 bg-background/50">
+                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold">
+                  Private & Secure Messaging
+                </p>
+              </div>
+            )}
           </SheetContent>
         </Sheet>
+
+        {/* Floating Chat Button */}
+        <motion.div 
+          className="fixed bottom-6 right-6 z-50 sm:bottom-8 sm:right-8"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          <Button 
+            size="lg" 
+            className="h-14 w-14 rounded-full gradient-primary shadow-glow p-0 flex items-center justify-center border-none"
+            onClick={handleOpenMessages}
+          >
+            <MessageCircle className="h-6 w-6 text-white" />
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-background">
+              3
+            </span>
+          </Button>
+        </motion.div>
+
       </>
     );
 };

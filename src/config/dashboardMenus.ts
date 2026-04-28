@@ -26,7 +26,6 @@ export const attendeeMenu: MenuItem[] = [
   { label: "Following", to: "/dashboard/following", Icon: Users },
   { label: "Notifications", to: "/dashboard/notifications", Icon: Bell, badge: 2 },
   { label: "Profile", to: "/dashboard/profile/me", Icon: User },
-  { label: "Settings", to: "/dashboard/settings", Icon: Settings },
 ];
 
 export const organizerMenu: MenuItem[] = [
