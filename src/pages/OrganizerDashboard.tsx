@@ -85,8 +85,9 @@ const OrganizerDashboard = () => {
   const [draftText, setDraftText] = useState("");
 
   const displayName =
-    user?.user_metadata?.display_name ||
-    user?.email?.split("@")[0] ||
+    user?.user_metadata?.display_name || 
+    (user as any)?.name || 
+    user?.email?.split("@")[0] || 
     "Organizer";
   const initials = displayName.slice(0, 2).toUpperCase();
 

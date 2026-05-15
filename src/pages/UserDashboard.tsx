@@ -229,7 +229,10 @@ const UserDashboard = () => {
 
 
   const displayName =
-    user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
+    user?.user_metadata?.display_name || 
+    (user as any)?.name || 
+    user?.email?.split("@")[0] || 
+    "User";
   const initials = displayName.slice(0, 2).toUpperCase();
 
   useEffect(() => {

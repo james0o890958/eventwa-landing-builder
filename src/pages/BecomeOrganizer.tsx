@@ -7,26 +7,32 @@ import {
   Users,
   TrendingUp,
   Building2,
-  Bell,
-  Shield,
-  Globe,
   Save,
   Image as ImageIcon,
-  Share2,
   MapPin,
   Upload,
   X,
-  Instagram,
-  Twitter,
-  Facebook,
-  Linkedin,
-  Youtube,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -38,43 +44,67 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 const BecomeOrganizer = () => {
   const navigate = useNavigate();
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [statesList, setStatesList] = useState<{ id: any; name: string }[]>([]);
+  const [allCities, setAllCities] = useState<{ id: any; name: string; state_id: any }[]>([]);
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const [statesRes, citiesRes] = await Promise.all([
+          fetch("http://127.0.0.1:8000/api/states"),
+          fetch("http://127.0.0.1:8000/api/cities")
+        ]);
+        
+        if (statesRes.ok && citiesRes.ok) {
+          const statesData = await statesRes.json();
+          const citiesData = await citiesRes.json();
+          setStatesList(Array.isArray(statesData) ? statesData : statesData.states || []);
+          setAllCities(Array.isArray(citiesData) ? citiesData : citiesData.cities || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch locations:", error);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   // Brand profile (mirrors OrganizerSettings)
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [website, setWebsite] = useState("");
-
-  // Notifications
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [pushAlerts, setPushAlerts] = useState(true);
-
-  // Privacy
-  const [publicProfile, setPublicProfile] = useState(true);
 
   // Logo
   const [logo, setLogo] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Social media
-  const [instagram, setInstagram] = useState("");
-  const [twitter, setTwitter] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [youtube, setYoutube] = useState("");
-
   // Location
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [city, setCity] = useState("");
 
-  // Region
-  const [country, setCountry] = useState("Nigeria");
-  const [currency, setCurrency] = useState("NGN (₦)");
+  const selectedStateId = statesList.find(s => s.name === state)?.id;
+  const filteredCities = allCities.filter(c => c.state_id === selectedStateId);
+
+  const [stateOpen, setStateOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
+
+  const onStateChange = (value: string) => {
+    setState(value);
+    setCity(""); // Reset city when state changes
+    setStateOpen(false);
+  };
+
+  const onCityChange = (value: string) => {
+    setCity(value);
+    setCityOpen(false);
+  };
+
+
 
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,11 +114,6 @@ const BecomeOrganizer = () => {
     reader.readAsDataURL(file);
   };
 
-  // Redirect to auth if not logged in
-  if (!session) {
-    navigate("/auth?redirect=/become-organizer");
-    return null;
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +238,7 @@ const BecomeOrganizer = () => {
                 <Building2 className="h-4 w-4 text-primary" /> Brand Profile
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
+                <div className="sm:col-span-2">
                   <Label htmlFor="org-name">Organization name *</Label>
                   <Input
                     id="org-name"
@@ -221,16 +246,6 @@ const BecomeOrganizer = () => {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Lagos Events Co."
                     required
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    placeholder="https://..."
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
                     className="mt-1"
                   />
                 </div>
@@ -248,34 +263,6 @@ const BecomeOrganizer = () => {
               </div>
             </section>
 
-            {/* Social media */}
-            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
-              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
-                <Share2 className="h-4 w-4 text-primary" /> Social Media Profiles
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="ig" className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" /> Instagram</Label>
-                  <Input id="ig" placeholder="@yourhandle" value={instagram} onChange={(e) => setInstagram(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="tw" className="flex items-center gap-2"><Twitter className="h-3.5 w-3.5" /> X (Twitter)</Label>
-                  <Input id="tw" placeholder="@yourhandle" value={twitter} onChange={(e) => setTwitter(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="fb" className="flex items-center gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook</Label>
-                  <Input id="fb" placeholder="facebook.com/yourpage" value={facebook} onChange={(e) => setFacebook(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="li" className="flex items-center gap-2"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</Label>
-                  <Input id="li" placeholder="linkedin.com/company/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className="mt-1" />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="yt" className="flex items-center gap-2"><Youtube className="h-3.5 w-3.5" /> YouTube</Label>
-                  <Input id="yt" placeholder="youtube.com/@yourchannel" value={youtube} onChange={(e) => setYoutube(e.target.value)} className="mt-1" />
-                </div>
-              </div>
-            </section>
 
             {/* Location */}
             <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
@@ -287,76 +274,94 @@ const BecomeOrganizer = () => {
                   <Label htmlFor="address">Street address</Label>
                   <Input id="address" placeholder="123 Event Avenue" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1" />
                 </div>
-                <div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="state">State</Label>
+                  <Popover open={stateOpen} onOpenChange={setStateOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={stateOpen}
+                        className="w-full justify-between mt-1 font-normal"
+                      >
+                        {state ? state : "Select state..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search state..." />
+                        <CommandList>
+                          <CommandEmpty>No state found.</CommandEmpty>
+                          <CommandGroup>
+                            {statesList.map((loc) => (
+                              <CommandItem
+                                key={loc.id}
+                                value={loc.name}
+                                onSelect={() => onStateChange(loc.name)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    state === loc.name ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {loc.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="city">City</Label>
-                  <Input id="city" placeholder="Lagos" value={city} onChange={(e) => setCity(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="state">State / Region</Label>
-                  <Input id="state" placeholder="Lagos State" value={state} onChange={(e) => setState(e.target.value)} className="mt-1" />
+                  <Popover open={cityOpen} onOpenChange={setCityOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={cityOpen}
+                        className="w-full justify-between mt-1 font-normal"
+                        disabled={!state}
+                      >
+                        {city ? city : state ? "Select city..." : "Select state first"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search city..." />
+                        <CommandList>
+                          <CommandEmpty>No city found.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredCities.map((c) => (
+                              <CommandItem
+                                key={c.id}
+                                value={c.name}
+                                onSelect={() => onCityChange(c.name)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    city === c.name ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {c.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </section>
 
-            {/* Notifications */}
-            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
-              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
-                <Bell className="h-4 w-4 text-primary" /> Notifications
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Email alerts</p>
-                    <p className="text-xs text-muted-foreground">
-                      Ticket sales, messages, and reminders
-                    </p>
-                  </div>
-                  <Switch checked={emailAlerts} onCheckedChange={setEmailAlerts} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Push notifications</p>
-                    <p className="text-xs text-muted-foreground">
-                      Real-time updates on your device
-                    </p>
-                  </div>
-                  <Switch checked={pushAlerts} onCheckedChange={setPushAlerts} />
-                </div>
-              </div>
-            </section>
 
-            {/* Privacy */}
-            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
-              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
-                <Shield className="h-4 w-4 text-primary" /> Privacy
-              </h3>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Public organizer profile</p>
-                  <p className="text-xs text-muted-foreground">
-                    Show your profile in the organizers directory
-                  </p>
-                </div>
-                <Switch checked={publicProfile} onCheckedChange={setPublicProfile} />
-              </div>
-            </section>
-
-            {/* Region */}
-            <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-card">
-              <h3 className="mb-4 flex items-center gap-2 font-display font-semibold text-foreground">
-                <Globe className="h-4 w-4 text-primary" /> Region
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>Country</Label>
-                  <Input value={country} onChange={(e) => setCountry(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label>Currency</Label>
-                  <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="mt-1" />
-                </div>
-              </div>
-            </section>
 
             <CardContent className="px-0">
               <Button

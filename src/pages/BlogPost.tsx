@@ -192,7 +192,7 @@ const BlogPost = () => {
             ) : (
               <div className="text-center py-6">
                 <p className="text-muted-foreground mb-4">Sign in to leave a comment</p>
-                <Link to="/auth">
+                <Link to="/login">
                   <Button variant="outline">Sign In</Button>
                 </Link>
               </div>

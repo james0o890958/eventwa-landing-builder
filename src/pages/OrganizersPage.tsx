@@ -262,7 +262,7 @@ const OrganizersPage = () => {
   const handleStartHosting = () => {
     if (!session) {
       // Not logged in - go to auth page with redirect to become organizer
-      navigate('/auth?redirect=/become-organizer');
+      navigate('/login?redirect=/become-organizer');
     } else {
       // Logged in - check if user is organizer (for now, go to create event)
       // TODO: Add logic to check if user is organizer from user metadata
@@ -683,7 +683,7 @@ const OrganizersPage = () => {
                       size="sm"
                       variant="outline"
                       className="flex-1 border-border/50 text-xs text-muted-foreground"
-                      onClick={() => navigate('/auth?redirect=/organizers')}
+                      onClick={() => navigate('/login?redirect=/organizers')}
                     >
                       <LogIn className="mr-1 h-3.5 w-3.5" />
                       Login to Follow

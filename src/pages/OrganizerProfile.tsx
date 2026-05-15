@@ -88,7 +88,7 @@ const OrganizerProfile = () => {
 
   useEffect(() => {
     if (!authLoading && !session) {
-      navigate(`/auth?redirect=/organizer/${id}`, { replace: true });
+      navigate(`/login?redirect=/organizer/${id}`, { replace: true });
     }
   }, [session, authLoading, navigate, id]);
 

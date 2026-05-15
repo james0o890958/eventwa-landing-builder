@@ -616,7 +616,7 @@ const FindMyTickets = () => {
                     anytime from your dashboard.
                   </p>
                   <div className="flex justify-center gap-3">
-                    <Link to="/auth">
+                    <Link to="/login">
                       <Button
                         size="sm"
                         className="gradient-primary text-primary-foreground shadow-glow text-xs"

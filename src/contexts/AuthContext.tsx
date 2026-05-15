@@ -44,6 +44,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for custom API session
+    const customToken = localStorage.getItem("access_token");
+    const customUserStr = localStorage.getItem("user");
+    
+    if (customToken) {
+      try {
+        const customUser = customUserStr ? JSON.parse(customUserStr) : {
+          id: "custom-user",
+          email: "user@example.com",
+          user_metadata: { display_name: "User" }
+        };
+        
+        setSession({
+          access_token: customToken,
+          user: customUser,
+          token_type: "bearer",
+        } as any);
+        setLoading(false);
+        return;
+      } catch (e) {
+        console.error("Failed to parse stored user", e);
+      }
+    }
+
     if (!AUTH_CONFIG.AUTH_ENABLED) {
       setSession(MOCK_SESSION);
       setLoading(false);
@@ -52,13 +76,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setSession(session);
+        if (!localStorage.getItem("access_token")) {
+          setSession(session);
+        }
         setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (!localStorage.getItem("access_token")) {
+        setSession(session);
+      }
       setLoading(false);
     });
 
@@ -66,17 +94,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    if (!AUTH_CONFIG.AUTH_ENABLED) {
-      setSession(null);
-      return;
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user");
+    
+    if (AUTH_CONFIG.AUTH_ENABLED) {
+      await supabase.auth.signOut();
     }
-    await supabase.auth.signOut();
+    setSession(null);
   };
 
   return (
     <AuthContext.Provider value={{ 
-      session: AUTH_CONFIG.AUTH_ENABLED ? session : MOCK_SESSION, 
-      user: AUTH_CONFIG.AUTH_ENABLED ? (session?.user ?? null) : MOCK_USER, 
+      session: session || (!AUTH_CONFIG.AUTH_ENABLED ? MOCK_SESSION : null), 
+      user: session?.user || (!AUTH_CONFIG.AUTH_ENABLED ? MOCK_USER : null), 
       loading, 
       signOut 
     }}>

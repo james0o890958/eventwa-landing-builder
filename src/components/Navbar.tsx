@@ -44,6 +44,8 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
 
   const initials = user?.user_metadata?.display_name
     ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
+    : user?.name
+    ? user.name.slice(0, 2).toUpperCase()
     : user?.email?.slice(0, 2).toUpperCase() ?? "?";
 
   return (
@@ -167,8 +169,11 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                   </p>
                   <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                 </div>
+                <DropdownMenuItem onClick={() => navigate("/profile/me")} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" /> Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" /> Dashboard
+                  <BookOpen className="mr-2 h-4 w-4" /> Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/organizer")} className="cursor-pointer">
                   <Ticket className="mr-2 h-4 w-4" /> Organizer Panel
@@ -185,7 +190,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
             <Button
               size="sm"
               className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/login")}
             >
               Sign In
             </Button>

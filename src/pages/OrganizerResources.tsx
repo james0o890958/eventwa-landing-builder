@@ -430,7 +430,7 @@ const FAQS: FAQ[] = [
     category: "account",
     question: "How do I create an Evently account?",
     answer:
-      "Click 'Sign Up' on any page or visit /auth. You can sign up with your email address or use Google sign-in for faster registration. Once registered, you'll receive a verification email — click the link to activate your account. After verification, you can immediately start browsing and buying tickets.",
+      "Click 'Sign Up' on any page or visit /signup. You can sign up with your email address or use Google sign-in for faster registration. Once registered, you'll receive a verification email — click the link to activate your account. After verification, you can immediately start browsing and buying tickets.",
   },
   {
     id: "ac2",

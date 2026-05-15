@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -96,19 +97,41 @@ const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [active, setActive] = useState<Section>("personal");
 
-  // Personal info
-  const initialName =
-    (user?.user_metadata?.display_name as string) ||
-    user?.email?.split("@")[0] ||
-    "Your Name";
-  const [displayName, setDisplayName] = useState(initialName);
-  const [username, setUsername] = useState(
-    user?.email?.split("@")[0] || "username",
-  );
-  const [email, setEmail] = useState(user?.email || "");
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("Music lover & event enthusiast 🎵");
-  const [location, setLocation] = useState("Lagos, Nigeria");
+  const [location, setLocation] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setLoadingProfile(false);
+        return;
+      }
+
+      try {
+        const response = await api.get("/user-profile", token);
+        if (response.user) {
+          const u = response.user;
+          setDisplayName(u.name || "");
+          setEmail(u.email || "");
+          setUsername(u.email?.split("@")[0] || "");
+          // Bio, phone, location might not be in the basic user model yet, but we'll set what we have
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+        toast.error("Failed to load profile details");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   // Password
   const [currentPwd, setCurrentPwd] = useState("");
@@ -248,11 +271,14 @@ const UserProfile = () => {
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const initials = displayName
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+    ? displayName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+    : "??";
 
   const savePersonal = () => toast.success("Profile updated successfully");
   const savePassword = () => {
@@ -273,6 +299,14 @@ const UserProfile = () => {
     toast.success("Account deletion scheduled. You can cancel within 30 days.");
     await signOut();
   };
+
+  if (loadingProfile) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background">

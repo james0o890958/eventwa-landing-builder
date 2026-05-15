@@ -15,7 +15,7 @@ const OrganizerLink = ({ organizerName, className = "", children }: OrganizerLin
     if (!user) {
       e.preventDefault();
       // Redirect to auth with return URL
-      window.location.href = `/auth?redirect=/organizer/${organizerSlug(organizerName)}`;
+      window.location.href = `/login?redirect=/organizer/${organizerSlug(organizerName)}`;
     }
   };
 

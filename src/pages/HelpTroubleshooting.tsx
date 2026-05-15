@@ -115,7 +115,7 @@ const HelpTroubleshooting = () => {
           transition={{ delay: 0.1 }}
           className="mb-12 grid gap-4 sm:grid-cols-2"
         >
-          <Link to="/auth" className="group">
+          <Link to="/login" className="group">
             <div className="flex items-center gap-4 rounded-2xl border border-border/50 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-card">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
                 <Lock className="h-6 w-6 text-white" />
