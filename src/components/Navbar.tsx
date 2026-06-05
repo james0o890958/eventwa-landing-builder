@@ -29,7 +29,13 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
   const navigate = useNavigate();
 
   const usercity = selectedLocation || localCity;
-  const setUsercity = onLocationSelect || setLocalCity;
+
+  const setUsercity = (location: string) => {
+    // If a location prop handler is provided, let the parent control state.
+    // Otherwise fall back to local navbar state.
+    if (onLocationSelect) onLocationSelect(location);
+    else setLocalCity(location);
+  };
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -44,9 +50,9 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
 
   const initials = user?.user_metadata?.display_name
     ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
-    : user?.name
-    ? user.name.slice(0, 2).toUpperCase()
-    : user?.email?.slice(0, 2).toUpperCase() ?? "?";
+    : user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "?";
 
   return (
     <>
@@ -175,9 +181,12 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                 <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
                   <BookOpen className="mr-2 h-4 w-4" /> Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/organizer")} className="cursor-pointer">
-                  <Ticket className="mr-2 h-4 w-4" /> Organizer Panel
-                </DropdownMenuItem>
+                {((user.user_metadata as any)?.is_organizer || user.app_metadata?.app_role === "organizer" || (user as any).organizer) && (
+                  <DropdownMenuItem onClick={() => navigate("/organizer")} className="cursor-pointer">
+                    <Ticket className="mr-2 h-4 w-4" /> Organizer Panel
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem onClick={() => navigate("/messages")} className="cursor-pointer">
                   <MessageCircle className="mr-2 h-4 w-4" /> Messages
                 </DropdownMenuItem>

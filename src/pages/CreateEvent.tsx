@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { categories } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,7 +165,6 @@ const INITIAL: FormData = {
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
-
 const CreateEvent = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -307,12 +307,51 @@ const CreateEvent = () => {
   const handleSubmit = async () => {
     if (!validateStep(4)) return;
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    setSubmitting(false);
-    toast.success("Event created successfully! 🎉", {
-      description: "Your event is now live on Evently.",
-    });
-    navigate("/organizer/dashboard");
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("You must be logged in to create an event.");
+        navigate("/login");
+        return;
+      }
+
+      const startDateTime = `${form.date}T${form.time || "00:00"}`;
+      const endDateTime = form.endDate
+        ? `${form.endDate}T${form.endTime || "23:59"}`
+        : `${form.date}T${form.endTime || form.time || "23:59"}`;
+
+      const calculatedPrice = form.isFree ? 0 : (Number(form.ticketTiers[0]?.price) || 0);
+      const calculatedCapacity = Number(form.totalCapacity) || 
+        form.ticketTiers.reduce((acc, t) => acc + (Number(t.quantity) || 0), 0) || 100;
+
+      const payload = {
+        title: form.title,
+        description: form.description,
+        start_date: startDateTime,
+        end_date: endDateTime,
+        category: form.category,
+        location_type: form.locationType,
+        location_name: form.locationType === "physical" ? form.location : "Online",
+        location_address: form.locationType === "physical" ? form.location : (form.onlineLink || "Online"),
+        online_link: form.locationType === "online" ? form.onlineLink : undefined,
+        price: calculatedPrice,
+        capacity: calculatedCapacity,
+        image_url: form.bannerUrl.trim() || null,
+        status: "published",
+      };
+
+      await api.post("events", payload, token);
+
+      toast.success("Event created successfully! 🎉", {
+        description: "Your event is now live on Evently.",
+      });
+      navigate("/organizer/dashboard");
+    } catch (error: any) {
+      console.error("Failed to create event:", error);
+      toast.error(error.message || "Failed to create event. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── Field helpers ──────────────────────────────────────────────────────────

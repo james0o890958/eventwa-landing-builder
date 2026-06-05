@@ -56,6 +56,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user_metadata: { display_name: "User" }
         };
         
+        // Ensure user_metadata is initialized and maps display_name, full_name, is_organizer
+        if (customUser) {
+          if (!customUser.user_metadata) {
+            customUser.user_metadata = {};
+          }
+          if (!customUser.user_metadata.display_name) {
+            customUser.user_metadata.display_name = customUser.name || customUser.email?.split("@")[0] || "User";
+          }
+          if (!customUser.user_metadata.full_name) {
+            customUser.user_metadata.full_name = customUser.name || customUser.user_metadata.display_name;
+          }
+          if (customUser.user_metadata.is_organizer === undefined) {
+            customUser.user_metadata.is_organizer = !!customUser.is_organizer || !!customUser.organizer;
+          }
+        }
+        
         setSession({
           access_token: customToken,
           user: customUser,
@@ -96,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
+    localStorage.removeItem("organizer_profile");
     
     if (AUTH_CONFIG.AUTH_ENABLED) {
       await supabase.auth.signOut();

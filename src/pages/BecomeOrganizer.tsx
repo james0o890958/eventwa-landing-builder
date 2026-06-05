@@ -43,36 +43,52 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
 const BecomeOrganizer = () => {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [statesList, setStatesList] = useState<{ id: any; name: string }[]>([]);
   const [allCities, setAllCities] = useState<{ id: any; name: string; state_id: any }[]>([]);
 
   useEffect(() => {
-    const fetchLocations = async () => {
+    if (!user) {
+      toast.error("Please login to become an organizer");
+      navigate("/login");
+    } else {
+      const isOrganizer = user.is_organizer || user.user_metadata?.is_organizer || !!user.organizer || !!localStorage.getItem("organizer_profile");
+      if (isOrganizer) {
+        toast.info("You already have an organizer profile.");
+        navigate("/organizer/dashboard");
+      }
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    const fetchStates = async () => {
       try {
-        const [statesRes, citiesRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/states"),
-          fetch("http://127.0.0.1:8000/api/cities")
-        ]);
-        
-        if (statesRes.ok && citiesRes.ok) {
-          const statesData = await statesRes.json();
-          const citiesData = await citiesRes.json();
-          setStatesList(Array.isArray(statesData) ? statesData : statesData.states || []);
-          setAllCities(Array.isArray(citiesData) ? citiesData : citiesData.cities || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch locations:", error);
+        const statesData = await api.get("states");
+        setStatesList(Array.isArray(statesData) ? statesData : statesData.states || []);
+      } catch (error: any) {
+        console.error("Failed to fetch states:", error);
       }
     };
-    fetchLocations();
+    fetchStates();
   }, []);
+
+  const fetchCities = async (stateId: any) => {
+    try {
+      const citiesData = await api.get("cities", { state_id: stateId });
+      setAllCities(Array.isArray(citiesData) ? citiesData : citiesData.cities || []);
+      console.error("Cities are:", citiesData);
+    } catch (error: any) {
+      console.error("Failed to fetch cities:", error);
+      setAllCities([]);
+    }
+  };
 
   // Brand profile (mirrors OrganizerSettings)
   const [name, setName] = useState("");
@@ -80,6 +96,7 @@ const BecomeOrganizer = () => {
 
   // Logo
   const [logo, setLogo] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Location
@@ -87,8 +104,7 @@ const BecomeOrganizer = () => {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
 
-  const selectedStateId = statesList.find(s => s.name === state)?.id;
-  const filteredCities = allCities.filter(c => c.state_id === selectedStateId);
+  const filteredCities = allCities;
 
   const [stateOpen, setStateOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -97,6 +113,13 @@ const BecomeOrganizer = () => {
     setState(value);
     setCity(""); // Reset city when state changes
     setStateOpen(false);
+    
+    const stateId = statesList.find(s => s.name === value)?.id;
+    if (stateId) {
+      fetchCities(stateId);
+    } else {
+      setAllCities([]);
+    }
   };
 
   const onCityChange = (value: string) => {
@@ -109,6 +132,7 @@ const BecomeOrganizer = () => {
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setLogo(reader.result as string);
     reader.readAsDataURL(file);
@@ -121,13 +145,69 @@ const BecomeOrganizer = () => {
       toast.error("Organization name is required");
       return;
     }
+
+    const isOrganizer = user?.is_organizer || user?.user_metadata?.is_organizer || !!user?.organizer || !!localStorage.getItem("organizer_profile");
+    if (isOrganizer) {
+      toast.error("You already have an organizer profile.");
+      navigate("/organizer/dashboard");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const stateId = statesList.find(s => s.name === state)?.id;
+      const cityId = allCities.find(c => c.name === city)?.id;
+      
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("bio", bio);
+      formData.append("address", address);
+      if (stateId) formData.append("state_id", stateId.toString());
+      if (cityId) formData.append("city_id", cityId.toString());
+      if (logoFile) formData.append("logo", logoFile);
+
+      const token = localStorage.getItem("access_token") || undefined;
+      await api.post("become-organizer", formData, token);
+
+      // Save organizer info to localStorage so it is available to display on the dashboard & settings
+      const organizerProfile = {
+        name: name.trim(),
+        bio: bio.trim(),
+        logo: logo, // Base64 data URL of the logo
+        address: address.trim(),
+        state: state,
+        city: city
+      };
+      localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
+
+      // Update stored user object to reflect organizer status
+      const storedUserStr = localStorage.getItem("user");
+      if (storedUserStr) {
+        try {
+          const storedUser = JSON.parse(storedUserStr);
+          storedUser.is_organizer = true;
+          if (!storedUser.user_metadata) {
+            storedUser.user_metadata = {};
+          }
+          storedUser.user_metadata.is_organizer = true;
+          storedUser.user_metadata.display_name = storedUser.name || name.trim();
+          storedUser.user_metadata.full_name = storedUser.name || name.trim();
+          storedUser.organizer = {
+            name: name.trim(),
+            bio: bio.trim(),
+            logo: logo,
+            address: address.trim()
+          };
+          localStorage.setItem("user", JSON.stringify(storedUser));
+        } catch (e) {
+          console.error("Failed to update stored user info", e);
+        }
+      }
+
       toast.success("You're now an organizer! 🎉");
-      navigate("/organizer/create-event");
-    } catch (error) {
-      toast.error("Something went wrong. Please try again.");
+      window.location.href = "/organizer/dashboard";
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -223,7 +303,7 @@ const BecomeOrganizer = () => {
                     <Upload className="mr-2 h-4 w-4" /> Upload logo
                   </Button>
                   {logo && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setLogo(null)}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { setLogo(null); setLogoFile(null); }}>
                       <X className="mr-2 h-4 w-4" /> Remove
                     </Button>
                   )}

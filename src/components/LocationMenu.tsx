@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin, Search, ChevronRight, LocateFixed, Globe } from "lucide-react";
 import { toast } from "sonner";
-import { locations } from "@/data/mockLocations";
+import { locations as staticLocations } from "@/data/mockLocations";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { api } from "@/lib/api";
 
 interface LocationMenuProps {
   selectedLocation?: string;
@@ -19,14 +20,65 @@ interface LocationMenuProps {
 
 const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredState, setHoveredState] = useState<string>(locations[0].id);
+  const [locations, setLocations] = useState<any[]>(staticLocations);
+  const [hoveredState, setHoveredState] = useState<string>(staticLocations[0].id);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const currentStateData = locations.find((s) => s.id === hoveredState) || locations[0];
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const data = await api.get("states_cities");
+        if (data && data.states && data.cities) {
+          const mapped = data.states.map((state: any) => {
+            const stateCities = data.cities
+              .filter((city: any) => city.state_id === state.id)
+              .map((city: any) => ({
+                id: String(city.id),
+                name: city.name,
+                state: state.name,
+              }));
+            return {
+              id: String(state.id),
+              name: state.name,
+              cities: stateCities,
+            };
+          });
+          if (mapped.length > 0) {
+            setLocations(mapped);
+            setHoveredState(String(mapped[0].id));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load states and cities from API:", err);
+      }
+    };
+    fetchLocations();
+  }, []);
+
+  const handleLocationSelect = async (stateName: string, stateId: string, cityName?: string, cityId?: string) => {
+    const displayText = cityName ? `${cityName}, ${stateName}` : `All ${stateName}`;
+    onLocationSelect?.(displayText);
+    setIsOpen(false);
+
+    const sId = Number(stateId);
+    const cId = cityId ? Number(cityId) : null;
+    if (!isNaN(sId)) {
+      try {
+        await api.get("guestLocation", {
+          state_id: sId,
+          city_id: cId,
+        });
+      } catch (err) {
+        console.error("Failed to record guest location:", err);
+      }
+    }
+  };
+
+  const currentStateData = locations.find((s) => s.id === hoveredState) || locations[0] || staticLocations[0];
   
   const filteredStates = locations.filter(state => 
     state.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    state.cities.some(city => city.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    state.cities.some((city: any) => city.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -68,8 +120,12 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                 toast.loading("Detecting your location…", { id: "geo" });
                 navigator.geolocation.getCurrentPosition(
                   () => {
-                    // Mock reverse-geocode → Lagos for now
-                    onLocationSelect?.("Lagos, Lagos");
+                    const lagosState = locations.find((l) => l.name.toLowerCase() === "lagos");
+                    if (lagosState) {
+                      handleLocationSelect(lagosState.name, lagosState.id);
+                    } else {
+                      onLocationSelect?.("Lagos, Lagos");
+                    }
                     toast.success("Location set to Lagos", { id: "geo" });
                     setIsOpen(false);
                   },
@@ -133,10 +189,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                   {/* All <state> option */}
                   <button
                     key={`all-${currentStateData.id}`}
-                    onClick={() => {
-                      onLocationSelect?.(`All ${currentStateData.name}`);
-                      setIsOpen(false);
-                    }}
+                    onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id)}
                     className="col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
                   >
                     <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -150,13 +203,10 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                     </span>
                   </button>
 
-                  {currentStateData.cities.map((city) => (
+                  {currentStateData.cities.map((city: any) => (
                     <button
                       key={city.id}
-                      onClick={() => {
-                        onLocationSelect?.(`${city.name}, ${city.state}`);
-                        setIsOpen(false);
-                      }}
+                      onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id, city.name, city.id)}
                       className="flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-md transition-all duration-200 group text-left"
                     >
                       <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">

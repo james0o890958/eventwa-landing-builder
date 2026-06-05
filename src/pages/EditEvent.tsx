@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,7 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { categories, mockEvents } from "@/data/mockEvents";
+import { categories } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 interface TicketTier {
@@ -71,74 +72,112 @@ const EditEvent = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const event = mockEvents.find((e) => e.id === id);
-
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingEvent, setLoadingEvent] = useState(true);
 
-  const [form, setForm] = useState<FormData>(() => ({
-    title: event?.title ?? "",
-    description: event?.description ?? "",
-    category: event?.category ?? "",
+  const [form, setForm] = useState<FormData>({
+    title: "",
+    description: "",
+    category: "",
     tags: "",
-    date: event?.date ?? "",
-    time: event?.time ?? "",
+    date: "",
+    time: "",
     endDate: "",
     endTime: "",
-    locationType: event?.location
-      ? /online|virtual|zoom/i.test(event.location)
-        ? "online"
-        : "physical"
-      : "physical",
-    location: event?.location ?? "",
+    locationType: "physical",
+    location: "",
     onlineLink: "",
-    isFree: (event?.price ?? 0) === 0,
-    ticketTiers:
-      event?.ticketTypes?.map((t, i) => ({
-        id: `t${i}`,
-        name: t.name,
-        price: String(t.price),
-        quantity: String(t.quantity),
+    isFree: false,
+    ticketTiers: [
+      {
+        id: "t0",
+        name: "General Admission",
+        price: "",
+        quantity: "",
         description: "",
-      })) ?? [
-        {
-          id: "t0",
-          name: "General Admission",
-          price: String(event?.price ?? ""),
-          quantity: "",
-          description: "",
-        },
-      ],
-    totalCapacity: event?.attendees ? String(event.attendees) : "",
+      },
+    ],
+    totalCapacity: "",
     bannerUrl: "",
     websiteUrl: "",
     openForSponsorship: false,
     sponsorshipDetails: "",
-    agenda:
-      event?.agenda?.map((a) => ({
-        time: a.time,
-        title: a.title,
-        description: a.description ?? "",
-      })) ?? [{ time: "", title: "", description: "" }],
-    rules: event?.rules?.join("\n") ?? "",
-  }));
+    agenda: [{ time: "", title: "", description: "" }],
+    rules: "",
+  });
 
-  if (!event) {
+  useEffect(() => {
+    const loadEvent = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          toast.error("You must be logged in to edit events.");
+          navigate("/login");
+          return;
+        }
+
+        const res = await api.get(`events/${id}`, undefined, token);
+        if (res && res.status === "success" && res.event) {
+          const dbEvent = res.event;
+          
+          const isOnline = dbEvent.location_type === "online" || 
+            (dbEvent.location?.name && /online|virtual|zoom/i.test(dbEvent.location.name)) ||
+            (dbEvent.location?.address && /online|virtual|zoom/i.test(dbEvent.location.address));
+          
+          setForm({
+            title: dbEvent.title || "",
+            description: dbEvent.description || "",
+            category: dbEvent.category?.slug || dbEvent.category?.name?.toLowerCase() || dbEvent.category_id || "",
+            tags: "",
+            date: dbEvent.start_date ? dbEvent.start_date.split("T")[0] : "",
+            time: dbEvent.start_date ? dbEvent.start_date.split("T")[1]?.slice(0, 5) || "" : "",
+            endDate: dbEvent.end_date ? dbEvent.end_date.split("T")[0] : "",
+            endTime: dbEvent.end_date ? dbEvent.end_date.split("T")[1]?.slice(0, 5) || "" : "",
+            locationType: isOnline ? "online" : "physical",
+            location: dbEvent.location?.address || dbEvent.location?.name || "",
+            onlineLink: isOnline ? dbEvent.online_link || dbEvent.location?.address || "" : "",
+            isFree: Number(dbEvent.price) === 0,
+            ticketTiers: dbEvent.ticketTypes || [
+              {
+                id: "t0",
+                name: "General Admission",
+                price: String(dbEvent.price || ""),
+                quantity: String(dbEvent.capacity || ""),
+                description: "",
+              }
+            ],
+            totalCapacity: String(dbEvent.capacity || ""),
+            bannerUrl: dbEvent.image_url || "",
+            websiteUrl: "",
+            openForSponsorship: false,
+            sponsorshipDetails: "",
+            agenda: [{ time: "", title: "", description: "" }],
+            rules: "",
+          });
+        } else {
+          toast.error("Event not found.");
+          navigate("/organizer/dashboard");
+        }
+      } catch (error: any) {
+        console.error("Failed to load event:", error);
+        toast.error("Failed to load event details.");
+        navigate("/organizer/dashboard");
+      } finally {
+        setLoadingEvent(false);
+      }
+    };
+
+    loadEvent();
+  }, [id, navigate]);
+
+  if (loadingEvent) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col justify-between">
         <Navbar />
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="text-center">
-            <h1 className="font-display text-2xl font-bold text-foreground">
-              Event not found
-            </h1>
-            <Link
-              to="/organizer/dashboard"
-              className="mt-4 inline-block text-primary hover:underline"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-12">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/30 border-t-primary mb-4" />
+          <p className="text-muted-foreground text-sm font-medium animate-pulse">Loading event details...</p>
         </div>
         <Footer />
       </div>
@@ -253,14 +292,53 @@ const EditEvent = () => {
     );
 
   const handleSave = async () => {
-    if (!validateStep(step)) return;
+    if (!validateStep(4)) return;
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSubmitting(false);
-    toast.success("Event updated successfully! ✅", {
-      description: "Your changes are now live on Evently.",
-    });
-    navigate("/organizer/dashboard");
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("You must be logged in to save changes.");
+        navigate("/login");
+        return;
+      }
+
+      const startDateTime = `${form.date}T${form.time || "00:00"}`;
+      const endDateTime = form.endDate
+        ? `${form.endDate}T${form.endTime || "23:59"}`
+        : `${form.date}T${form.endTime || form.time || "23:59"}`;
+
+      const calculatedPrice = form.isFree ? 0 : (Number(form.ticketTiers[0]?.price) || 0);
+      const calculatedCapacity = Number(form.totalCapacity) || 
+        form.ticketTiers.reduce((acc, t) => acc + (Number(t.quantity) || 0), 0) || 100;
+
+      const payload = {
+        title: form.title,
+        description: form.description,
+        start_date: startDateTime,
+        end_date: endDateTime,
+        category: form.category,
+        location_type: form.locationType,
+        location_name: form.locationType === "physical" ? form.location : "Online",
+        location_address: form.locationType === "physical" ? form.location : (form.onlineLink || "Online"),
+        online_link: form.locationType === "online" ? form.onlineLink : undefined,
+        price: calculatedPrice,
+        capacity: calculatedCapacity,
+        image_url: form.bannerUrl.trim() || null,
+        status: "published",
+      };
+
+      await api.put(`events/${id}`, payload, token);
+
+      toast.success("Event updated successfully! ✅", {
+        description: "Your changes are now live on Evently.",
+      });
+      navigate("/organizer/dashboard");
+    } catch (error: any) {
+      console.error("Failed to update event:", error);
+      toast.error(error.message || "Failed to update event. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const inputCls =
@@ -294,27 +372,28 @@ const EditEvent = () => {
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Dashboard
-        </Link>
-
-        {/* Header */}
+        </Link>        {/* Header */}
         <div className="mb-10 flex items-start gap-4">
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-            <img
-              src={event.image}
-              alt={event.title}
-              className="h-full w-full object-cover"
-            />
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted flex items-center justify-center">
+            {form.bannerUrl ? (
+              <img
+                src={form.bannerUrl}
+                alt={form.title}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Image className="h-6 w-6 text-muted-foreground" />
+            )}
           </div>
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">
               Edit Event
             </h1>
             <p className="mt-1 text-muted-foreground text-sm line-clamp-1">
-              {event.title}
+              {form.title || "Untitled Event"}
             </p>
           </div>
         </div>
-
         {/* Step indicator */}
         <div className="mb-10 flex items-center gap-0">
           {STEPS.map((s, i) => (
@@ -786,11 +865,11 @@ const EditEvent = () => {
                     {/* Current banner */}
                     <div className="h-40 overflow-hidden rounded-xl border border-border/50">
                       <img
-                        src={form.bannerUrl || event.image}
+                        src={form.bannerUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80'}
                         alt="Banner preview"
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = event.image;
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80';
                         }}
                       />
                     </div>

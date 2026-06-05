@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,15 +9,17 @@ import {
   Ticket,
   Megaphone,
   TrendingUp,
+  MapPin,
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { organizerMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
 import type { Event } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
 type OrgTab = "events" | "analytics" | "announcements";
 
@@ -83,15 +85,74 @@ const OrganizerDashboard = () => {
     INITIAL_ANNOUNCEMENTS,
   );
   const [draftText, setDraftText] = useState("");
+  const [profile, setProfile] = useState<{
+    name: string;
+    bio: string;
+    logo: string | null;
+    address: string;
+    state: string;
+    city: string;
+  } | null>(null);
+  const [orgEvents, setOrgEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("organizer_profile");
+    if (stored) {
+      try {
+        setProfile(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to parse organizer profile", e);
+      }
+    }
+  }, []);
 
   const displayName =
+    profile?.name ||
     user?.user_metadata?.display_name || 
     (user as any)?.name || 
     user?.email?.split("@")[0] || 
     "Organizer";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const logoUrl = profile?.logo || null;
 
-  const orgEvents = mockEvents.slice(0, 4);
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        const res = await api.get("events", undefined, token);
+        if (res && res.status === "success" && Array.isArray(res.events)) {
+          const dbEvents = res.events.map((e: any) => ({
+            id: String(e.id),
+            title: e.title,
+            description: e.description,
+            date: e.start_date ? e.start_date.split("T")[0] : e.date || "",
+            time: e.start_date ? new Date(e.start_date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : e.time || "",
+            location: e.location?.address || e.location?.name || e.location || "Online",
+            image: e.image_url || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80",
+            price: Number(e.price) || 0,
+            organizer: displayName,
+            attendees: e.attendees || 0,
+            category: e.category?.slug || e.category?.name?.toLowerCase() || e.category || "social",
+            ticketTypes: e.ticketTypes || [
+              { name: "General Admission", price: Number(e.price) || 0, quantity: e.capacity || 100, sold: 0 }
+            ]
+          }));
+          setOrgEvents(dbEvents);
+        }
+      } catch (error) {
+        console.error("Failed to fetch events:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [displayName]);
   const totalAttendees = orgEvents.reduce((s, e) => s + e.attendees, 0);
   const ticketsSold = getTicketsSold(orgEvents);
   const revenue = getRevenue(orgEvents);
@@ -133,6 +194,9 @@ const OrganizerDashboard = () => {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 border-2 border-primary/30">
+                {logoUrl && (
+                  <AvatarImage src={logoUrl} alt={displayName} className="object-cover" />
+                )}
                 <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
                   {initials}
                 </AvatarFallback>
@@ -155,6 +219,39 @@ const OrganizerDashboard = () => {
               </Button>
             </Link>
           </div>
+
+          {/* Organization Details Panel */}
+          {profile && (profile.bio || profile.address || profile.city || profile.state) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-6 shadow-card grid gap-6 md:grid-cols-3"
+            >
+              {profile.bio && (
+                <div className="md:col-span-2 space-y-2">
+                  <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">About the Organization</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {profile.bio}
+                  </p>
+                </div>
+              )}
+              {(profile.address || profile.city || profile.state) && (
+                <div className="space-y-2 border-t md:border-t-0 md:border-l border-border/50 pt-4 md:pt-0 md:pl-6">
+                  <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">Location</h3>
+                  <div className="flex items-start gap-2 mt-1">
+                    <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                    <div className="text-sm text-muted-foreground">
+                      {profile.address && <p className="font-medium text-foreground">{profile.address}</p>}
+                      <p>
+                        {[profile.city, profile.state].filter(Boolean).join(", ")}
+                      </p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Nigeria</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Stats */}
           <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -206,74 +303,103 @@ const OrganizerDashboard = () => {
               {/* ── My Events ─────────────────────────────────────────────── */}
               {activeTab === "events" && (
                 <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border/50">
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground">
-                            Event
-                          </th>
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden sm:table-cell">
-                            Date
-                          </th>
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden md:table-cell">
-                            Location
-                          </th>
-                          <th className="px-5 py-4 text-right font-medium text-muted-foreground">
-                            Attendees
-                          </th>
-                          <th className="px-5 py-4 text-right font-medium text-muted-foreground">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orgEvents.map((event) => {
-                          const status = getStatus(event.date);
-                          return (
-                            <tr
-                              key={event.id}
-                              className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors"
-                            >
-                              <td className="px-5 py-4">
-                                <Link
-                                  to={`/event/${event.id}`}
-                                  className="font-medium text-foreground hover:text-primary transition-colors"
-                                >
-                                  {event.title}
-                                </Link>
-                                <p className="text-xs text-muted-foreground capitalize">
-                                  {event.category}
-                                </p>
-                              </td>
-                              <td className="px-5 py-4 text-muted-foreground hidden sm:table-cell">
-                                {new Date(event.date).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                  },
-                                )}
-                              </td>
-                              <td className="px-5 py-4 text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
-                                {event.location}
-                              </td>
-                              <td className="px-5 py-4 text-right text-foreground">
-                                {event.attendees.toLocaleString()}
-                              </td>
-                              <td className="px-5 py-4 text-right">
-                                <span
-                                  className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.cls}`}
-                                >
-                                  {status.label}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  {loading ? (
+                    <div className="p-8 space-y-4">
+                      {[1, 2, 3].map((n) => (
+                        <div key={n} className="flex items-center justify-between animate-pulse">
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-muted rounded w-1/3" />
+                            <div className="h-3 bg-muted rounded w-1/4" />
+                          </div>
+                          <div className="h-4 bg-muted rounded w-16" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : orgEvents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-16 text-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                        <Calendar className="h-8 w-8 text-primary" />
+                      </div>
+                      <h3 className="font-display text-xl font-bold text-foreground mb-2">No Events Found</h3>
+                      <p className="text-muted-foreground max-w-sm mb-6 text-sm">
+                        You haven't created any events yet. Share your next experience with the world today!
+                      </p>
+                      <Link to="/organizer/create-event">
+                        <Button className="gradient-primary text-primary-foreground shadow-glow">
+                          <Plus className="mr-2 h-4 w-4" /> Create Event
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/50">
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground">
+                              Event
+                            </th>
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden sm:table-cell">
+                              Date
+                            </th>
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden md:table-cell">
+                              Location
+                            </th>
+                            <th className="px-5 py-4 text-right font-medium text-muted-foreground">
+                              Attendees
+                            </th>
+                            <th className="px-5 py-4 text-right font-medium text-muted-foreground">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orgEvents.map((event) => {
+                            const status = getStatus(event.date);
+                            return (
+                              <tr
+                                key={event.id}
+                                className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors"
+                              >
+                                <td className="px-5 py-4">
+                                  <Link
+                                    to={`/event/${event.id}`}
+                                    className="font-medium text-foreground hover:text-primary transition-colors"
+                                  >
+                                    {event.title}
+                                  </Link>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {event.category}
+                                  </p>
+                                </td>
+                                <td className="px-5 py-4 text-muted-foreground hidden sm:table-cell">
+                                  {event.date ? new Date(event.date).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  ) : "TBD"}
+                                </td>
+                                <td className="px-5 py-4 text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
+                                  {event.location}
+                                </td>
+                                <td className="px-5 py-4 text-right text-foreground">
+                                  {event.attendees.toLocaleString()}
+                                </td>
+                                <td className="px-5 py-4 text-right">
+                                  <span
+                                    className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.cls}`}
+                                  >
+                                    {status.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 

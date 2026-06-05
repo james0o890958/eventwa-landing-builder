@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Save,
   Building2,
@@ -55,6 +55,24 @@ const OrganizerSettings = () => {
   const [country, setCountry] = useState("Nigeria");
   const [currency, setCurrency] = useState("NGN (₦)");
 
+  // Load from localStorage if present
+  useEffect(() => {
+    const stored = localStorage.getItem("organizer_profile");
+    if (stored) {
+      try {
+        const profile = JSON.parse(stored);
+        if (profile.name) setName(profile.name);
+        if (profile.bio) setBio(profile.bio);
+        if (profile.logo) setLogo(profile.logo);
+        if (profile.address) setAddress(profile.address);
+        if (profile.city) setCity(profile.city);
+        if (profile.state) setState(profile.state);
+      } catch (e) {
+        console.error("Failed to parse organizer profile", e);
+      }
+    }
+  }, []);
+
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -63,7 +81,18 @@ const OrganizerSettings = () => {
     reader.readAsDataURL(file);
   };
 
-  const save = () => toast.success("Settings saved");
+  const save = () => {
+    const updatedProfile = {
+      name: name.trim(),
+      bio: bio.trim(),
+      logo: logo,
+      address: address.trim(),
+      city: city.trim(),
+      state: state.trim()
+    };
+    localStorage.setItem("organizer_profile", JSON.stringify(updatedProfile));
+    toast.success("Settings saved successfully! 🎉");
+  };
 
   return (
     <DashboardLayout title="Organizer Settings" subtitle="Customize your organizer brand and preferences" menu={organizerMenu}>

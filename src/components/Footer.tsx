@@ -86,6 +86,14 @@ const Footer = () => (
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
               <Link
+                to="/become-organizer"
+                className="hover:text-foreground transition-colors"
+              >
+                Become an Organizer
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/organizers"
                 className="hover:text-foreground transition-colors"
               >

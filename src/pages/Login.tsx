@@ -31,24 +31,61 @@ const Login = () => {
     try {
       const data = await api.post("user-login", { email, password });
       
-      // If the API returns a token, we should handle it.
-      // For now, let's assume it returns { access_token, user }
+      // Handle login response mapping access_token and user fields
       const token = data.access_token || data.data?.access_token;
       const userData = data.user || data.data?.user;
 
       if (token) {
         localStorage.setItem("access_token", token);
         if (userData) {
-          localStorage.setItem("user", JSON.stringify(userData));
+          const isOrganizer = data.is_organizer || data.data?.is_organizer || !!userData.organizer;
+          const mappedUser = {
+            ...userData,
+            is_organizer: isOrganizer,
+            user_metadata: {
+              ...userData.user_metadata,
+              display_name: userData.name || userData.user_metadata?.display_name || userData.email?.split("@")[0] || "User",
+              full_name: userData.name || userData.user_metadata?.full_name || userData.name || "User",
+              is_organizer: isOrganizer
+            }
+          };
+          localStorage.setItem("user", JSON.stringify(mappedUser));
+
+          // If the user has organizer profile info returned, save it
+          if (userData.organizer) {
+            const org = userData.organizer;
+            const organizerProfile = {
+              name: org.name || "",
+              bio: org.bio || "",
+              logo: org.logo || null,
+              address: org.address || "",
+              state: org.state?.name || "",
+              city: org.city?.name || ""
+            };
+            localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
+          }
         }
         toast.success("Welcome back!");
         // Force redirect to the landing page or the intended path
-        window.location.href = "/";
+        window.location.href = redirectTo;
       } else {
         throw new Error("Invalid response from server: Token missing");
       }
     } catch (error: any) {
-      toast.error(error.message || "Login failed");
+      const msg = error.message?.toLowerCase() || "";
+      const isUnverified = msg.includes("verify") || 
+                           msg.includes("verification") || 
+                           msg.includes("unverified") ||
+                           msg.includes("not verified") ||
+                           msg.includes("activate") ||
+                           msg.includes("activation");
+      
+      if (isUnverified) {
+        toast.error("Please verify your email address to complete sign in.");
+        navigate(`/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}&resend=true`);
+      } else {
+        toast.error(error.message || "Login failed");
+      }
     } finally {
       setLoading(false);
     }

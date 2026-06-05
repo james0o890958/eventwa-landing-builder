@@ -24,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { mockEvents, categories } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
 // ─── geo helpers ────────────────────────────────────────────────────────────
 
@@ -137,6 +138,40 @@ const Explore = () => {
   // ── scroll detection for sticky header ────────────────────────────────────────────
   const [isScrolled, setIsScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // ── fetch backend events ─────────────────────────────────────────────────────
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await api.get('public/events');
+        if (response.status === 'success' && response.events) {
+          const mappedEvents = response.events.map((be: any) => ({
+            id: be.id.toString(),
+            title: be.title,
+            description: be.description,
+            date: be.start_date,
+            time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
+            image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+            price: parseFloat(be.price) || 0,
+            organizer: be.organizer ? be.organizer.name : 'Unknown',
+            attendees: be.capacity || 0,
+            category: be.category ? be.category.name.toLowerCase() : 'other',
+          }));
+          setEvents(mappedEvents);
+        }
+      } catch (err) {
+        console.error("Failed to fetch events", err);
+        setEvents(mockEvents); // fallback to mock events if failed
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -167,7 +202,7 @@ const Explore = () => {
   // ── suggestions ──────────────────────────────────────────────────────────────
   const suggestions =
     searchQuery.length >= 2
-      ? mockEvents
+      ? events
           .filter((e) =>
             e.title.toLowerCase().includes(searchQuery.toLowerCase()),
           )
@@ -175,7 +210,7 @@ const Explore = () => {
       : [];
 
   // ── filtering pipeline ───────────────────────────────────────────────────────
-  let filtered = [...mockEvents];
+  let filtered = [...events];
 
   // 1. search
   if (searchQuery.trim()) {
@@ -644,7 +679,11 @@ const Explore = () => {
         </div>
 
         {/* ── Event grid ──────────────────────────────────────────────────────── */}
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div className="py-20 flex justify-center items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filtered.length > 0 ? (
           <motion.div
             key={`${city}-${selectedCategory}-${dateFilter}-${priceFilter}-${typeFilter}-${sortOption}`}
             initial={{ opacity: 0 }}

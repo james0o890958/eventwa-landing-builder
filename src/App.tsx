@@ -13,6 +13,7 @@ import Blog from "./pages/Blog.tsx";
 import BlogPost from "./pages/BlogPost.tsx";
 import DashboardLayout from "./components/DashboardLayout.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute.tsx";
+import { OrganizerProtectedRoute } from "./components/OrganizerProtectedRoute.tsx";
 import { attendeeMenu } from "./config/dashboardMenus.ts";
 import UserDashboard from "./pages/UserDashboard.tsx";
 import UserProfile from "./pages/UserProfile.tsx";
@@ -37,6 +38,7 @@ import Notifications from "./pages/Notifications.tsx";
 import NotificationSettings from "./pages/NotificationSettings.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
+import VerifyEmail from "./pages/VerifyEmail.tsx";
 import ForgotPassword from "./pages/ForgotPassword.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Messages from "./pages/Messages.tsx";
@@ -113,26 +115,26 @@ const App = () => (
             <Route path="/notifications" element={<Navigate to="/dashboard/notifications" replace />} />
             <Route path="/profile/me" element={<Navigate to="/dashboard/profile/me" replace />} />
             <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
-            <Route path="/organizer" element={<ProtectedRoute><OrganizerDashboard /></ProtectedRoute>} />
-            <Route path="/organizer/dashboard" element={<ProtectedRoute><OrganizerDashboard /></ProtectedRoute>} />
-            <Route path="/organizer/create-event" element={<ProtectedRoute><CreateEvent /></ProtectedRoute>} />
-            <Route path="/organizer/edit-event/:id" element={<ProtectedRoute><EditEvent /></ProtectedRoute>} />
-            <Route path="/organizer/event/:id/attendees" element={<ProtectedRoute><EventAttendees /></ProtectedRoute>} />
-            <Route path="/organizer/pricing" element={<Pricing />} />
-            <Route path="/organizer/resources" element={<OrganizerResources />} />
-            <Route path="/organizer/promote" element={<AdvertiseEvents />} />
+            <Route path="/organizer" element={<OrganizerProtectedRoute><OrganizerDashboard /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/dashboard" element={<OrganizerProtectedRoute><OrganizerDashboard /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/create-event" element={<OrganizerProtectedRoute><CreateEvent /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/edit-event/:id" element={<OrganizerProtectedRoute><EditEvent /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/event/:id/attendees" element={<OrganizerProtectedRoute><EventAttendees /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/pricing" element={<OrganizerProtectedRoute><Pricing /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/resources" element={<OrganizerProtectedRoute><OrganizerResources /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/promote" element={<OrganizerProtectedRoute><AdvertiseEvents /></OrganizerProtectedRoute>} />
             <Route path="/organizers" element={<OrganizersPage />} />
             <Route path="/profile/:id" element={<UserProfile />} />
             <Route path="/checkout/:eventId" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
             <Route path="/checkout/confirmation" element={<ProtectedRoute><TicketConfirmation /></ProtectedRoute>} />
-            <Route path="/organizer/events" element={<ProtectedRoute><OrganizerEvents /></ProtectedRoute>} />
-            <Route path="/organizer/attendees" element={<ProtectedRoute><OrganizerAttendees /></ProtectedRoute>} />
-            <Route path="/organizer/chatrooms" element={<ProtectedRoute><OrganizerChatrooms /></ProtectedRoute>} />
-            <Route path="/organizer/event/:id/chatroom" element={<ProtectedRoute><EventChatroomPage /></ProtectedRoute>} />
-            <Route path="/organizer/event/:id/promote" element={<ProtectedRoute><PromoteEvent /></ProtectedRoute>} />
-            <Route path="/organizer/subscriptions" element={<ProtectedRoute><OrganizerSubscriptions /></ProtectedRoute>} />
-            <Route path="/organizer/settings" element={<ProtectedRoute><OrganizerSettings /></ProtectedRoute>} />
-            <Route path="/organizer/analytics" element={<ProtectedRoute><OrganizerAnalytics /></ProtectedRoute>} />
+            <Route path="/organizer/events" element={<OrganizerProtectedRoute><OrganizerEvents /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/attendees" element={<OrganizerProtectedRoute><OrganizerAttendees /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/chatrooms" element={<OrganizerProtectedRoute><OrganizerChatrooms /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/event/:id/chatroom" element={<OrganizerProtectedRoute><EventChatroomPage /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/event/:id/promote" element={<OrganizerProtectedRoute><PromoteEvent /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/subscriptions" element={<OrganizerProtectedRoute><OrganizerSubscriptions /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/settings" element={<OrganizerProtectedRoute><OrganizerSettings /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/analytics" element={<OrganizerProtectedRoute><OrganizerAnalytics /></OrganizerProtectedRoute>} />
             <Route path="/notifications/settings" element={<NotificationSettings />} />
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/help/find-tickets" element={<FindMyTickets />} />
@@ -151,6 +153,7 @@ const App = () => (
             <Route path="/find-tickets" element={<FindMyTickets />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/auth" element={<Navigate to="/login" replace />} />
             <Route path="/reset-password" element={<ResetPassword />} />

@@ -2,17 +2,46 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, MapPin, ArrowRight, ChevronDown } from "lucide-react";
-import { categories, mockEvents, Event } from "@/data/mockEvents";
+import { categories as staticCategories, mockEvents, Event } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
 interface CategoryMegaMenuProps {
   sidebar?: boolean;
 }
 
 const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
+  const [categories, setCategories] = useState(staticCategories);
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await api.get("categories");
+        const categoriesData = Array.isArray(data) ? data : data.categories || [];
+        if (categoriesData.length > 0) {
+          const mapped = categoriesData.map((cat: any) => {
+            const slug = cat.slug || cat.name?.toLowerCase().replace(/\s+/g, "-") || "";
+            const matchedStatic = staticCategories.find(
+              (c) => c.id === slug || c.label.toLowerCase() === cat.name?.toLowerCase()
+            );
+            return {
+              id: slug,
+              label: cat.name,
+              icon: matchedStatic?.icon || "🎫",
+              color: matchedStatic?.color || "from-slate-500 to-gray-600",
+            };
+          });
+          setCategories(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load dynamic categories, using fallback:", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

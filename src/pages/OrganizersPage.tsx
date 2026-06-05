@@ -266,8 +266,8 @@ const OrganizersPage = () => {
     } else {
       // Logged in - check if user is organizer (for now, go to create event)
       // TODO: Add logic to check if user is organizer from user metadata
-      const userMetadata = session.user.user_metadata;
-      if (userMetadata?.is_organizer) {
+      const isOrganizer = (session.user as any).is_organizer || session.user.user_metadata?.is_organizer || !!(session.user as any).organizer || !!localStorage.getItem("organizer_profile");
+      if (isOrganizer) {
         navigate('/organizer/create-event');
       } else {
         navigate('/become-organizer');

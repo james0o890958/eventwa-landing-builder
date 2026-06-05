@@ -114,13 +114,50 @@ const UserProfile = () => {
       }
 
       try {
-        const response = await api.get("/user-profile", token);
+        const response = await api.get("/user-profile", undefined, token);
         if (response.user) {
           const u = response.user;
           setDisplayName(u.name || "");
           setEmail(u.email || "");
           setUsername(u.email?.split("@")[0] || "");
           // Bio, phone, location might not be in the basic user model yet, but we'll set what we have
+          
+          // Sync to localStorage
+          const storedUserStr = localStorage.getItem("user");
+          if (storedUserStr) {
+            try {
+              const storedUser = JSON.parse(storedUserStr);
+              const isOrganizer = response.is_organizer || u.is_organizer || !!u.organizer || storedUser.is_organizer;
+              const updatedUser = {
+                ...storedUser,
+                ...u,
+                is_organizer: isOrganizer,
+                user_metadata: {
+                  ...storedUser.user_metadata,
+                  ...u.user_metadata,
+                  display_name: u.name || storedUser.user_metadata?.display_name || u.email?.split("@")[0],
+                  full_name: u.name || storedUser.user_metadata?.full_name,
+                  is_organizer: isOrganizer
+                }
+              };
+              localStorage.setItem("user", JSON.stringify(updatedUser));
+            } catch (e) {
+              console.error("Failed to sync profile to localStorage", e);
+            }
+          }
+
+          if (u.organizer) {
+            const org = u.organizer;
+            const organizerProfile = {
+              name: org.name || "",
+              bio: org.bio || "",
+              logo: org.logo || null,
+              address: org.address || "",
+              state: org.state?.name || "",
+              city: org.city?.name || ""
+            };
+            localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
+          }
         }
       } catch (error) {
         console.error("Failed to fetch profile:", error);
