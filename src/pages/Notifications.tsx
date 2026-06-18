@@ -266,7 +266,7 @@ const Notifications = () => {
             const count =
               tab.id === "all"
                 ? notifications.length
-                : notifications.filter((n) => n.type === tab.id).length;
+                : notifications.filter((n) => n.category === tab.id).length;
             return (
               <button
                 key={tab.id}
