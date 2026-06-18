@@ -323,13 +323,13 @@ const Notifications = () => {
                     exit={{ opacity: 0, x: 16, height: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.2 }}
                     className={`group relative overflow-hidden rounded-2xl border transition-all ${
-                      notif.read
+                      isRead
                         ? "border-border/50 bg-card"
                         : "border-primary/20 bg-primary/5"
                     }`}
                   >
                     {/* Unread indicator */}
-                    {!notif.read && (
+                    {!isRead && (
                       <div className="absolute left-0 top-0 h-full w-1 rounded-l-2xl gradient-primary" />
                     )}
 
@@ -349,7 +349,7 @@ const Notifications = () => {
                           >
                             {config.label}
                           </span>
-                          {!notif.read && (
+                          {!isRead && (
                             <span className="h-2 w-2 rounded-full bg-primary" />
                           )}
                         </div>
@@ -362,7 +362,7 @@ const Notifications = () => {
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {notif.time}
+                            {new Date(notif.created_at).toLocaleString()}
                           </span>
                           {notif.link && (
                             <Link
@@ -378,7 +378,7 @@ const Notifications = () => {
 
                       {/* Actions */}
                       <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!notif.read && (
+                        {!isRead && (
                           <button
                             onClick={() => markRead(notif.id)}
                             title="Mark as read"
