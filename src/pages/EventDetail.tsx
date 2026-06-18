@@ -58,6 +58,7 @@ import Footer from "@/components/Footer";
 import AttendeeList from "@/components/AttendeeList";
 import { EventChatroomTab } from "@/components/EventChatroomTab";
 import { EventBlogSection } from "@/components/EventBlogSection";
+import { mockEvents } from "@/data/mockEvents";
 
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
