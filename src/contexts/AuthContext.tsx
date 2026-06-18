@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { AUTH_CONFIG } from "@/config/authConfig";
+import { api } from "@/lib/api";
 
 // ─── Mock User for Development ──────────────────────────────────────────────
 const MOCK_USER: User = {
@@ -110,6 +111,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    const token = localStorage.getItem("access_token");
+    const storedUserStr = localStorage.getItem("user");
+    let isOrganizer = false;
+    if (storedUserStr) {
+      try {
+        const u = JSON.parse(storedUserStr);
+        isOrganizer = !!u.is_organizer || !!u.organizer || (u.user_metadata && !!u.user_metadata.is_organizer);
+      } catch (e) {}
+    }
+
+    if (token) {
+      try {
+        if (isOrganizer) {
+          await api.post("organizer-logout", {}, token);
+        } else {
+          await api.post("user-logout", {}, token);
+        }
+      } catch (e) {
+        console.warn("Backend logout failed:", e);
+      }
+    }
+
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
     localStorage.removeItem("organizer_profile");

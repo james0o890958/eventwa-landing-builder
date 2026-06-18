@@ -12,12 +12,13 @@ import { toast } from "sonner";
 interface EventChatroomTabProps {
   eventId: string;
   organizerName: string;
+  chatrooms?: any[];
   onSelectUser?: (userId: string) => void;
   isOrganizer?: boolean;
   activeTab?: string;
 }
 
-export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrganizer, activeTab }: EventChatroomTabProps) => {
+export const EventChatroomTab = ({ eventId, organizerName, chatrooms = [], onSelectUser, isOrganizer, activeTab }: EventChatroomTabProps) => {
   const [messages, setMessages] = useState<MockMessage[]>([]);
   const [input, setInput] = useState("");
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState<MockMessage | null>(null);
@@ -25,21 +26,30 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
 
   // Load initial messages
   useEffect(() => {
-    // Merge some group messages and announcements for the demo
-    const initialMessages: MockMessage[] = [
-      ...mockConversations.flatMap((conv) => conv.messages),
+    // Merge real chat messages and announcements
+    const realMessages = chatrooms.flatMap(c => c.messages || []).map(m => ({
+      id: String(m.id),
+      senderId: String(m.user_id),
+      text: m.content,
+      timestamp: m.created_at,
+      user: m.user
+    }));
+
+    const initialMessages: any[] = [
+      ...realMessages,
       {
         id: "ann1",
         senderId: "organizer",
         text: `Welcome to ${organizerName}'s event! We're excited to have you here.`,
         timestamp: new Date(Date.now() - 86400000).toISOString(),
+        user: { name: organizerName, initials: "OR" }
       },
     ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     setMessages(initialMessages);
     // Set the latest announcement as pinned by default for demo
     setPinnedAnnouncement(initialMessages.filter(m => m.senderId === "organizer").pop() || null);
-  }, [organizerName]);
+  }, [organizerName, chatrooms]);
 
   // Focus input when chat tab is active
   useEffect(() => {
@@ -130,12 +140,12 @@ export const EventChatroomTab = ({ eventId, organizerName, onSelectUser, isOrgan
         {/* Messages */}
         <ScrollArea className="flex-1 p-4 bg-muted/5">
           <div className="space-y-4">
-            {messages.map((msg) => {
+            {messages.map((msg: any) => {
               const isMine = (isOrganizer && msg.senderId === "organizer") || (!isOrganizer && msg.senderId === currentUserId);
               const isAnnouncement = msg.senderId === "organizer";
               const sender = msg.senderId === "organizer" 
                 ? { id: "organizer", name: organizerName, initials: "OR", avatar: undefined } 
-                : mockUsers.find((u) => u.id === msg.senderId);
+                : { id: msg.senderId, name: msg.user?.name || "User", initials: msg.user?.name?.slice(0, 2).toUpperCase() || "U", avatar: undefined };
               
               return (
                 <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} group`}>

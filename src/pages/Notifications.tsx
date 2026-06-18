@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,112 +15,20 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 interface Notification {
-  id: string;
-  type: "reminder" | "ticket" | "suggestion" | "announcement" | "review" | "nearby";
+  id: number | string;
   title: string;
   description: string;
-  time: string;
-  read: boolean;
+  category: "reminder" | "ticket" | "suggestion" | "announcement" | "review" | "nearby" | "other";
+  read_at: string | null;
+  created_at: string;
   link?: string;
 }
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: "n1",
-    type: "announcement",
-    title: "Organizer Announcement",
-    description: "Burna Boy Live: Gates open at 6PM, not 7PM. Please arrive early to avoid queues!",
-    time: "10 minutes ago",
-    read: false,
-    link: "/event/2",
-  },
-  {
-    id: "n2",
-    type: "ticket",
-    title: "Ticket Confirmed 🎟️",
-    description: "Your 2× VIP Floor tickets for Burna Boy Live in Lagos have been confirmed. Total: ₦120,000.",
-    time: "2 hours ago",
-    read: false,
-    link: "/my-tickets",
-  },
-  {
-    id: "n3",
-    type: "nearby",
-    title: "New Event Near You",
-    description: "Detty December Beach Party is happening at Elegushi Beach, just 3km from your location.",
-    time: "5 hours ago",
-    read: false,
-    link: "/event/18",
-  },
-  {
-    id: "n4",
-    type: "reminder",
-    title: "Event Reminder ⏰",
-    description: "Felabration 2026 starts in 3 days! Don't forget to check the schedule and plan your journey.",
-    time: "Yesterday",
-    read: true,
-    link: "/event/1",
-  },
-  {
-    id: "n5",
-    type: "suggestion",
-    title: "Recommended for You",
-    description: "Based on your interest in music events, you might love the Wizkid Made in Lagos Fest.",
-    time: "Yesterday",
-    read: true,
-    link: "/event/19",
-  },
-  {
-    id: "n6",
-    type: "announcement",
-    title: "Lagos Carnival Update",
-    description: "New route announced for Lagos Carnival 2026! The parade will now start from Ikoyi to VI.",
-    time: "2 days ago",
-    read: true,
-    link: "/event/9",
-  },
-  {
-    id: "n7",
-    type: "suggestion",
-    title: "Events This Weekend 🎉",
-    description: "5 events are happening near Lagos this weekend. Check out what's on and grab your tickets!",
-    time: "3 days ago",
-    read: true,
-    link: "/explore",
-  },
-  {
-    id: "n8",
-    type: "review",
-    title: "Share Your Experience",
-    description: "You attended Lagos City Marathon 2025. How was it? Leave a review and help others decide.",
-    time: "1 week ago",
-    read: true,
-    link: "/event/5",
-  },
-  {
-    id: "n9",
-    type: "ticket",
-    title: "Ticket Transfer Available",
-    description: "You can now transfer your Lagos Marathon ticket to another person via My Tickets.",
-    time: "1 week ago",
-    read: true,
-    link: "/my-tickets",
-  },
-  {
-    id: "n10",
-    type: "nearby",
-    title: "Trending Near Lagos",
-    description: "AFCON 2026 Screening – Nigeria vs Ghana is now trending near you with 15,000 attendees.",
-    time: "2 weeks ago",
-    read: true,
-    link: "/event/4",
-  },
-];
-
 const TYPE_CONFIG: Record<
-  Notification["type"],
+  Notification["category"],
   { icon: React.ElementType; color: string; bg: string; label: string }
 > = {
   reminder: {
@@ -159,6 +67,12 @@ const TYPE_CONFIG: Record<
     bg: "bg-blue-500/15",
     label: "Nearby",
   },
+  other: {
+    icon: Bell,
+    color: "text-muted-foreground",
+    bg: "bg-muted/15",
+    label: "Other",
+  },
 };
 
 const FILTER_TABS = [
@@ -173,32 +87,101 @@ const FILTER_TABS = [
 type FilterId = (typeof FILTER_TABS)[number]["id"];
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const token = localStorage.getItem("access_token") || "";
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
-  const filtered =
-    activeFilter === "all"
-      ? notifications
-      : notifications.filter((n) => n.type === activeFilter);
+      setIsLoading(true);
+      setError("");
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      try {
+        const allResponse = await api.get("notifications", undefined, token);
+        if (allResponse?.notifications) {
+          setAllNotifications(allResponse.notifications);
+          if (activeFilter === "all") {
+            setNotifications(allResponse.notifications);
+          }
+        }
+
+        if (activeFilter !== "all") {
+          const categoryResponse = await api.get(`notifications/category/${activeFilter}`, undefined, token);
+          setNotifications(categoryResponse?.notifications ?? []);
+        }
+      } catch (err) {
+        console.error("Failed to load notifications", err);
+        setError("Unable to load notifications at this time.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, [token, activeFilter]);
+
+  const unreadCount = allNotifications.filter((n) => !n.read_at).length;
+
+  const filtered = notifications;
+
+  const markAllRead = async () => {
+    if (!token) return;
+
+    try {
+      await api.patch("notifications/read-all", {}, token);
+      setAllNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
+    } catch (err) {
+      console.error("Failed to mark notifications as read", err);
+    }
   };
 
-  const markRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
+  const markRead = async (id: string | number) => {
+    if (!token) return;
+
+    try {
+      await api.patch(`notifications/${id}/read`, {}, token);
+      setAllNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)),
+      );
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)),
+      );
+    } catch (err) {
+      console.error("Failed to mark notification as read", err);
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const deleteNotification = async (id: string | number) => {
+    if (!token) return;
+
+    try {
+      await api.delete(`notifications/${id}`, token);
+      setAllNotifications((prev) => prev.filter((n) => n.id !== id));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.error("Failed to delete notification", err);
+    }
   };
 
-  const clearAll = () => {
-    setNotifications([]);
+  const clearAll = async () => {
+    if (!token) return;
+
+    try {
+      await api.delete("notifications", token);
+      setAllNotifications([]);
+      setNotifications([]);
+    } catch (err) {
+      console.error("Failed to clear notifications", err);
+    }
   };
 
   return (

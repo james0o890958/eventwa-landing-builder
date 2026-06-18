@@ -43,22 +43,11 @@ const VerifyEmail = () => {
 
     setResending(true);
     try {
-      try {
-        await api.post("resend-otp", { email: targetEmail });
-      } catch (err: any) {
-        if (err.message?.includes("404") || err.message?.includes("failed")) {
-          // Alternative endpoint
-          await api.post("resend-verification-otp", { email: targetEmail });
-        } else {
-          throw err;
-        }
-      }
+      await api.post("user-resend-otp", { email: targetEmail });
       toast.success("A new verification code has been sent!");
       setCountdown(30);
     } catch (error: any) {
-      console.warn("Resend API failed, running mock simulation...", error);
-      toast.success("A new verification code has been sent! (Simulated)");
-      setCountdown(30);
+      toast.error(error.message || "Failed to resend code. Please try again.");
     } finally {
       setResending(false);
     }
@@ -69,7 +58,6 @@ const VerifyEmail = () => {
     if (resendParam && emailInput && emailSubmitted && !hasAutoSent) {
       setHasAutoSent(true);
       handleResend(emailInput);
-      // Clean query parameters to keep the URL elegant
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("resend");
       setSearchParams(newParams, { replace: true });
@@ -78,7 +66,7 @@ const VerifyEmail = () => {
 
   const handleVerify = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
     if (otp.length !== 6) {
       toast.error("Please enter the complete 6-digit OTP.");
       return;
@@ -86,22 +74,8 @@ const VerifyEmail = () => {
 
     setLoading(true);
     try {
-      let sessionData: any = null;
-      
-      // Try hitting the backend OTP verification endpoint
-      try {
-        // We'll support both verify-otp and verify-email endpoints in case the API has standard routing
-        sessionData = await api.post("verify-otp", { email: emailInput, otp });
-      } catch (err: any) {
-        // Fallback endpoint if verify-otp is not matching
-        if (err.message?.includes("404") || err.message?.includes("failed")) {
-          sessionData = await api.post("verify-email", { email: emailInput, otp });
-        } else {
-          throw err;
-        }
-      }
+      const sessionData = await api.post("user-verify-otp", { email: emailInput, otp });
 
-      // Read token and user from backend response
       const token = sessionData?.access_token || sessionData?.data?.access_token || sessionData?.token;
       const userData = sessionData?.user || sessionData?.data?.user;
 
@@ -115,86 +89,37 @@ const VerifyEmail = () => {
             user_metadata: {
               ...userData.user_metadata,
               display_name: userData.name || userData.user_metadata?.display_name || userData.email?.split("@")[0] || "User",
-              full_name: userData.name || userData.user_metadata?.full_name || userData.name || "User",
-              is_organizer: isOrganizer
-            }
+              full_name: userData.name || userData.user_metadata?.full_name || "User",
+              is_organizer: isOrganizer,
+            },
           };
           localStorage.setItem("user", JSON.stringify(mappedUser));
-        }
-      } else {
-        // If the backend verification succeeds but doesn't return a token immediately,
-        // we can fetch the temporary registration token we stored in sessionStorage on the Signup page.
-        const tempSignupDataStr = sessionStorage.getItem("temp_signup_data");
-        if (tempSignupDataStr) {
-          const tempSignupData = JSON.parse(tempSignupDataStr);
-          if (tempSignupData.token && tempSignupData.user) {
-            localStorage.setItem("access_token", tempSignupData.token);
-            localStorage.setItem("user", JSON.stringify(tempSignupData.user));
-            sessionStorage.removeItem("temp_signup_data");
+
+          if (userData.organizer) {
+            const org = userData.organizer;
+            const organizerProfile = {
+              name: org.name || "",
+              bio: org.bio || "",
+              logo: org.logo || null,
+              address: org.address || "",
+              state: org.state?.name || "",
+              city: org.city?.name || "",
+            };
+            localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
           }
-        } else {
-          // If no stored token and no returned token, we sign them in with a mock session
-          const mockToken = "mock-token-" + Math.random().toString(36).substring(2);
-          const mockUser = {
-            id: "verified-user",
-            email: emailInput,
-            user_metadata: { display_name: emailInput.split("@")[0] },
-            aud: "authenticated",
-            role: "authenticated",
-            created_at: new Date().toISOString(),
-          };
-          localStorage.setItem("access_token", mockToken);
-          localStorage.setItem("user", JSON.stringify(mockUser));
         }
-      }
 
-      setVerified(true);
-      toast.success("Email verified successfully!");
-      
-      // Delay redirect slightly for beautiful visual transition
-      setTimeout(() => {
-        window.location.href = redirectTo;
-      }, 1500);
-
-    } catch (error: any) {
-      console.warn("Backend verification failed, attempting developer mock fallback...", error);
-      
-      // Developer Mock/Offline Fallback Flow
-      // If the backend isn't running or returned a 404/500, we'll allow developer testing 
-      // with standard verification code (e.g. 123456 or any 6-digit code during development)
-      const tempSignupDataStr = sessionStorage.getItem("temp_signup_data");
-      
-      if (tempSignupDataStr) {
-        const tempSignupData = JSON.parse(tempSignupDataStr);
-        localStorage.setItem("access_token", tempSignupData.token);
-        localStorage.setItem("user", JSON.stringify(tempSignupData.user));
-        sessionStorage.removeItem("temp_signup_data");
-        
         setVerified(true);
-        toast.success("Email verified successfully! (Offline Sandbox)");
+        toast.success("Email verified successfully!");
         setTimeout(() => {
           window.location.href = redirectTo;
         }, 1500);
       } else {
-        // Direct mock login generation if no temp signup data is available
-        const mockToken = "mock-token-sandbox";
-        const mockUser = {
-          id: "sandbox-user",
-          email: emailInput,
-          user_metadata: { display_name: emailInput.split("@")[0] },
-          aud: "authenticated",
-          role: "authenticated",
-          created_at: new Date().toISOString(),
-        };
-        localStorage.setItem("access_token", mockToken);
-        localStorage.setItem("user", JSON.stringify(mockUser));
-        
-        setVerified(true);
-        toast.success("Email verified successfully! (Offline Sandbox)");
-        setTimeout(() => {
-          window.location.href = redirectTo;
-        }, 1500);
+        toast.error("Verification succeeded but no token was returned. Please try logging in.");
+        navigate("/login");
       }
+    } catch (error: any) {
+      toast.error(error.message || "Verification failed. Please check your code and try again.");
     } finally {
       setLoading(false);
     }
@@ -207,7 +132,6 @@ const VerifyEmail = () => {
       return;
     }
     setEmailSubmitted(true);
-    // Automatically trigger OTP sending for the entered email!
     handleResend(emailInput);
   };
 
@@ -249,9 +173,8 @@ const VerifyEmail = () => {
         </Link>
 
         <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-xl p-8 shadow-2xl relative overflow-hidden">
-          {/* Glowing gradient background indicator */}
           <div className="absolute top-0 left-0 right-0 h-[2px] gradient-primary opacity-80" />
-          
+
           <AnimatePresence mode="wait">
             {!emailSubmitted ? (
               <motion.div
@@ -264,7 +187,7 @@ const VerifyEmail = () => {
                 <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 text-primary animate-pulse">
                   <Mail className="h-8 w-8" />
                 </div>
-                
+
                 <h1 className="text-2xl font-display font-bold text-foreground text-center mb-2">
                   Activate Your Account
                 </h1>
@@ -318,7 +241,7 @@ const VerifyEmail = () => {
                 <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 text-primary animate-pulse">
                   <Mail className="h-8 w-8" />
                 </div>
-                
+
                 <h1 className="text-2xl font-display font-bold text-foreground mb-2">
                   Verify Your Email
                 </h1>
@@ -397,14 +320,14 @@ const VerifyEmail = () => {
                 <div className="h-16 w-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-500">
                   <CheckCircle2 className="h-10 w-10 animate-bounce" />
                 </div>
-                
+
                 <h1 className="text-2xl font-display font-bold text-foreground mb-2">
                   Verification Successful!
                 </h1>
                 <p className="text-muted-foreground text-sm max-w-[280px]">
                   Your account has been fully activated. Preparing your Evently experience...
                 </p>
-                
+
                 <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
                   <RefreshCw className="h-3 w-3 animate-spin text-primary" />
                   <span>Redirecting...</span>

@@ -4,39 +4,97 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { mockUsers, currentUserId, type MockMessage } from "@/data/mockUsers";
+import { api } from "@/lib/api";
+
+interface Message {
+  id: number;
+  content: string;
+  sender_id: string;
+  recipient_id: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
 
 interface MessageThreadProps {
   userId: string;
-  messages: MockMessage[];
+  messages?: Message[];
+  user?: User;
   onBack?: () => void;
 }
 
-const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThreadProps) => {
-  const user = mockUsers.find((u) => u.id === userId);
-  const [messages, setMessages] = useState(initialMessages);
+const MessageThread = ({ userId, messages: initialMessages = [], user: initialUser, onBack }: MessageThreadProps) => {
+  const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+  const token = localStorage.getItem("access_token") || "";
+  
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [user, setUser] = useState<User | undefined>(initialUser);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Fetch conversation if not provided
+    if (!initialMessages.length && token && userId) {
+      const fetchConversation = async () => {
+        try {
+          const response = await api.get(`messages/${userId}`, undefined, token);
+          if (response?.conversation) {
+            setMessages(response.conversation.messages || []);
+            setUser(response.conversation.user);
+          }
+        } catch (err) {
+          console.error("Failed to fetch conversation", err);
+        }
+      };
+      fetchConversation();
+    }
+  }, [userId, token]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Autofocus the input when the thread mounts or the contact changes
-  // so deep-links land directly on "Type a message"
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
   }, [userId]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: `new-${Date.now()}`, senderId: currentUserId, text: input.trim(), timestamp: new Date().toISOString() },
-    ]);
-    setInput("");
+  const handleSend = async () => {
+    if (!input.trim() || !token) return;
+    
+    setIsSending(true);
+    try {
+      const response = await api.post("messages", {
+        recipient_id: userId,
+        content: input.trim()
+      }, token);
+
+      if (response?.data) {
+        setMessages((prev) => [...prev, response.data]);
+        setInput("");
+      }
+    } catch (err) {
+      console.error("Failed to send message", err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const getInitials = (name?: string) => {
+    return name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?";
   };
 
   return (
@@ -49,11 +107,13 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
           </Button>
         )}
         <Avatar className="h-9 w-9">
-          <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">{user?.initials}</AvatarFallback>
+          <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
+            {getInitials(user?.name)}
+          </AvatarFallback>
         </Avatar>
         <div>
-          <p className="text-sm font-semibold text-foreground">{user?.name}</p>
-          <p className="text-xs text-muted-foreground">{user?.bio}</p>
+          <p className="text-sm font-semibold text-foreground">{user?.name || "User"}</p>
+          <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
         </div>
       </div>
 
@@ -61,7 +121,7 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-3">
           {messages.map((msg) => {
-            const isMine = msg.senderId === currentUserId;
+            const isMine = msg.sender_id === authUser?.id || msg.sender_id === localStorage.getItem("user_id");
             return (
               <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                 <div
@@ -71,9 +131,9 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
                       : "bg-muted text-foreground rounded-bl-md"
                   }`}
                 >
-                  <p>{msg.text}</p>
+                  <p>{msg.content}</p>
                   <p className={`mt-1 text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    {new Date(msg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                   </p>
                 </div>
               </div>
@@ -95,9 +155,15 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
             placeholder="Type a message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            disabled={isSending}
             className="flex-1 bg-muted/50 border-border/50"
           />
-          <Button type="submit" size="icon" className="gradient-primary text-primary-foreground shrink-0">
+          <Button 
+            type="submit" 
+            size="icon" 
+            className="gradient-primary text-primary-foreground shrink-0"
+            disabled={isSending || !input.trim()}
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>
@@ -107,3 +173,4 @@ const MessageThread = ({ userId, messages: initialMessages, onBack }: MessageThr
 };
 
 export default MessageThread;
+

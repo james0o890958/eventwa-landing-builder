@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 const OrganizerSettings = () => {
   const { user } = useAuth();
@@ -55,22 +56,55 @@ const OrganizerSettings = () => {
   const [country, setCountry] = useState("Nigeria");
   const [currency, setCurrency] = useState("NGN (₦)");
 
-  // Load from localStorage if present
+  // Load from backend or localStorage if present
   useEffect(() => {
-    const stored = localStorage.getItem("organizer_profile");
-    if (stored) {
-      try {
-        const profile = JSON.parse(stored);
-        if (profile.name) setName(profile.name);
-        if (profile.bio) setBio(profile.bio);
-        if (profile.logo) setLogo(profile.logo);
-        if (profile.address) setAddress(profile.address);
-        if (profile.city) setCity(profile.city);
-        if (profile.state) setState(profile.state);
-      } catch (e) {
-        console.error("Failed to parse organizer profile", e);
+    const loadOrganizerProfile = async () => {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        try {
+          const res = await api.get("organizer-profile", undefined, token);
+          if (res && res.status === "success" && res.organizer) {
+            const org = res.organizer;
+            setName(org.name || "");
+            setBio(org.bio || "");
+            setLogo(org.logo || null);
+            setAddress(org.address || "");
+            setCity(org.city?.name || org.city || "");
+            setState(org.state?.name || org.state || "");
+            
+            const organizerProfile = {
+              name: org.name || "",
+              bio: org.bio || "",
+              logo: org.logo || null,
+              address: org.address || "",
+              state: org.state?.name || org.state || "",
+              city: org.city?.name || org.city || ""
+            };
+            localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to fetch organizer profile from backend, falling back to localStorage:", error);
+        }
       }
-    }
+
+      const stored = localStorage.getItem("organizer_profile");
+      if (stored) {
+        try {
+          const profile = JSON.parse(stored);
+          if (profile.name) setName(profile.name);
+          if (profile.bio) setBio(profile.bio);
+          if (profile.logo) setLogo(profile.logo);
+          if (profile.address) setAddress(profile.address);
+          if (profile.city) setCity(profile.city);
+          if (profile.state) setState(profile.state);
+        } catch (e) {
+          console.error("Failed to parse organizer profile", e);
+        }
+      }
+    };
+
+    loadOrganizerProfile();
   }, []);
 
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -138,5 +138,39 @@ export const api = {
     }
 
     return response.json();
+  },
+
+  async patch(endpoint: string, data: any, token?: string) {
+    // Clean up potential double slashes
+    const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${cleanBaseUrl}${cleanEndpoint}`;
+
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+    };
+    
+    if (!(data instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers,
+      body: data instanceof FormData ? data : JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const rawMessage = errorData.message || errorData.error || errorData.error_description || errorData.detail;
+      const parsedMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
+      throw new Error(parsedMessage || `API request failed with status ${response.status}`);
+    }
+
+    return response.json();
   }
 };

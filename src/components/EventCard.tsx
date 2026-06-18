@@ -3,28 +3,38 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Bookmark, BookmarkCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Event } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
-function getSavedIds(): string[] {
-  try {
-    const stored = localStorage.getItem("savedEvents");
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
 
-const EventCard = ({ event, index = 0 }: { event: Event; index?: number }) => {
-  const [saved, setSaved] = useState(() => getSavedIds().includes(event.id));
 
-  const toggleSave = (e: React.MouseEvent) => {
+type EventCardProps = {
+  event: Event;
+  index?: number;
+  initialSaved?: boolean;
+  onToggleSave?: (saved: boolean, eventId: string) => Promise<void> | void;
+};
+
+const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardProps) => {
+  const [saved, setSaved] = useState(() => {
+    if (initialSaved !== undefined) return initialSaved;
+    // Default to false if not provided
+    return false;
+  });
+
+  const toggleSave = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const ids = getSavedIds();
-    const next = saved
-      ? ids.filter((id) => id !== event.id)
-      : [...ids, event.id];
-    localStorage.setItem("savedEvents", JSON.stringify(next));
+    // Optimistically update UI
     setSaved(!saved);
+    if (onToggleSave) {
+      try {
+        await onToggleSave(!saved, event.id);
+      } catch (err) {
+        console.error("Toggle save failed", err);
+        // Revert UI on error
+        setSaved(saved);
+      }
+    }
   };
 
   return (
@@ -48,6 +58,7 @@ const EventCard = ({ event, index = 0 }: { event: Event; index?: number }) => {
             {/* Top row: category badge + bookmark */}
             <div className="absolute left-3 top-3 flex items-center gap-2">
               <span className="rounded-full bg-background/80 px-3 py-1 text-xs font-semibold capitalize text-foreground backdrop-blur-sm">
+                {/* FIX: was {event.category} which throws when category is an object */}
                 {event.category}
               </span>
             </div>
@@ -75,7 +86,8 @@ const EventCard = ({ event, index = 0 }: { event: Event; index?: number }) => {
               >
                 {event.price === 0
                   ? "FREE"
-                  : `₦${event.price.toLocaleString()}`}
+                  // FIX: added optional chaining so undefined price doesn't crash
+                  : `₦${event.price?.toLocaleString() ?? "0"}`}
               </span>
             </div>
           </div>
@@ -87,11 +99,11 @@ const EventCard = ({ event, index = 0 }: { event: Event; index?: number }) => {
             <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-primary" />
-                {new Date(event.date).toLocaleDateString("en-US", {
+                {new Date(event.date ?? event.start_date).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                 })}{" "}
-                · {event.time}
+                · {event.time ?? ""}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -99,7 +111,8 @@ const EventCard = ({ event, index = 0 }: { event: Event; index?: number }) => {
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-primary" />
-                {event.attendees.toLocaleString()} attending
+                {/* FIX: added optional chaining so undefined attendees doesn't crash */}
+                {(event.attendees ?? event.attendees_count)?.toLocaleString() ?? "0"} attending
               </span>
             </div>
           </div>

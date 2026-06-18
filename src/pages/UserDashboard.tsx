@@ -27,88 +27,41 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockEvents } from "@/data/mockEvents";
-import { mockConversations, mockUsers } from "@/data/mockUsers";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
+import { api } from "@/lib/api";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications" | "messages";
 
 type NotifCategory = "reminder" | "ticket" | "suggestion" | "announcement" | "nearby";
 
-const MOCK_NOTIFICATIONS = [
-  {
-    id: "n1",
-    Icon: Bell,
-    title: "Event reminder",
-    desc: "Felabration 2026 starts in 3 days — don't forget your ticket!",
-    time: "2 hours ago",
-    unread: true,
-    category: "reminder" as NotifCategory,
-  },
-  {
-    id: "n2",
-    Icon: Ticket,
-    title: "Ticket confirmed",
-    desc: "Your ticket for Lagos Carnival 2026 is ready. Tap to view QR code.",
-    time: "Yesterday",
-    unread: true,
-    category: "ticket" as NotifCategory,
-  },
-  {
-    id: "n3",
-    Icon: Calendar,
-    title: "Suggested for you",
-    desc: "Based on your love for Afrobeats, you might enjoy Wizkid Fest 2026",
-    time: "Yesterday",
-    unread: true,
-    category: "suggestion" as NotifCategory,
-  },
-  {
-    id: "n4",
-    Icon: Bell,
-    title: "Event reminder",
-    desc: "Lagos Tech Summit is tomorrow at 9:00 AM. See you there!",
-    time: "2 days ago",
-    unread: false,
-    category: "reminder" as NotifCategory,
-  },
-  {
-    id: "n5",
-    Icon: Ticket,
-    title: "Ticket confirmed",
-    desc: "Payment received — your VIP pass for Detty December is secured.",
-    time: "3 days ago",
-    unread: false,
-    category: "ticket" as NotifCategory,
-  },
-  {
-    id: "n6",
-    Icon: Calendar,
-    title: "New event suggestion",
-    desc: "You saved 3 jazz events. Check out Lagos Jazz Night this Friday.",
-    time: "4 days ago",
-    unread: false,
-    category: "suggestion" as NotifCategory,
-  },
-  {
-    id: "n7",
-    Icon: MapPin,
-    title: "New event near you",
-    desc: "Burna Boy Live is happening near Victoria Island",
-    time: "5 days ago",
-    unread: false,
-    category: "nearby" as NotifCategory,
-  },
-  {
-    id: "n8",
-    Icon: BellRing,
-    title: "Organizer announcement",
-    desc: "Gates open 1 hour earlier for Wizkid Fest",
-    time: "1 week ago",
-    unread: false,
-    category: "announcement" as NotifCategory,
-  },
-] as const;
+interface Notification {
+  id: number;
+  title: string;
+  description: string;
+  category: NotifCategory;
+  icon: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+interface Conversation {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  lastMessage: {
+    id: number;
+    content: string;
+    sender_id: string;
+    created_at: string;
+  };
+  messages: any[];
+  unread_count: number;
+}
 
 const NOTIF_FILTERS: { id: "all" | NotifCategory; label: string }[] = [
   { id: "all", label: "All" },
@@ -154,16 +107,53 @@ const UserDashboard = () => {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
+  
+  const [allEvents, setAllEvents] = useState<any[]>([]);
+  const [userEvents, setUserEvents] = useState<any[]>([]);
+  const [userSavedEvents, setUserSavedEvents] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState<string>("");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem("access_token") || "";
+        const [publicRes, savedRes, myEventsRes, messagesRes, notificationsRes] = await Promise.all([
+          api.get("public/events"),
+          token ? api.get("user-saved-events", undefined, token) : Promise.resolve({ events: [] }),
+          token ? api.get("user-events", undefined, token) : Promise.resolve({ events: [] }),
+          token ? api.get("user-messages", undefined, token) : Promise.resolve({ conversations: [], users: [] }),
+          token ? api.get("notifications", undefined, token).catch(() => ({ notifications: [] })) : Promise.resolve({ notifications: [] })
+        ]);
+        
+        if (publicRes?.events) setAllEvents(publicRes.events);
+        if (savedRes?.events) setUserSavedEvents(savedRes.events);
+        if (myEventsRes?.events) setUserEvents(myEventsRes.events);
+        if (messagesRes?.conversations) setConversations(messagesRes.conversations);
+        if (messagesRes?.users) setUsers(messagesRes.users);
+        if (notificationsRes?.notifications) setNotifications(notificationsRes.notifications);
+      } catch (err) {
+        console.error("Failed to load dashboard data", err);
+        setNotificationsError("Failed to load data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const selectedConversation = useMemo(() => {
     if (!selectedUserId) return null;
-    const conv = mockConversations.find(c => c.userId === selectedUserId);
+    const conv = conversations.find(c => c.userId === selectedUserId);
     if (conv) return conv;
     // Fallback for temporary conversation
-    const u = mockUsers.find(x => x.id === selectedUserId);
+    const u = users.find(x => x.id === selectedUserId);
     if (u) return { id: `temp-${selectedUserId}`, userId: selectedUserId, messages: [] };
     return null;
-  }, [selectedUserId]);
+  }, [selectedUserId, conversations, users]);
 
   // Only open the sheet if we're NOT on the dedicated messages tab
   const chatOpen = (chatViewOpen || !!selectedConversation) && activeTab !== "messages";
@@ -174,7 +164,7 @@ const UserDashboard = () => {
     setSearchParams(params);
   };
 
-  const setSelectedConversation = (conv: typeof mockConversations[number] | null) => {
+  const setSelectedConversation = (conv: any | null) => {
     const params = new URLSearchParams(searchParams);
     if (conv) {
       params.set("userId", conv.userId);
@@ -200,22 +190,21 @@ const UserDashboard = () => {
   };
 
 
-  const chatContacts = mockConversations
+  const chatContacts = conversations
     .map((conv) => {
-      const u = mockUsers.find((x) => x.id === conv.userId);
-      const last = conv.messages[conv.messages.length - 1];
-      return u ? { user: u, last } : null;
+      const last = conv.lastMessage;
+      return conv.user && last ? { user: conv.user, last } : null;
     })
-    .filter((c): c is { user: typeof mockUsers[number]; last: typeof mockConversations[number]["messages"][number] } => Boolean(c));
+    .filter((c): c is { user: any; last: any } => Boolean(c));
 
   const openChat = (uid: string) => {
-    const conv = mockConversations.find(c => c.userId === uid);
+    const conv = conversations.find(c => c.userId === uid);
     if (conv) {
       setSelectedConversation(conv);
       setChatOpen(true);
     } else {
-      const user = mockUsers.find(u => u.id === uid);
-      if (user) {
+      const u = users.find(x => x.id === uid);
+      if (u) {
         setSelectedConversation({ id: `temp-${uid}`, userId: uid, messages: [] });
         setChatOpen(true);
       }
@@ -247,36 +236,61 @@ const UserDashboard = () => {
   }, []);
 
   const recentlyViewedEvents = recentlyViewedIds
-    .map((rid) => mockEvents.find((e) => e.id === rid))
-    .filter((e): e is typeof mockEvents[number] => Boolean(e))
+    .map((rid) => allEvents.find((e) => String(e.id) === String(rid)))
+    .filter((e): e is any => Boolean(e))
     .slice(0, 6);
 
   const now = new Date();
-  const upcomingEvents = mockEvents
-    .filter((e) => new Date(e.date) >= now)
+  const upcomingEvents = userEvents
+    .filter((e) => new Date(e.date || e.start_date) >= now)
     .slice(0, 3);
-  const savedEvents = mockEvents.filter((e) => savedIds.includes(e.id));
-  const pastEvents = mockEvents
-    .filter((e) => new Date(e.date) < now)
+  
+  // Combine saved IDs from local storage and backend saved events
+  const allSavedIds = Array.from(new Set([...savedIds, ...userSavedEvents.map(e => String(e.id))]));
+  const savedEvents = allEvents.filter(e => allSavedIds.includes(String(e.id)));
+
+  // Handler to unsave an event: updates local storage, backend state, and calls unsave endpoint if authenticated
+  const handleUnsave = async (eventId: string) => {
+    // Update local storage saved IDs
+    const stored = localStorage.getItem("savedEvents");
+    const ids: string[] = stored ? JSON.parse(stored) : [];
+    const updated = ids.filter((id) => id !== eventId);
+    localStorage.setItem("savedEvents", JSON.stringify(updated));
+    setSavedIds(updated);
+    // Update backend saved events state
+    setUserSavedEvents(prev => prev.filter(e => String(e.id) !== String(eventId)));
+    // Call backend unsave endpoint if authenticated
+    const token = localStorage.getItem("access_token") || "";
+    if (token) {
+      try {
+        await api.delete(`user-saved-events/${eventId}`, token);
+      } catch (err) {
+        console.error("Failed to unsave event via API", err);
+      }
+    }
+  };  
+  
+  const pastEvents = userEvents
+    .filter((e) => new Date(e.date || e.start_date) < now)
     .slice(0, 3);
 
-  const upcomingEventIds = mockEvents
-    .filter((e) => new Date(e.date) >= now)
-    .map((e) => e.id);
-  const pastEventIds = mockEvents
-    .filter((e) => new Date(e.date) < now)
-    .map((e) => e.id);
+  const upcomingEventIds = upcomingEvents.map((e) => String(e.id));
+  const pastEventIds = pastEvents.map((e) => String(e.id));
 
   const suggestedEvents = useMemo(
     () =>
       generateEventSuggestions({
-        allEvents: mockEvents,
-        savedEventIds: savedIds,
+        allEvents: allEvents,
+        savedEventIds: allSavedIds,
         excludeEventIds: [...upcomingEventIds, ...pastEventIds],
         maxSuggestions: 6,
       }),
-    [savedIds.join(","), upcomingEventIds.join(","), pastEventIds.join(",")]
+    [allEvents, allSavedIds.join(","), upcomingEventIds.join(","), pastEventIds.join(",")]
   );
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
+  }
 
   const TABS: {
     id: Tab;
@@ -292,7 +306,7 @@ const UserDashboard = () => {
     },
     { id: "saved", label: "Saved", Icon: Bookmark, count: savedEvents.length },
     { id: "past", label: "Past", Icon: Ticket },
-    { id: "notifications", label: "Notifications", Icon: Bell, count: 2 },
+    { id: "notifications", label: "Notifications", Icon: Bell, count: notifications.filter(n => !n.read_at).length },
     { id: "messages", label: "Messages", Icon: MessageCircle, count: chatContacts.length },
   ];
 
@@ -438,7 +452,18 @@ const UserDashboard = () => {
                   {savedEvents.length > 0 ? (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {savedEvents.map((e, i) => (
-                        <EventCard key={e.id} event={e} index={i} />
+                        <EventCard
+                          key={e.id}
+                          event={e}
+                          index={i}
+                          initialSaved={true}
+                          onToggleSave={(newSaved, eventId) => {
+                            if (!newSaved) {
+                              // User is unsaving the event
+                              handleUnsave(eventId);
+                            }
+                          }}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -452,7 +477,7 @@ const UserDashboard = () => {
 
                   <div className="mt-10">
                     <EventsNearYou
-                      events={mockEvents.filter((e) => new Date(e.date) >= now)}
+                      events={allEvents.filter((e) => new Date(e.date || e.start_date) >= now)}
                     />
                   </div>
                 </>
@@ -478,16 +503,44 @@ const UserDashboard = () => {
               {activeTab === "notifications" && (() => {
                 const filtered =
                   notifFilter === "all"
-                    ? MOCK_NOTIFICATIONS
-                    : MOCK_NOTIFICATIONS.filter((n) => n.category === notifFilter);
+                    ? notifications
+                    : notifications.filter((n) => n.category === notifFilter);
+                
+                const getCategoryIcon = (category: NotifCategory) => {
+                  const iconMap: Record<NotifCategory, typeof Bell> = {
+                    reminder: Bell,
+                    ticket: Ticket,
+                    suggestion: Calendar,
+                    announcement: BellRing,
+                    nearby: MapPin
+                  };
+                  return iconMap[category] || Bell;
+                };
+
+                const formatTime = (timestamp: string) => {
+                  const date = new Date(timestamp);
+                  const now = new Date();
+                  const diffMs = now.getTime() - date.getTime();
+                  const diffMins = Math.floor(diffMs / 60000);
+                  const diffHours = Math.floor(diffMs / 3600000);
+                  const diffDays = Math.floor(diffMs / 86400000);
+
+                  if (diffMins < 1) return "now";
+                  if (diffMins < 60) return `${diffMins}m ago`;
+                  if (diffHours < 24) return `${diffHours}h ago`;
+                  if (diffDays < 1) return "Yesterday";
+                  if (diffDays < 7) return `${diffDays}d ago`;
+                  return date.toLocaleDateString();
+                };
+
                 return (
                   <>
                     <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
                       {NOTIF_FILTERS.map((f) => {
                         const count =
                           f.id === "all"
-                            ? MOCK_NOTIFICATIONS.length
-                            : MOCK_NOTIFICATIONS.filter((n) => n.category === f.id).length;
+                            ? notifications.length
+                            : notifications.filter((n) => n.category === f.id).length;
                         if (count === 0) return null;
                         return (
                           <button
@@ -514,6 +567,11 @@ const UserDashboard = () => {
                         );
                       })}
                     </div>
+                    {notificationsError && (
+                      <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
+                        {notificationsError}
+                      </div>
+                    )}
                     {filtered.length === 0 ? (
                       <EmptyState
                         Icon={Bell}
@@ -522,44 +580,67 @@ const UserDashboard = () => {
                       />
                     ) : (
                       <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
-                        {filtered.map((notif, i) => (
-                          <div
-                            key={notif.id}
-                            className={[
-                              "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40",
-                              i < filtered.length - 1 ? "border-b border-border/30" : "",
-                              notif.unread ? "bg-primary/5" : "",
-                            ].join(" ")}
-                          >
+                        {filtered.map((notif, i) => {
+                          const IconComponent = getCategoryIcon(notif.category);
+                          const isUnread = !notif.read_at;
+                          
+                          return (
                             <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                                notif.unread ? "gradient-primary" : "bg-secondary"
-                              }`}
+                              key={notif.id}
+                              className={[
+                                "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40 cursor-pointer",
+                                i < filtered.length - 1 ? "border-b border-border/30" : "",
+                                isUnread ? "bg-primary/5" : "",
+                              ].join(" ")}
+                              onClick={async () => {
+                                if (isUnread) {
+                                  const token = localStorage.getItem("access_token");
+                                  if (token) {
+                                    try {
+                                      await api.patch(`notifications/${notif.id}/read`, {}, token);
+                                      // Update local state
+                                      setNotifications(
+                                        notifications.map(n =>
+                                          n.id === notif.id ? { ...n, read_at: new Date().toISOString() } : n
+                                        )
+                                      );
+                                    } catch (err) {
+                                      console.error("Failed to mark notification as read", err);
+                                    }
+                                  }
+                                }
+                              }}
                             >
-                              <notif.Icon
-                                className={`h-5 w-5 ${
-                                  notif.unread ? "text-primary-foreground" : "text-muted-foreground"
+                              <div
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                  isUnread ? "gradient-primary" : "bg-secondary"
                                 }`}
-                              />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-foreground">
-                                  {notif.title}
-                                </p>
-                                {notif.unread && (
-                                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                                )}
+                              >
+                                <IconComponent
+                                  className={`h-5 w-5 ${
+                                    isUnread ? "text-primary-foreground" : "text-muted-foreground"
+                                  }`}
+                                />
                               </div>
-                              <p className="mt-0.5 text-sm text-muted-foreground">
-                                {notif.desc}
-                              </p>
-                              <p className="mt-1 text-xs text-muted-foreground/60">
-                                {notif.time}
-                              </p>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground">
+                                    {notif.title}
+                                  </p>
+                                  {isUnread && (
+                                    <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                                  )}
+                                </div>
+                                <p className="mt-0.5 text-sm text-muted-foreground">
+                                  {notif.description}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground/60">
+                                  {formatTime(notif.created_at)}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -662,7 +743,7 @@ const UserDashboard = () => {
                 </SheetTitle>
                 <SheetDescription className="text-xs font-medium text-muted-foreground">
                   {selectedConversation 
-                    ? `Messaging with ${mockUsers.find(u => u.id === selectedConversation.userId)?.name}` 
+                    ? `Messaging with ${users.find(u => u.id === selectedConversation.userId)?.name}` 
                     : "Connect with event participants"}
                 </SheetDescription>
               </div>
@@ -710,9 +791,11 @@ const UserDashboard = () => {
             onClick={handleOpenMessages}
           >
             <MessageCircle className="h-6 w-6 text-white" />
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-background">
-              3
-            </span>
+            {conversations.some(c => c.unread_count > 0) && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-background">
+                {conversations.reduce((total, c) => total + c.unread_count, 0)}
+              </span>
+            )}
           </Button>
         </motion.div>
 

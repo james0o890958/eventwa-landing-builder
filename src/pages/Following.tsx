@@ -1,21 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, UserCheck, Search, Star, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { mockEvents } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 import OrganizerLink from "@/components/OrganizerLink";
 
+interface Organizer {
+  id: string | number;
+  name: string;
+  events?: any[];
+  logo?: string;
+  bio?: string;
+}
+
 const Following = () => {
-  const organizers = Array.from(new Set(mockEvents.map((e) => e.organizer))).slice(0, 6);
-  const [following, setFollowing] = useState<string[]>(organizers.slice(0, 4));
+  const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const token = localStorage.getItem("access_token") || "";
 
-  const filtered = organizers.filter((o) => o.toLowerCase().includes(query.toLowerCase()));
+  useEffect(() => {
+    const fetchFollowing = async () => {
+      setIsLoading(true);
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
-  const toggle = (name: string) =>
-    setFollowing((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+      try {
+        const response = await api.get("user-following", undefined, token);
+        if (response?.organizers) {
+          setOrganizers(response.organizers);
+        }
+      } catch (error) {
+        console.error("Failed to load following organizers", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFollowing();
+  }, [token]);
+
+  const handleUnfollow = async (organizerId: string | number) => {
+    if (!token) return;
+
+    try {
+      await api.delete(`user-follow/${organizerId}`, token);
+      setOrganizers((prev) => prev.filter((organizer) => organizer.id !== organizerId));
+    } catch (error) {
+      console.error("Failed to unfollow organizer", error);
+    }
+  };
+
+  const filtered = organizers.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div>
@@ -30,13 +70,12 @@ const Following = () => {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {filtered.map((name, i) => {
-          const isFollowing = following.includes(name);
-          const eventCount = mockEvents.filter((e) => e.organizer === name).length;
-          const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+        {filtered.map((organizer, i) => {
+          const eventCount = organizer.events?.length ?? 0;
+          const initials = organizer.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
           return (
             <motion.div
-              key={name}
+              key={organizer.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
@@ -50,7 +89,7 @@ const Following = () => {
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <OrganizerLink
-                    organizerName={name}
+                    organizerName={organizer.name}
                     className="block truncate font-display font-semibold text-foreground hover:text-primary"
                   />
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
@@ -64,20 +103,12 @@ const Following = () => {
                 </div>
               </div>
               <Button
-                onClick={() => toggle(name)}
-                variant={isFollowing ? "secondary" : "default"}
-                className={`mt-4 w-full ${!isFollowing ? "gradient-primary text-primary-foreground" : ""}`}
+                onClick={() => handleUnfollow(organizer.id)}
+                variant="secondary"
+                className="mt-4 w-full"
                 size="sm"
               >
-                {isFollowing ? (
-                  <>
-                    <UserCheck className="mr-2 h-4 w-4" /> Following
-                  </>
-                ) : (
-                  <>
-                    <Users className="mr-2 h-4 w-4" /> Follow
-                  </>
-                )}
+                <UserCheck className="mr-2 h-4 w-4" /> Following
               </Button>
             </motion.div>
           );

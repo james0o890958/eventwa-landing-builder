@@ -34,7 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { locations as locationData } from "@/data/mockLocations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,22 +104,83 @@ const UserProfile = () => {
   const [location, setLocation] = useState("");
   const [loadingProfile, setLoadingProfile] = useState(true);
 
+  const [allLocationOptions, setAllLocationOptions] = useState<{ value: string, label: string, group: string }[]>([]);
+
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       const token = localStorage.getItem("access_token");
+      
+      try {
+        const locationsRes = await api.get("states_cities");
+        if (locationsRes && locationsRes.data) {
+          const options = locationsRes.data.flatMap((s: any) => [
+            { value: s.name, label: s.name, group: s.name },
+            ...s.cities.map((c: any) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name }))
+          ]);
+          setAllLocationOptions(options);
+        }
+      } catch (err) {
+        console.error("Failed to fetch locations", err);
+      }
+
       if (!token) {
         setLoadingProfile(false);
         return;
       }
 
       try {
-        const response = await api.get("/user-profile", undefined, token);
+        const response = await api.get("profile", undefined, token);
         if (response.user) {
           const u = response.user;
           setDisplayName(u.name || "");
           setEmail(u.email || "");
           setUsername(u.email?.split("@")[0] || "");
-          // Bio, phone, location might not be in the basic user model yet, but we'll set what we have
+          setPhone(u.phone || "");
+          setBio(u.bio || "Music lover & event enthusiast 🎵");
+          setLocation(u.city_id ? `${u.city?.name}, ${u.state?.name}` : "");
+          
+          // Load preferences
+          if (response.preferences) {
+            setEmailNotif(response.preferences.email_notifications ?? true);
+            setPushNotif(response.preferences.push_notifications ?? true);
+            setMarketingNotif(response.preferences.marketing_notifications ?? false);
+          }
+          
+          // Load privacy settings
+          if (response.privacy_settings) {
+            setHideInChatrooms(response.privacy_settings.hide_in_chatrooms ?? false);
+            setHideInAttendeeList(response.privacy_settings.hide_in_attendee_list ?? false);
+            setHideAttendedEvents(response.privacy_settings.hide_attended_events ?? false);
+            setHideHostedEvents(response.privacy_settings.hide_hosted_events ?? false);
+            setAllowDMsFromAnyone(response.privacy_settings.allow_dms_from_anyone ?? true);
+            setShowOnlineStatus(response.privacy_settings.show_online_status ?? true);
+          }
+          
+          // Load payment methods
+          if (response.payment_methods && Array.isArray(response.payment_methods)) {
+            setPaymentMethods(response.payment_methods.map((pm: any) => ({
+              id: pm.id,
+              brand: pm.brand,
+              last4: pm.last4,
+              expiry: pm.expiry,
+              isDefault: pm.is_default,
+            })));
+          }
+          
+          // Load recommendations
+          if (response.recommendations && Array.isArray(response.recommendations)) {
+            setRecommendations(response.recommendations.map((r: any) => ({
+              id: r.id,
+              category: r.category,
+              location: r.location,
+            })));
+          }
+          
+          // Load 2FA settings
+          if (u.two_fa_enabled !== undefined) {
+            setTwoFAEnabled(u.two_fa_enabled ?? false);
+            setTwoFAMethod(u.two_fa_method ?? "app");
+          }
           
           // Sync to localStorage
           const storedUserStr = localStorage.getItem("user");
@@ -167,7 +227,7 @@ const UserProfile = () => {
       }
     };
 
-    fetchProfile();
+    fetchData();
   }, []);
 
   // Password
@@ -216,44 +276,78 @@ const UserProfile = () => {
   const [newCardExpiry, setNewCardExpiry] = useState("");
   const [newCardCvc, setNewCardCvc] = useState("");
 
-  const addPaymentMethod = () => {
+  const addPaymentMethod = async () => {
     const digits = newCardNumber.replace(/\s/g, "");
     if (!newCardName.trim() || digits.length < 12 || !newCardExpiry || newCardCvc.length < 3) {
       toast.error("Fill all card fields");
       return;
     }
-    const brand = digits.startsWith("4") ? "Visa" : digits.startsWith("5") ? "Mastercard" : "Card";
-    setPaymentMethods((prev) => [
-      ...prev,
-      {
-        id: `pm${Date.now()}`,
+    
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      
+      const brand = digits.startsWith("4") ? "Visa" : digits.startsWith("5") ? "Mastercard" : "Card";
+      const response = await api.post("profile/payment-methods", {
         brand,
         last4: digits.slice(-4),
         expiry: newCardExpiry,
-        isDefault: prev.length === 0,
-      },
-    ]);
-    setNewCardName("");
-    setNewCardNumber("");
-    setNewCardExpiry("");
-    setNewCardCvc("");
-    toast.success("Payment method added");
+      }, token);
+      
+      setPaymentMethods((prev) => [
+        ...prev,
+        {
+          id: response.payment_method.id,
+          brand,
+          last4: digits.slice(-4),
+          expiry: newCardExpiry,
+          isDefault: prev.length === 0,
+        },
+      ]);
+      setNewCardName("");
+      setNewCardNumber("");
+      setNewCardExpiry("");
+      setNewCardCvc("");
+      toast.success("Payment method added");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add payment method");
+    }
   };
 
-  const setDefaultPayment = (id: string) => {
-    setPaymentMethods((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
-    toast.success("Default payment updated");
+  const setDefaultPayment = async (id: string) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.patch(`profile/payment-methods/${id}/default`, {}, token);
+      setPaymentMethods((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
+      toast.success("Default payment updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update default payment");
+    }
   };
 
-  const removePayment = (id: string) => {
-    setPaymentMethods((prev) => prev.filter((p) => p.id !== id));
-    toast.success("Payment method removed");
+  const removePayment = async (id: string) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.delete(`profile/payment-methods/${id}`, token);
+      setPaymentMethods((prev) => prev.filter((p) => p.id !== id));
+      toast.success("Payment method removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove payment method");
+    }
   };
 
-  const allLocationOptions = locationData.flatMap((s) => [
-    { value: s.name, label: s.name, group: s.name },
-    ...s.cities.map((c) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name })),
-  ]);
+
 
   const resetDraft = () => {
     setDraftCategory("");
@@ -261,7 +355,13 @@ const UserProfile = () => {
     setEditingId(null);
   };
 
-  const addRecommendation = () => {
+  const editRecommendation = (r: RecommendationPref) => {
+    setEditingId(r.id);
+    setDraftCategory(r.category);
+    setDraftLocation(r.location);
+  };
+
+  const addRecommendation = async () => {
     if (!draftCategory || !draftLocation) {
       toast.error("Pick a category and a location");
       return;
@@ -273,36 +373,59 @@ const UserProfile = () => {
       toast.error("That combination already exists");
       return;
     }
-    if (editingId) {
-      setRecommendations((prev) =>
-        prev.map((r) =>
-          r.id === editingId ? { ...r, category: draftCategory, location: draftLocation } : r,
-        ),
-      );
-      toast.success("Recommendation updated");
-    } else {
-      setRecommendations((prev) => [
-        ...prev,
-        { id: `r${Date.now()}`, category: draftCategory, location: draftLocation },
-      ]);
-      toast.success("Recommendation added");
+    
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      
+      const response = await api.post("profile/recommendations", {
+        id: editingId || undefined,
+        category: draftCategory,
+        location: draftLocation,
+      }, token);
+
+      if (editingId) {
+        setRecommendations((prev) =>
+          prev.map((r) =>
+            r.id === editingId ? { ...r, category: draftCategory, location: draftLocation } : r,
+          ),
+        );
+        toast.success("Recommendation updated");
+      } else {
+        setRecommendations((prev) => [
+          ...prev,
+          { id: response.recommendation.id, category: draftCategory, location: draftLocation },
+        ]);
+        toast.success("Recommendation added");
+      }
+      resetDraft();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save recommendation");
     }
-    resetDraft();
   };
 
-  const editRecommendation = (r: RecommendationPref) => {
-    setEditingId(r.id);
-    setDraftCategory(r.category);
-    setDraftLocation(r.location);
+  const deleteRecommendation = async (id: string) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.delete(`profile/recommendations/${id}`, token);
+      setRecommendations((prev) => prev.filter((r) => r.id !== id));
+      if (editingId === id) resetDraft();
+      toast.success("Recommendation removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete recommendation");
+    }
   };
 
-  const deleteRecommendation = (id: string) => {
-    setRecommendations((prev) => prev.filter((r) => r.id !== id));
-    if (editingId === id) resetDraft();
-    toast.success("Recommendation removed");
+  const saveRecommendations = async () => {
+    toast.success("Recommendation preferences saved");
   };
-
-  const saveRecommendations = () => toast.success("Recommendation preferences saved");
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -317,24 +440,87 @@ const UserProfile = () => {
         .toUpperCase()
     : "??";
 
-  const savePersonal = () => toast.success("Profile updated successfully");
-  const savePassword = () => {
+  const savePersonal = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.patch("profile/personal", {
+        name: displayName,
+        phone: phone || null,
+        bio: bio || null,
+      }, token);
+      toast.success("Profile updated successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update profile");
+    }
+  };
+  const savePassword = async () => {
     if (!currentPwd || !newPwd) return toast.error("Fill in all password fields");
     if (newPwd !== confirmPwd) return toast.error("New passwords don't match");
     if (newPwd.length < 8) return toast.error("Password must be at least 8 characters");
-    setCurrentPwd("");
-    setNewPwd("");
-    setConfirmPwd("");
-    toast.success("Password changed successfully");
+    
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.patch("profile/password", {
+        current_password: currentPwd,
+        password: newPwd,
+        password_confirmation: confirmPwd,
+      }, token);
+      setCurrentPwd("");
+      setNewPwd("");
+      setConfirmPwd("");
+      toast.success("Password changed successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to change password");
+    }
   };
-  const savePrivacy = () => toast.success("Privacy settings saved");
+  const savePrivacy = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.patch("profile/privacy", {
+        hide_in_chatrooms: hideInChatrooms,
+        hide_in_attendee_list: hideInAttendeeList,
+        hide_attended_events: hideAttendedEvents,
+        hide_hosted_events: hideHostedEvents,
+        allow_dms_from_anyone: allowDMsFromAnyone,
+        show_online_status: showOnlineStatus,
+      }, token);
+      toast.success("Privacy settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save privacy settings");
+    }
+  };
   const handleDelete = async () => {
     if (deleteConfirm !== "DELETE") {
       toast.error("Type DELETE to confirm");
       return;
     }
-    toast.success("Account deletion scheduled. You can cancel within 30 days.");
-    await signOut();
+    
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+      await api.post("profile/schedule-deletion", {
+        confirm: "DELETE",
+      }, token);
+      toast.success("Account deletion scheduled. You can cancel within 30 days.");
+      await signOut();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to schedule deletion");
+    }
   };
 
   if (loadingProfile) {
@@ -583,9 +769,22 @@ const UserProfile = () => {
                       </div>
                       <Switch
                         checked={twoFAEnabled}
-                        onCheckedChange={(v) => {
-                          setTwoFAEnabled(v);
-                          toast.success(v ? "2FA enabled" : "2FA disabled");
+                        onCheckedChange={async (v) => {
+                          try {
+                            const token = localStorage.getItem("access_token");
+                            if (!token) {
+                              toast.error("Not authenticated");
+                              return;
+                            }
+                            await api.patch("profile/2fa", {
+                              two_fa_enabled: v,
+                              two_fa_method: twoFAMethod,
+                            }, token);
+                            setTwoFAEnabled(v);
+                            toast.success(v ? "2FA enabled" : "2FA disabled");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Failed to update 2FA");
+                          }
                         }}
                       />
                     </div>
@@ -646,9 +845,9 @@ const UserProfile = () => {
 
                     <div className="space-y-3">
                       {[
-                        { label: "Email Notifications", desc: "Tickets, reminders, account alerts", val: emailNotif, set: setEmailNotif },
-                        { label: "Push Notifications", desc: "Real-time alerts on your device", val: pushNotif, set: setPushNotif },
-                        { label: "Marketing & Promotions", desc: "Deals, new features and recommended events", val: marketingNotif, set: setMarketingNotif },
+                        { label: "Email Notifications", desc: "Tickets, reminders, account alerts", val: emailNotif, set: setEmailNotif, key: "email_notifications" },
+                        { label: "Push Notifications", desc: "Real-time alerts on your device", val: pushNotif, set: setPushNotif, key: "push_notifications" },
+                        { label: "Marketing & Promotions", desc: "Deals, new features and recommended events", val: marketingNotif, set: setMarketingNotif, key: "marketing_notifications" },
                       ].map((n) => (
                         <div
                           key={n.label}
@@ -658,7 +857,22 @@ const UserProfile = () => {
                             <p className="text-sm font-medium text-foreground">{n.label}</p>
                             <p className="text-xs text-muted-foreground">{n.desc}</p>
                           </div>
-                          <Switch checked={n.val} onCheckedChange={n.set} />
+                          <Switch checked={n.val} onCheckedChange={async (v) => {
+                            try {
+                              const token = localStorage.getItem("access_token");
+                              if (!token) {
+                                toast.error("Not authenticated");
+                                return;
+                              }
+                              await api.patch("profile/notifications", {
+                                [n.key]: v,
+                              }, token);
+                              n.set(v);
+                              toast.success("Notification preference updated");
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Failed to update preferences");
+                            }
+                          }} />
                         </div>
                       ))}
                     </div>

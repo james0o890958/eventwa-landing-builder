@@ -62,12 +62,14 @@ export interface Event {
   title: string;
   description: string;
   date: string;
+  start_date?: string;
   time: string;
   location: string;
   image: string;
   price: number;
   organizer: string;
   attendees: number;
+  attendees_count?: number;
   category: EventCategory;
   featured?: boolean;
   ticketTypes?: TicketType[];

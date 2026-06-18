@@ -1,14 +1,12 @@
-import { mockBlogs } from "@/data/mockBlogs";
 import { BlogCard } from "@/components/BlogCard";
 
 interface EventBlogSectionProps {
-  category: string;
+  category?: string;
+  blogs?: any[];
 }
 
-export const EventBlogSection = ({ category }: EventBlogSectionProps) => {
-  const relatedPosts = mockBlogs.filter(
-    (blog) => blog.category.toLowerCase() === category.toLowerCase()
-  );
+export const EventBlogSection = ({ category, blogs = [] }: EventBlogSectionProps) => {
+  const relatedPosts = blogs;
 
   if (relatedPosts.length === 0) {
     return (
@@ -23,12 +21,12 @@ export const EventBlogSection = ({ category }: EventBlogSectionProps) => {
       {relatedPosts.map((post) => (
         <BlogCard
           key={post.id}
-          id={post.id}
+          id={String(post.id)}
           title={post.title}
-          excerpt={post.excerpt}
-          image={post.image}
-          readTime={post.readTime}
-          date={post.date}
+          excerpt={post.excerpt || post.content?.substring(0, 100) || ""}
+          image={post.image || post.thumbnail || "/images/placeholder-blog.jpg"}
+          readTime={post.read_time || "5 min read"}
+          date={new Date(post.created_at).toLocaleDateString()}
         />
       ))}
     </div>

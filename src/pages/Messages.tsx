@@ -4,35 +4,34 @@ import { MessageSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConversationList from "@/components/ConversationList";
 import MessageThread from "@/components/MessageThread";
-import { mockConversations, mockUsers, type MockConversation } from "@/data/mockUsers";
+
+interface Conversation {
+  id: string;
+  userId: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  messages: any[];
+}
 
 const Messages = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [activeConv, setActiveConv] = useState<MockConversation | null>(null);
+  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
   const [showThread, setShowThread] = useState(false);
 
-  // Open conversation from ?user= param
   useEffect(() => {
     const userId = searchParams.get("user");
     if (userId) {
-      const conv = mockConversations.find((c) => c.userId === userId);
-      if (conv) {
-        setActiveConv(conv);
-        setShowThread(true);
-      } else {
-        // Create empty conversation for this user
-        const user = mockUsers.find((u) => u.id === userId);
-        if (user) {
-          const newConv: MockConversation = { id: `conv-new-${userId}`, userId, messages: [] };
-          setActiveConv(newConv);
-          setShowThread(true);
-        }
-      }
+      setActiveConv({ id: `conv-${userId}`, userId, messages: [] });
+      setShowThread(true);
     }
   }, [searchParams]);
 
-  const handleSelectConversation = (conv: MockConversation) => {
+  const handleSelectConversation = (conv: Conversation) => {
     setActiveConv(conv);
     setShowThread(true);
   };
@@ -53,7 +52,7 @@ const Messages = () => {
               }`}
             >
               <ConversationList
-                activeConversationId={activeConv?.id ?? null}
+                activeConversationId={activeConv?.userId ?? null}
                 onSelectConversation={handleSelectConversation}
               />
             </div>
@@ -63,7 +62,7 @@ const Messages = () => {
               {activeConv ? (
                 <MessageThread
                   userId={activeConv.userId}
-                  messages={activeConv.messages}
+                  messages={activeConv.messages as any}
                   onBack={() => setShowThread(false)}
                 />
               ) : (

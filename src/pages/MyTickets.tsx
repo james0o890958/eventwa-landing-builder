@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,68 +16,43 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockEvents } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-// ─── Mock purchased tickets ───────────────────────────────────────────────────
+interface TicketEvent {
+  id: number | string;
+  title: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  price?: number;
+  image?: string;
+  image_url?: string;
+  category?: string;
+  organizer?: { name?: string };
+  locations?: Array<{ name?: string; address?: string }>;
+  date?: string;
+  time?: string;
+  location?: string;
+}
+
+type TicketStatus = "pending" | "confirmed" | "cancelled";
+type TicketViewStatus = "upcoming" | "attended" | "cancelled";
 
 interface PurchasedTicket {
   ticketId: string;
-  eventId: string;
+  eventId: number | string;
   ticketType: string;
   quantity: number;
   totalPaid: number;
   purchaseDate: string;
-  status: "upcoming" | "attended" | "cancelled";
+  status: TicketStatus;
+  ticket_code: string;
+  event: TicketEvent;
+  viewStatus: TicketViewStatus;
 }
 
-const MOCK_TICKETS: PurchasedTicket[] = [
-  {
-    ticketId: "EVT-2026-001",
-    eventId: "2",
-    ticketType: "VIP Floor",
-    quantity: 2,
-    totalPaid: 120000,
-    purchaseDate: "2025-07-01",
-    status: "upcoming",
-  },
-  {
-    ticketId: "EVT-2026-002",
-    eventId: "1",
-    ticketType: "General",
-    quantity: 1,
-    totalPaid: 5000,
-    purchaseDate: "2025-06-15",
-    status: "upcoming",
-  },
-  {
-    ticketId: "EVT-2026-003",
-    eventId: "9",
-    ticketType: "Free Entry",
-    quantity: 3,
-    totalPaid: 0,
-    purchaseDate: "2025-05-20",
-    status: "upcoming",
-  },
-  {
-    ticketId: "EVT-2025-091",
-    eventId: "5",
-    ticketType: "21K Half Marathon",
-    quantity: 1,
-    totalPaid: 10000,
-    purchaseDate: "2025-01-10",
-    status: "attended",
-  },
-  {
-    ticketId: "EVT-2025-042",
-    eventId: "12",
-    ticketType: "Regular",
-    quantity: 2,
-    totalPaid: 100000,
-    purchaseDate: "2024-09-30",
-    status: "attended",
-  },
-];
+const initialTickets: PurchasedTicket[] = [];
 
 // ─── Minimal QR code visual ───────────────────────────────────────────────────
 
@@ -131,24 +106,148 @@ const MyTickets = () => {
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<PurchasedTicket[]>(initialTickets);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const token = localStorage.getItem("access_token") || "";
 
-  const enriched = MOCK_TICKETS.map((t) => ({
-    ...t,
-    event: mockEvents.find((e) => e.id === t.eventId),
-  })).filter((t) => t.event);
+  useEffect(() => {
+    const fetchTickets = async () => {
+      if (!token) {
+        setIsLoading(false);
+        setError("No access token available.");
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get("user/tickets", undefined, token);
+        if (response?.tickets) {
+          const now = new Date();
+          const normalized = response.tickets.map((ticket: any) => {
+            const event = ticket.event ?? {};
+            const status = ticket.status ?? "confirmed";
+            const eventStart = event.start_date ? new Date(event.start_date) : null;
+            const eventEnd = event.end_date ? new Date(event.end_date) : eventStart;
+            const viewStatus: TicketViewStatus =
+              status === "cancelled"
+                ? "cancelled"
+                : eventEnd && eventEnd < now
+                ? "attended"
+                : "upcoming";
+            const location = event.locations?.[0]?.address || event.locations?.[0]?.name || "";
+            const startTime = eventStart
+              ? eventStart.toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : undefined;
+            return {
+              ticketId: ticket.ticket_code || String(ticket.id),
+              eventId: event.id || ticket.event_id,
+              ticketType: event.title || "Ticket",
+              quantity: ticket.quantity ?? 1,
+              totalPaid: ticket.price ?? event.price ?? 0,
+              purchaseDate: ticket.created_at || ticket.createdAt || "",
+              status,
+              ticket_code: ticket.ticket_code,
+              event: {
+                id: event.id,
+                title: event.title || "Event",
+                description: event.description,
+                start_date: event.start_date,
+                end_date: event.end_date,
+                price: event.price,
+                image: event.image || event.image_url || "",
+                image_url: event.image_url || event.image || "",
+                category: event.category,
+                organizer: event.organizer,
+                locations: event.locations,
+                date: eventStart
+                  ? eventStart.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : undefined,
+                time: startTime,
+                location,
+              },
+              viewStatus,
+            } as PurchasedTicket;
+          });
+          setTickets(normalized);
+        }
+      } catch (err) {
+        console.error("Failed to load tickets", err);
+        setError("Unable to load tickets.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, [token]);
+
+  const enriched = tickets;
 
   const filtered = enriched.filter((t) => {
     const matchesStatus =
-      activeFilter === "all" || t.status === activeFilter;
+      activeFilter === "all" ||
+      (activeFilter === "cancelled"
+        ? t.status === "cancelled"
+        : t.viewStatus === activeFilter);
     const matchesSearch =
       !searchQuery.trim() ||
-      t.event!.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.ticketId.toLowerCase().includes(searchQuery.toLowerCase());
+      t.event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(t.ticketId).toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
-  const handleDownload = (ticket: (typeof enriched)[0]) => {
-    toast(`Downloading ticket ${ticket.ticketId}… 📥`);
+  const handleDownload = async (ticket: (typeof enriched)[0]) => {
+    if (!token) {
+      toast.error("Unable to download ticket without an access token.");
+      return;
+    }
+
+    try {
+      const response = await api.get(
+        `user/tickets/${ticket.ticketId}/download`,
+        undefined,
+        token,
+      );
+
+      const payload = response?.ticket ?? ticket;
+      const content = [
+        `Event: ${payload.event?.title ?? "Unknown event"}`,
+        `Ticket ID: ${payload.ticket_code ?? payload.ticketId}`,
+        `Quantity: ${payload.quantity}`,
+        `Status: ${payload.status}`,
+        `Price: ₦${payload.price?.toLocaleString?.() ?? payload.totalPaid}`,
+        `Purchase date: ${new Date(payload.created_at ?? payload.purchaseDate).toLocaleString()}`,
+        `Location: ${payload.event?.location ?? payload.event?.locations?.[0]?.address ?? "TBD"}`,
+        "",
+        payload.event?.description ?? "",
+      ].join("\n");
+
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ticket-${ticket.ticketId}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success(`Downloaded ticket ${ticket.ticketId}`);
+    } catch (err) {
+      console.error("Ticket download failed", err);
+      toast.error("Ticket download failed. Try again.");
+    }
   };
 
   const handleShare = async (ticket: (typeof enriched)[0]) => {
@@ -171,11 +270,18 @@ const MyTickets = () => {
 
   const handleAddToCalendar = (ticket: (typeof enriched)[0]) => {
     const ev = ticket.event!;
-    const start = new Date(`${ev.date}T${ev.time}`);
-    const end = new Date(start.getTime() + 3 * 60 * 60 * 1000); // +3h
-    const fmt = (d: Date) =>
-      d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(ev.description)}&location=${encodeURIComponent(ev.location)}`;
+    const start = ev.start_date ? new Date(ev.start_date) : null;
+    if (!start || Number.isNaN(start.getTime())) {
+      toast.error("Unable to add event to calendar without a valid start date.");
+      return;
+    }
+    const end = ev.end_date ? new Date(ev.end_date) : new Date(start.getTime() + 3 * 60 * 60 * 1000); // +3h
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      ev.title,
+    )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(ev.description ?? "")}&location=${encodeURIComponent(
+      ev.location ?? ev.locations?.[0]?.address ?? "",
+    )}`;
     window.open(url, "_blank");
   };
 
@@ -184,12 +290,17 @@ const MyTickets = () => {
     {
       id: "upcoming" as const,
       label: "Upcoming",
-      count: enriched.filter((t) => t.status === "upcoming").length,
+      count: enriched.filter((t) => t.viewStatus === "upcoming").length,
     },
     {
       id: "attended" as const,
       label: "Attended",
-      count: enriched.filter((t) => t.status === "attended").length,
+      count: enriched.filter((t) => t.viewStatus === "attended").length,
+    },
+    {
+      id: "cancelled" as const,
+      label: "Cancelled",
+      count: enriched.filter((t) => t.status === "cancelled").length,
     },
   ];
 

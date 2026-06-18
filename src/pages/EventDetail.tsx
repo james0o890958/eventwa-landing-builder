@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+  import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,10 +58,12 @@ import Footer from "@/components/Footer";
 import AttendeeList from "@/components/AttendeeList";
 import { EventChatroomTab } from "@/components/EventChatroomTab";
 import { EventBlogSection } from "@/components/EventBlogSection";
-import { mockEvents } from "@/data/mockEvents";
-import { mockUsers, currentUserId, mockConversations } from "@/data/mockUsers";
+
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
+
+
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -106,35 +108,7 @@ const SPONSORSHIP_TYPES = [
 
 // ─── mock data ───────────────────────────────────────────────────────────────
 
-const MOCK_REVIEWS = [
-  {
-    id: "r1",
-    name: "Adaeze Obi",
-    initials: "AO",
-    rating: 5,
-    date: "March 2025",
-    comment:
-      "Absolutely phenomenal! The energy was electric from start to finish. One of the best events I've ever attended in Lagos. Will definitely be back next year!",
-  },
-  {
-    id: "r2",
-    name: "Chidi Nwosu",
-    initials: "CN",
-    rating: 4,
-    date: "March 2025",
-    comment:
-      "Great organisation and world-class production. The only thing that could be improved is the queue management at entry. Once inside, it was flawless.",
-  },
-  {
-    id: "r3",
-    name: "Fatima Bello",
-    initials: "FB",
-    rating: 5,
-    date: "February 2025",
-    comment:
-      "Came all the way from Abuja and it was 100% worth it. The atmosphere, the crowd, the performances — everything was top tier. No dulling!",
-  },
-];
+
 
 // ─── Star renderer ────────────────────────────────────────────────────────────
 
@@ -226,26 +200,105 @@ const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const event = mockEvents.find((e) => e.id === id);
+  const [event, setEvent] = useState<any>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
+
+  const normalizeEvent = (eventData: any) => {
+    const locationValue =
+      eventData.location?.address ||
+      eventData.location?.name ||
+      eventData.location?.city ||
+      eventData.location ||
+      eventData.online_link ||
+      "Unknown location";
+
+    const organizerName =
+      typeof eventData.organizer === "string"
+        ? eventData.organizer
+        : eventData.organizer?.name || eventData.organizer?.full_name || "Unknown organizer";
+
+    const rawDate = eventData.start_date || eventData.date || eventData.event_date || "";
+    const parsedDate = rawDate ? new Date(rawDate) : null;
+
+    return {
+      ...eventData,
+      id: String(eventData.id ?? eventData.event_id ?? ""),
+      title: eventData.title || eventData.name || "Untitled Event",
+      description: eventData.description || eventData.summary || "",
+      date: rawDate ? rawDate.split("T")[0] : eventData.date || "",
+      time:
+        parsedDate && !Number.isNaN(parsedDate.getTime())
+          ? parsedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : eventData.time || "",
+      location: locationValue,
+      image:
+        eventData.image_url ||
+        eventData.image ||
+        eventData.bannerUrl ||
+        eventData.imageUrl ||
+        "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80",
+      price: Number(eventData.price) || 0,
+      organizer: organizerName,
+      attendees: Number(eventData.capacity ?? eventData.attendees ?? eventData.attendee_count ?? eventData.attendeeCount ?? 0),
+      category:
+        typeof eventData.category === "string"
+          ? eventData.category.toLowerCase()
+          : eventData.category?.name?.toLowerCase() || "other",
+      ticketTypes:
+        Array.isArray(eventData.ticketTypes)
+          ? eventData.ticketTypes
+          : Array.isArray(eventData.ticket_tiers)
+          ? eventData.ticket_tiers
+          : eventData.ticketTypes?.data ||
+            eventData.ticket_types ||
+            (eventData.price !== undefined
+              ? [
+                  {
+                    name: "General Admission",
+                    price: Number(eventData.price) || 0,
+                    quantity: Number(eventData.capacity) || 0,
+                    sold: 0,
+                  },
+                ]
+              : []),
+      agenda: eventData.agenda || eventData.schedule || [],
+      rules: eventData.rules || [],
+    };
+  };
 
   // ── Track recently viewed (last 6, most-recent first) ─────────────────────
   useEffect(() => {
-    if (!id || !event) return;
-    try {
-      const raw = localStorage.getItem("recentlyViewedEvents");
-      const list: string[] = raw ? JSON.parse(raw) : [];
-      const next = [id, ...list.filter((x) => x !== id)].slice(0, 6);
-      localStorage.setItem("recentlyViewedEvents", JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  }, [id, event]);
+    const loadEvent = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          toast.error("You must be logged in to view event details.");
+          navigate("/login");
+          return;
+        }
+        const res = await api.get(`public/events/${id}`, undefined, token);
+        if (res && res.status === "success" && res.event) {
+          setEvent(normalizeEvent(res.event));
+        } else if (res && res.status === "success" && res.data) {
+          setEvent(normalizeEvent(res.data));
+        } else {
+          toast.error("Event not found.");
+        }
+      } catch (error) {
+        console.error("Failed to load event:", error);
+        toast.error("Failed to load event details.");
+      } finally {
+        setLoadingEvent(false);
+      }
+    };
+    loadEvent();
+  }, [id, navigate]);
 
   // ── Auth & Attendance checks ────────────────────────────────────────────────
-  const currentUser = user ? mockUsers.find((u) => u.id === user.id) : null;
+  const currentUser = user as any; // use authenticated user (any for extended fields)
   const isOrganizer = user?.user_metadata?.full_name === event?.organizer || user?.email === "organizer@example.com";
-  const hasAttended = currentUser?.joinedEvents.includes(id ?? "") ?? false;
-  const hasPurchasedTicket = currentUser?.purchasedTickets.includes(id ?? "") ?? false;
+  const hasAttended = false; // attendance check not available in mock data
+  const hasPurchasedTicket = false; // purchase check not available in mock data
   const canLeaveReview = !!user && hasAttended;
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
 
@@ -411,28 +464,41 @@ const EventDetail = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [showShareMenu]);
 
-  // ── not found ────────────────────────────────────────────────────────────────
-  if (!event) {
+  if (loadingEvent) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="min-h-screen bg-background flex flex-col justify-between">
         <Navbar />
-        <div className="flex flex-1 items-center justify-center pt-16">
-          <div className="text-center">
-            <h1 className="font-display text-3xl font-bold text-foreground">Event Not Found</h1>
-            <Link to="/" className="mt-4 inline-block text-primary hover:underline">
-              Back to Home
-            </Link>
-          </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-12">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/30 border-t-primary mb-4" />
+          <p className="text-muted-foreground text-sm font-medium animate-pulse">Loading event details...</p>
         </div>
+        <Footer />
       </div>
     );
   }
 
-  function organizerSlug(organizer: string): import("react").SetStateAction<string> {
-    throw new Error("Function not implemented.");
+  function organizerSlug(organizer: string) {
+    return organizer
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
   }
 
+  if (!event) {
   return (
+    <div className="min-h-screen bg-background flex flex-col justify-between">
+      <Navbar />
+      <div className="flex-1 flex flex-col items-center justify-center py-12">
+        <X className="h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground text-sm font-medium">Event not found.</p>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
@@ -714,12 +780,12 @@ const EventDetail = () => {
                     <div className="h-64 rounded-xl border border-border/50 bg-secondary/50 flex items-center justify-center">
                       <div className="text-center">
                         <MapPin className="mx-auto mb-2 h-10 w-10 text-primary" />
-                        <p className="text-sm font-medium text-foreground">{isOnline ? "Online Event" : event.location}</p>
+                        <p className="text-sm font-medium text-foreground">{isOnline ? "Online Event" : (event.locations?.[0]?.name || event.locations?.[0]?.address || "Location TBD")}</p>
                         {isOnline ? (
                           <p className="mt-1 text-xs text-muted-foreground">Join link provided after ticket purchase</p>
                         ) : (
                           <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locations?.[0]?.address || event.locations?.[0]?.name || "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 mt-3 text-sm text-primary hover:underline"
@@ -800,7 +866,7 @@ const EventDetail = () => {
                         <div className="mt-1 flex items-center gap-2">
                           <Stars rating={4} />
                           <span className="text-sm font-semibold text-foreground">4.2</span>
-                          <span className="text-sm text-muted-foreground">({MOCK_REVIEWS.length} reviews)</span>
+                          <span className="text-sm text-muted-foreground">({event.reviews?.length || 0} reviews)</span>
                         </div>
                       </div>
                       {canLeaveReview ? (
@@ -847,20 +913,20 @@ const EventDetail = () => {
 
                     {/* Review list */}
                     <div className="space-y-5">
-                      {MOCK_REVIEWS.map((review) => (
+                      {(event.reviews || []).map((review: any) => (
                         <div key={review.id} className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0">
                           <Avatar className="h-9 w-9 shrink-0">
                             <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
-                              {review.initials}
+                              {review.user?.name?.slice(0, 2).toUpperCase() || "U"}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">{review.name}</p>
-                              <Stars rating={review.rating} />
-                              <span className="text-xs text-muted-foreground">{review.date}</span>
+                              <p className="text-sm font-medium text-foreground">{review.user?.name || "Anonymous"}</p>
+                              <Stars rating={review.rating || 5} />
+                              <span className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</span>
                             </div>
-                            <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">{review.comment}</p>
+                            <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">{review.content || review.comment}</p>
                           </div>
                         </div>
                       ))}
@@ -873,6 +939,7 @@ const EventDetail = () => {
                   {canViewAttendees ? (
                     <AttendeeList 
                       eventId={event.id} 
+                      attendees={event.tickets?.map((t: any) => t.user).filter(Boolean) || []}
                       onSelectUser={setSelectedUser} 
                     />
                   ) : (
@@ -890,7 +957,7 @@ const EventDetail = () => {
 
                 {/* ── BLOG TAB ─────────────────────────────────────────────── */}
                 <TabsContent value="blog" className="mt-0">
-                  <EventBlogSection category={event.category} />
+                  <EventBlogSection category={event.category} blogs={event.blogs || []} />
                 </TabsContent>
 
                  {/* ── CHAT TAB ─────────────────────────────────────────────── */}
@@ -898,6 +965,7 @@ const EventDetail = () => {
                    <EventChatroomTab 
                      eventId={event.id} 
                      organizerName={event.organizer} 
+                     chatrooms={event.chatrooms || []}
                      onSelectUser={setSelectedUser}
                      isOrganizer={isOrganizer}
                      activeTab={activeTab}
@@ -1244,16 +1312,16 @@ const EventDetail = () => {
 
 // Internal component for the chat overlay content to handle its own logic
 const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClose: () => void }) => {
+  const { user: currentUser } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  const user = mockUsers.find(u => u.id === userId);
+  const chatUser = userId ? { id: userId, name: "Attendee", initials: "AT", location: "Unknown", avatar: "" } : null;
 
   useEffect(() => {
     if (userId) {
-      const conv = mockConversations.find(c => c.userId === userId);
-      setMessages(conv?.messages || []);
+      setMessages([]);
     }
   }, [userId]);
 
@@ -1266,7 +1334,7 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
     if (!input.trim()) return;
     const newMsg = {
       id: `dm${Date.now()}`,
-      senderId: currentUserId,
+      senderId: currentUser?.id || "currentUser",
       text: input.trim(),
       timestamp: new Date().toISOString(),
     };
@@ -1275,21 +1343,21 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
     toast.success("Message sent!");
   };
 
-  if (!user) return null;
+  if (!chatUser) return null;
 
   return (
     <>
       <SheetHeader className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">{user.initials}</AvatarFallback>
+            <AvatarImage src={chatUser.avatar} />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold">{chatUser.initials}</AvatarFallback>
           </Avatar>
           <div className="text-left">
-            <SheetTitle className="text-base font-bold leading-none">{user.name}</SheetTitle>
+            <SheetTitle className="text-base font-bold leading-none">{chatUser.name}</SheetTitle>
             <div className="flex items-center gap-1 text-[11px] text-primary font-medium mt-1">
               <MapPin className="h-3 w-3" />
-              <span>{user.location}</span>
+              <span>{chatUser.location}</span>
             </div>
           </div>
         </div>
@@ -1304,11 +1372,11 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
             <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
               <MessageSquare className="h-12 w-12 mb-3" />
               <p className="text-sm font-medium">No messages yet</p>
-              <p className="text-xs">Start the conversation with {user.name}</p>
+              <p className="text-xs">Start the conversation with {chatUser.name}</p>
             </div>
           ) : (
             messages.map((msg) => {
-              const isMine = msg.senderId === currentUserId;
+              const isMine = msg.senderId === (currentUser?.id || "currentUser");
               return (
                 <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                   <div
@@ -1334,7 +1402,7 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
       <div className="p-4 border-t border-border/50 bg-card">
         <form onSubmit={sendMessage} className="flex gap-2">
           <Input
-            placeholder={`Message ${user.name.split(' ')[0]}...`}
+            placeholder={`Message ${chatUser.name.split(' ')[0]}...`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 bg-secondary border-border/50 h-11"

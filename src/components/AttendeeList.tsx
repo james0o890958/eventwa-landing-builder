@@ -1,16 +1,13 @@
 import { MessageCircle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { mockUsers } from "@/data/mockUsers";
-
 interface AttendeeListProps {
   eventId: string;
+  attendees?: any[];
   onSelectUser?: (userId: string) => void;
 }
 
-const AttendeeList = ({ eventId, onSelectUser }: AttendeeListProps) => {
-  const attendees = mockUsers.filter((u) => u.joinedEvents.includes(eventId));
-
+const AttendeeList = ({ eventId, attendees = [], onSelectUser }: AttendeeListProps) => {
   if (attendees.length === 0) return null;
 
   return (
@@ -19,21 +16,23 @@ const AttendeeList = ({ eventId, onSelectUser }: AttendeeListProps) => {
         Attendees ({attendees.length})
       </h2>
       <div className="space-y-4">
-        {attendees.map((user) => (
+        {attendees.map((user: any) => (
           <div key={user.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border border-border/50">
                 <AvatarImage src={user.avatar} />
                 <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                  {user.initials}
+                  {user.name?.slice(0, 2).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <p className="text-sm font-semibold text-foreground">{user.name}</p>
-                <div className="flex items-center gap-1 text-[10px] text-primary font-medium">
-                  <MapPin className="h-2.5 w-2.5" />
-                  <span>{user.location}</span>
-                </div>
+                {user.location && (
+                  <div className="flex items-center gap-1 text-[10px] text-primary font-medium">
+                    <MapPin className="h-2.5 w-2.5" />
+                    <span>{user.location}</span>
+                  </div>
+                )}
               </div>
             </div>
             <Button 

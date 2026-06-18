@@ -18,7 +18,16 @@ const SavedEvents = () => {
     }
   }, []);
 
-  const savedEvents = mockEvents.filter((e) => savedIds.includes(e.id));
+  // Handler to unsave an event: updates local storage and state
+  const handleUnsave = (eventId: string) => {
+    const stored = localStorage.getItem("savedEvents");
+    const ids: string[] = stored ? JSON.parse(stored) : [];
+    const updated = ids.filter((id) => id !== eventId);
+    localStorage.setItem("savedEvents", JSON.stringify(updated));
+    setSavedIds(updated);
+  };
+
+  const savedEvents = mockEvents.filter((event) => savedIds.includes(event.id));
 
   return (
     <div className="bg-background">
@@ -45,9 +54,20 @@ const SavedEvents = () => {
 
           {savedEvents.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {savedEvents.map((event, i) => (
-                <EventCard key={event.id} event={event} index={i} />
-              ))}
+                {savedEvents.map((event, i) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    index={i}
+                    initialSaved={true}
+                    onToggleSave={(newSaved, eventId) => {
+                      if (!newSaved) {
+                        // User is unsaving the event
+                        handleUnsave(eventId);
+                      }
+                    }}
+                  />
+                ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-28 text-center">
