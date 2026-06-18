@@ -8,7 +8,15 @@ export interface SuggestionOptions {
   maxSuggestions?: number;
 }
 
-const normalize = (value: string | undefined) => value?.toLowerCase().trim() ?? "";
+const normalize = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value).toLowerCase().trim();
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return normalize(record.name ?? record.title ?? record.label ?? record.slug ?? record.address ?? record.city);
+  }
+  return "";
+};
 
 const shuffleEvents = (events: Event[]) => {
   const items = [...events];
@@ -20,7 +28,9 @@ const shuffleEvents = (events: Event[]) => {
 };
 
 const getTrendingEvents = (events: Event[], limit: number) =>
-  [...events].sort((a, b) => b.attendees - a.attendees).slice(0, limit);
+  [...events]
+    .sort((a, b) => Number(b.attendees ?? b.attendees_count ?? 0) - Number(a.attendees ?? a.attendees_count ?? 0))
+    .slice(0, limit);
 
 const getSimilarEvents = (
   events: Event[],
@@ -28,8 +38,8 @@ const getSimilarEvents = (
   limit: number
 ) =>
   [...events]
-    .filter((event) => savedCategories.has(event.category))
-    .sort((a, b) => b.attendees - a.attendees)
+    .filter((event) => savedCategories.has(normalize(event.category)))
+    .sort((a, b) => Number(b.attendees ?? b.attendees_count ?? 0) - Number(a.attendees ?? a.attendees_count ?? 0))
     .slice(0, limit);
 
 const getLocationMatches = (
@@ -57,7 +67,7 @@ export const generateEventSuggestions = ({
   const savedCategorySet = new Set(
     allEvents
       .filter((event) => savedEventIds.includes(event.id))
-      .map((event) => event.category)
+      .map((event) => normalize(event.category))
   );
 
   const selected: Event[] = [];
