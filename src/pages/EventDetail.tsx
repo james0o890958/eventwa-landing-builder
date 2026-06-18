@@ -270,6 +270,7 @@ const EventDetail = () => {
   // ── Track recently viewed (last 6, most-recent first) ─────────────────────
   useEffect(() => {
     const loadEvent = async () => {
+      const fallbackEvent = mockEvents.find((item) => String(item.id) === String(id));
       try {
         const token = localStorage.getItem("access_token");
         if (!token) {
@@ -282,12 +283,18 @@ const EventDetail = () => {
           setEvent(normalizeEvent(res.event));
         } else if (res && res.status === "success" && res.data) {
           setEvent(normalizeEvent(res.data));
+        } else if (fallbackEvent) {
+          setEvent(normalizeEvent(fallbackEvent));
         } else {
           toast.error("Event not found.");
         }
       } catch (error) {
         console.error("Failed to load event:", error);
-        toast.error("Failed to load event details.");
+        if (fallbackEvent) {
+          setEvent(normalizeEvent(fallbackEvent));
+        } else {
+          toast.error("Failed to load event details.");
+        }
       } finally {
         setLoadingEvent(false);
       }
