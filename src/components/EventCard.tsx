@@ -58,8 +58,9 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
             {/* Top row: category badge + bookmark */}
             <div className="absolute left-3 top-3 flex items-center gap-2">
               <span className="rounded-full bg-background/80 px-3 py-1 text-xs font-semibold capitalize text-foreground backdrop-blur-sm">
-                {/* FIX: was {event.category} which throws when category is an object */}
-                {event.category}
+                {typeof event.category === "object" && event.category !== null
+                  ? (event.category as any).name ?? (event.category as any).slug ?? ""
+                  : event.category}
               </span>
             </div>
 
