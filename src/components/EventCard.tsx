@@ -31,6 +31,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
   const categoryLabel = getDisplayText(event.category, "Event");
   const titleLabel = getDisplayText(event.title, "Untitled event");
   const locationLabel = getDisplayText(event.location, "Location TBD");
+  const timeLabel = getDisplayText(event.time);
 
   const [saved, setSaved] = useState(() => {
     if (initialSaved !== undefined) return initialSaved;
@@ -119,7 +120,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
                   month: "short",
                   day: "numeric",
                 })}{" "}
-                · {event.time ?? ""}
+                · {timeLabel}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-primary" />
