@@ -311,8 +311,9 @@ const Notifications = () => {
           <div className="space-y-2">
             <AnimatePresence initial={false}>
               {filtered.map((notif, i) => {
-                const config = TYPE_CONFIG[notif.type];
+                const config = TYPE_CONFIG[notif.category];
                 const Icon = config.icon;
+                const isRead = !!notif.read_at;
 
                 return (
                   <motion.div
