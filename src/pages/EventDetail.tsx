@@ -1312,6 +1312,70 @@ return (
         </DialogContent>
       </Dialog>
 
+      {/* Ticket Details Modal */}
+      <Dialog open={showTicketModal} onOpenChange={setShowTicketModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl font-bold">Ticket Details</DialogTitle>
+            <DialogDescription>
+              Add attendee details for {event.title} before checkout.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleTicketFormSubmit} className="space-y-4 pt-2">
+            <div className="rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
+              <div className="flex justify-between gap-4 text-muted-foreground">
+                <span>{event.ticketTypes?.[selectedTicket]?.name ?? "General Admission"}</span>
+                <span>{qty} ticket{qty > 1 ? "s" : ""}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-4 font-semibold text-foreground">
+                <span>Total</span>
+                <span>{ticketTotal === 0 ? "Free" : `₦${ticketTotal.toLocaleString()}`}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ticket-name">Full Name</Label>
+              <Input
+                id="ticket-name"
+                value={purchaserName}
+                onChange={(e) => setPurchaserName(e.target.value)}
+                placeholder="Enter attendee name"
+                className="bg-secondary border-border/50"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ticket-email">Email Address</Label>
+              <Input
+                id="ticket-email"
+                type="email"
+                value={purchaserEmail}
+                onChange={(e) => setPurchaserEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="bg-secondary border-border/50"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ticket-phone">Phone Number</Label>
+              <Input
+                id="ticket-phone"
+                type="tel"
+                value={purchaserPhone}
+                onChange={(e) => setPurchaserPhone(e.target.value)}
+                placeholder="+234 800 000 0000"
+                className="bg-secondary border-border/50"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground shadow-glow">
+              Continue to Checkout
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Shared Direct Chat Overlay */}
       <Sheet open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <SheetContent className="sm:max-w-[450px] p-0 flex flex-col border-l border-border/50 shadow-2xl [&>button]:hidden">
