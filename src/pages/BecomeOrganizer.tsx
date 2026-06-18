@@ -59,7 +59,7 @@ const BecomeOrganizer = () => {
       toast.error("Please login to become an organizer");
       navigate("/login");
     } else {
-      const isOrganizer = user.is_organizer || user.user_metadata?.is_organizer || !!user.organizer || !!localStorage.getItem("organizer_profile");
+      const isOrganizer = (user as any).is_organizer || user.user_metadata?.is_organizer || !!(user as any).organizer || !!localStorage.getItem("organizer_profile");
       if (isOrganizer) {
         toast.info("You already have an organizer profile.");
         navigate("/organizer/dashboard");
@@ -146,7 +146,7 @@ const BecomeOrganizer = () => {
       return;
     }
 
-    const isOrganizer = user?.is_organizer || user?.user_metadata?.is_organizer || !!user?.organizer || !!localStorage.getItem("organizer_profile");
+    const isOrganizer = user?.user_metadata?.is_organizer || !!localStorage.getItem("organizer_profile");
     if (isOrganizer) {
       toast.error("You already have an organizer profile.");
       navigate("/organizer/dashboard");
