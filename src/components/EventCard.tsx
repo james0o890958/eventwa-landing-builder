@@ -14,7 +14,24 @@ type EventCardProps = {
   onToggleSave?: (saved: boolean, eventId: string) => Promise<void> | void;
 };
 
+const getDisplayText = (value: unknown, fallback = "") => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return getDisplayText(
+      record.name ?? record.title ?? record.label ?? record.slug ?? record.address ?? record.city,
+      fallback,
+    );
+  }
+  return fallback;
+};
+
 const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardProps) => {
+  const categoryLabel = getDisplayText(event.category, "Event");
+  const titleLabel = getDisplayText(event.title, "Untitled event");
+  const locationLabel = getDisplayText(event.location, "Location TBD");
+
   const [saved, setSaved] = useState(() => {
     if (initialSaved !== undefined) return initialSaved;
     // Default to false if not provided
@@ -49,7 +66,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
           <div className="relative aspect-[16/10] overflow-hidden">
             <img
               src={event.image}
-              alt={event.title}
+              alt={titleLabel}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -58,9 +75,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
             {/* Top row: category badge + bookmark */}
             <div className="absolute left-3 top-3 flex items-center gap-2">
               <span className="rounded-full bg-background/80 px-3 py-1 text-xs font-semibold capitalize text-foreground backdrop-blur-sm">
-                {typeof event.category === "object" && event.category !== null
-                  ? (event.category as any).name ?? (event.category as any).slug ?? ""
-                  : event.category}
+                {categoryLabel}
               </span>
             </div>
 
@@ -95,7 +110,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
 
           <div className="p-4">
             <h3 className="mb-2 font-display text-lg font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-              {event.title}
+              {titleLabel}
             </h3>
             <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
@@ -108,7 +123,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-primary" />
-                <span className="line-clamp-1">{event.location}</span>
+                <span className="line-clamp-1">{locationLabel}</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-primary" />
