@@ -571,7 +571,7 @@ const MyTickets = () => {
                               </div>
                             ))}
 
-                            {ticket.status === "upcoming" && (
+                            {(ticket.status as string) === "upcoming" && (
                               <button
                                 onClick={() => handleAddToCalendar(ticket)}
                                 className="mt-2 flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
