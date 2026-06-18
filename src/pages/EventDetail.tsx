@@ -386,6 +386,8 @@ const EventDetail = () => {
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null);
   const [purchaserName, setPurchaserName] = useState(user?.user_metadata?.display_name || user?.user_metadata?.full_name || "");
   const [purchaserEmail, setPurchaserEmail] = useState("");
+  const [purchaserPhone, setPurchaserPhone] = useState("");
+  const [showTicketModal, setShowTicketModal] = useState(false);
 
   // ── sponsorship modal state ────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
@@ -447,13 +449,23 @@ const EventDetail = () => {
   };
 
   const handleGetTickets = () => {
+    setPurchaserEmail((current) => current || user?.email || "");
+    setShowTicketModal(true);
+  };
+
+  const handleTicketFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!purchaserName.trim() || !purchaserEmail.trim() || !purchaserPhone.trim()) {
+      toast.error("Please fill in all ticket details.");
+      return;
+    }
     const ticketType = event?.ticketTypes?.[selectedTicket];
     const params = new URLSearchParams({
       eventId: event?.id ?? "",
-      ticketType: ticketType?.name ?? "",
+      ticketType: ticketType?.name ?? "General Admission",
       qty: qty.toString(),
     });
-    navigate(`/checkout?${params.toString()}`);
+    navigate(`/checkout/${event?.id}?${params.toString()}`);
   };
 
   // ── close share menu on outside click ───────────────────────────────────────
