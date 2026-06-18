@@ -125,7 +125,9 @@ const App = () => (
             <Route path="/organizer/promote" element={<OrganizerProtectedRoute><AdvertiseEvents /></OrganizerProtectedRoute>} />
             <Route path="/organizers" element={<OrganizersPage />} />
             <Route path="/profile/:id" element={<UserProfile />} />
+             <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
             <Route path="/checkout/:eventId" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+             <Route path="/ticket-confirmation" element={<ProtectedRoute><TicketConfirmation /></ProtectedRoute>} />
             <Route path="/checkout/confirmation" element={<ProtectedRoute><TicketConfirmation /></ProtectedRoute>} />
             <Route path="/organizer/events" element={<OrganizerProtectedRoute><OrganizerEvents /></OrganizerProtectedRoute>} />
             <Route path="/organizer/attendees" element={<OrganizerProtectedRoute><OrganizerAttendees /></OrganizerProtectedRoute>} />
