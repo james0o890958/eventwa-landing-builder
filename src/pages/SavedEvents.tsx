@@ -1,33 +1,13 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import EventCardSkeleton from "@/components/EventCardSkeleton";
 import { motion } from "framer-motion";
 import { Bookmark, ArrowLeft } from "lucide-react";
 import EventCard from "@/components/EventCard";
 import { Button } from "@/components/ui/button";
-import { mockEvents } from "@/data/mockEvents";
+import { useSavedEvents } from "@/hooks/useBookmark";
 
 const SavedEvents = () => {
-  const [savedIds, setSavedIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("savedEvents");
-      if (stored) setSavedIds(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // Handler to unsave an event: updates local storage and state
-  const handleUnsave = (eventId: string) => {
-    const stored = localStorage.getItem("savedEvents");
-    const ids: string[] = stored ? JSON.parse(stored) : [];
-    const updated = ids.filter((id) => id !== eventId);
-    localStorage.setItem("savedEvents", JSON.stringify(updated));
-    setSavedIds(updated);
-  };
-
-  const savedEvents = mockEvents.filter((event) => savedIds.includes(event.id));
+  const { data: savedEvents = [], isLoading } = useSavedEvents();
 
   return (
     <div className="bg-background">
@@ -52,20 +32,19 @@ const SavedEvents = () => {
             </div>
           </div>
 
-          {savedEvents.length > 0 ? (
+          {isLoading ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <EventCardSkeleton key={i} index={i} />
+              ))}
+            </div>
+          ) : savedEvents.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {savedEvents.map((event, i) => (
                   <EventCard
                     key={event.id}
                     event={event}
                     index={i}
-                    initialSaved={true}
-                    onToggleSave={(newSaved, eventId) => {
-                      if (!newSaved) {
-                        // User is unsaving the event
-                        handleUnsave(eventId);
-                      }
-                    }}
                   />
                 ))}
             </div>

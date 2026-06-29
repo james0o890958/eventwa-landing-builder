@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 import { api } from "@/lib/api";
+import { useSavedEvents } from "@/hooks/useBookmark";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications" | "messages";
 
@@ -104,13 +105,11 @@ const UserDashboard = () => {
   const selectedUserId = searchParams.get("userId");
   const chatViewOpen = searchParams.get("chat") === "true";
 
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
   
   const [allEvents, setAllEvents] = useState<any[]>([]);
   const [userEvents, setUserEvents] = useState<any[]>([]);
-  const [userSavedEvents, setUserSavedEvents] = useState<any[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -123,14 +122,13 @@ const UserDashboard = () => {
         const token = localStorage.getItem("access_token") || "";
         const [publicRes, savedRes, myEventsRes, messagesRes, notificationsRes] = await Promise.all([
           api.get("public/events"),
-          token ? api.get("user-saved-events", undefined, token) : Promise.resolve({ events: [] }),
+          Promise.resolve({ events: [] }),
           token ? api.get("user-events", undefined, token) : Promise.resolve({ events: [] }),
           token ? api.get("user-messages", undefined, token) : Promise.resolve({ conversations: [], users: [] }),
           token ? api.get("notifications", undefined, token).catch(() => ({ notifications: [] })) : Promise.resolve({ notifications: [] })
         ]);
         
         if (publicRes?.events) setAllEvents(publicRes.events);
-        if (savedRes?.events) setUserSavedEvents(savedRes.events);
         if (myEventsRes?.events) setUserEvents(myEventsRes.events);
         if (messagesRes?.conversations) setConversations(messagesRes.conversations);
         if (messagesRes?.users) setUsers(messagesRes.users);
@@ -226,8 +224,6 @@ const UserDashboard = () => {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("savedEvents");
-      if (stored) setSavedIds(JSON.parse(stored) as string[]);
       const recent = localStorage.getItem("recentlyViewedEvents");
       if (recent) setRecentlyViewedIds(JSON.parse(recent) as string[]);
     } catch {
@@ -245,30 +241,9 @@ const UserDashboard = () => {
     .filter((e) => new Date(e.date || e.start_date) >= now)
     .slice(0, 3);
   
-  // Combine saved IDs from local storage and backend saved events
-  const allSavedIds = Array.from(new Set([...savedIds, ...userSavedEvents.map(e => String(e.id))]));
-  const savedEvents = allEvents.filter(e => allSavedIds.includes(String(e.id)));
-
-  // Handler to unsave an event: updates local storage, backend state, and calls unsave endpoint if authenticated
-  const handleUnsave = async (eventId: string) => {
-    // Update local storage saved IDs
-    const stored = localStorage.getItem("savedEvents");
-    const ids: string[] = stored ? JSON.parse(stored) : [];
-    const updated = ids.filter((id) => id !== eventId);
-    localStorage.setItem("savedEvents", JSON.stringify(updated));
-    setSavedIds(updated);
-    // Update backend saved events state
-    setUserSavedEvents(prev => prev.filter(e => String(e.id) !== String(eventId)));
-    // Call backend unsave endpoint if authenticated
-    const token = localStorage.getItem("access_token") || "";
-    if (token) {
-      try {
-        await api.delete(`user-saved-events/${eventId}`, token);
-      } catch (err) {
-        console.error("Failed to unsave event via API", err);
-      }
-    }
-  };  
+  // Retrieve saved events using central hook
+  const { data: savedEvents = [] } = useSavedEvents();
+  const allSavedIds = savedEvents.map((e) => String(e.id));  
   
   const pastEvents = userEvents
     .filter((e) => new Date(e.date || e.start_date) < now)
@@ -456,13 +431,6 @@ const UserDashboard = () => {
                           key={e.id}
                           event={e}
                           index={i}
-                          initialSaved={true}
-                          onToggleSave={(newSaved, eventId) => {
-                            if (!newSaved) {
-                              // User is unsaving the event
-                              handleUnsave(eventId);
-                            }
-                          }}
                         />
                       ))}
                     </div>

@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Bookmark, BookmarkCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Event } from "@/data/mockEvents";
-import { api } from "@/lib/api";
+import { useBookmark } from "@/hooks/useBookmark";
 
 
 
@@ -33,27 +32,8 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
   const locationLabel = getDisplayText(event.location, "Location TBD");
   const timeLabel = getDisplayText(event.time);
 
-  const [saved, setSaved] = useState(() => {
-    if (initialSaved !== undefined) return initialSaved;
-    // Default to false if not provided
-    return false;
-  });
+  const { saved, toggleSave } = useBookmark(event.id, event);
 
-  const toggleSave = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Optimistically update UI
-    setSaved(!saved);
-    if (onToggleSave) {
-      try {
-        await onToggleSave(!saved, event.id);
-      } catch (err) {
-        console.error("Toggle save failed", err);
-        // Revert UI on error
-        setSaved(saved);
-      }
-    }
-  };
 
   return (
     <motion.div
