@@ -1,7 +1,12 @@
 # TODO
 
-## Navbar endpoints wiring (frontend -> backend)
-- [ ] Update `src/components/CategoryMegaMenu.tsx` to load categories from `GET /categories` (fallback to `src/data/mockEvents.ts` if API fails).
-- [ ] Update `src/components/LocationMenu.tsx` to load states/cities from `GET /states_cities` (fallback to `src/data/mockLocations.ts` if API fails).
-- [ ] If available, call `GET /guestLocation` to preselect location for guests (fallback to existing default behavior if it fails).
-- [ ] Typecheck/build and verify navbar menus populate correctly.
+- [ ] Implement fetching blog comments and likes count in `src/pages/BlogPost.tsx` using public endpoints:
+  - `GET blogs/{blogId}/comments`
+  - `GET blogs/{blogId}/likes`
+- [ ] Add current-user like toggling for post likes and comment likes using auth endpoints:
+  - `POST blogs/{blogId}/likes` (toggle)
+  - `POST blogs/{blogId}/comments/{commentId}/flag` (if reused for likes/flags; confirm once API returns)
+- [ ] Fix `BlogPost.tsx` issues before wiring (there is a `zzsetLoading(true)` typo).
+- [ ] Update `Comment` type and UI to match API response shape (likes count and is_liked if provided).
+- [ ] Replace mocked `comments` state with fetched data and keep local optimistic updates when toggling likes.
+- [ ] Manual test in browser: load a blog post, verify comment list count, like counts, and liking/unliking works.

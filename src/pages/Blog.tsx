@@ -13,8 +13,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { mockBlogs } from "@/data/mockBlogs";
+import { api } from "@/lib/api";
 
 const Blog = () => {
+  const [blogsList, setBlogsList] = useState<any[]>(mockBlogs);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -36,12 +38,49 @@ const Blog = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Fetch blogs from API and merge
+  useEffect(() => {
+    const fetchApiBlogs = async () => {
+      try {
+        // Typically, GET /blogs or GET /organizer/blogs (for public feed, we can try organizer/blogs if public not exposed, or blogs)
+        const res = await api.get("organizer/blogs").catch(() => null) || await api.get("blogs").catch(() => null);
+        if (res) {
+          const fetched = Array.isArray(res) ? res : (res.blogs || res.data || []);
+          if (fetched.length > 0) {
+            const mapped = fetched.map((b: any) => ({
+              id: String(b.id),
+              title: b.title || "Untitled Post",
+              excerpt: b.excerpt || b.content?.substring(0, 150) + "..." || "",
+              content: b.content || "",
+              author: b.author?.name || b.author || "Organizer",
+              authorInitials: (b.author?.name || b.author || "O").substring(0, 2).toUpperCase(),
+              date: b.date || b.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+              readTime: b.readTime || b.read_time || "3 min",
+              category: b.category || "Lifestyle",
+              image: b.image || b.image_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80",
+            }));
+            
+            // Deduplicate by ID
+            setBlogsList((prev) => {
+              const prevIds = new Set(prev.map((b) => b.id));
+              const uniqueFetched = mapped.filter((b: any) => !prevIds.has(b.id));
+              return [...uniqueFetched, ...prev];
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load backend blogs:", err);
+      }
+    };
+    fetchApiBlogs();
+  }, []);
+
   // Derive unique authors and categories from blog data
-  const authors = Array.from(new Set(mockBlogs.map((b) => b.author)));
-  const blogCategories = Array.from(new Set(mockBlogs.map((b) => b.category)));
+  const authors = Array.from(new Set(blogsList.map((b) => b.author)));
+  const blogCategories = Array.from(new Set(blogsList.map((b) => b.category)));
 
   // Filter logic
-  let filtered = [...mockBlogs];
+  let filtered = [...blogsList];
 
   if (searchQuery.trim()) {
     filtered = filtered.filter(

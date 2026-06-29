@@ -34,6 +34,7 @@ import Checkout from "./pages/Checkout.tsx";
 import TicketConfirmation from "./pages/TicketConfirmation.tsx";
 import MyTickets from "./pages/MyTickets.tsx";
 import SavedEvents from "./pages/SavedEvents.tsx";
+import SavedBlogs from "./pages/SavedBlogs.tsx";
 import Notifications from "./pages/Notifications.tsx";
 import NotificationSettings from "./pages/NotificationSettings.tsx";
 import Login from "./pages/Login.tsx";
@@ -66,6 +67,8 @@ import PromoteEvent from "./pages/PromoteEvent.tsx";
 import OrganizerSubscriptions from "./pages/OrganizerSubscriptions.tsx";
 import OrganizerSettings from "./pages/OrganizerSettings.tsx";
 import OrganizerAnalytics from "./pages/OrganizerAnalytics.tsx";
+import OrganizerBlogs from "./pages/OrganizerBlogs.tsx";
+import CreateBlogPost from "./pages/CreateBlogPost.tsx";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +105,7 @@ const App = () => (
               <Route index element={<UserDashboard />} />
               <Route path="my-tickets" element={<MyTickets />} />
               <Route path="saved-events" element={<SavedEvents />} />
+              <Route path="saved-blogs" element={<SavedBlogs />} />
               <Route path="messages" element={<Messages />} />
               <Route path="following" element={<Following />} />
               <Route path="notifications" element={<Notifications />} />
@@ -110,6 +114,7 @@ const App = () => (
             </Route>
             <Route path="/my-tickets" element={<Navigate to="/dashboard/my-tickets" replace />} />
             <Route path="/saved-events" element={<Navigate to="/dashboard/saved-events" replace />} />
+            <Route path="/saved-blogs" element={<Navigate to="/dashboard/saved-blogs" replace />} />
             <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
             <Route path="/following" element={<Navigate to="/dashboard/following" replace />} />
             <Route path="/notifications" element={<Navigate to="/dashboard/notifications" replace />} />
@@ -137,6 +142,10 @@ const App = () => (
             <Route path="/organizer/subscriptions" element={<OrganizerProtectedRoute><OrganizerSubscriptions /></OrganizerProtectedRoute>} />
             <Route path="/organizer/settings" element={<OrganizerProtectedRoute><OrganizerSettings /></OrganizerProtectedRoute>} />
             <Route path="/organizer/analytics" element={<OrganizerProtectedRoute><OrganizerAnalytics /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/blogs" element={<OrganizerProtectedRoute><OrganizerBlogs /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/saved-blogs" element={<OrganizerProtectedRoute><SavedBlogs /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/create-blog" element={<OrganizerProtectedRoute><CreateBlogPost /></OrganizerProtectedRoute>} />
+            <Route path="/organizer/edit-blog/:id" element={<OrganizerProtectedRoute><CreateBlogPost /></OrganizerProtectedRoute>} />
             <Route path="/notifications/settings" element={<NotificationSettings />} />
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/help/find-tickets" element={<FindMyTickets />} />

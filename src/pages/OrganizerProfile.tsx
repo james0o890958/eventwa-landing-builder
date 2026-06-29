@@ -23,6 +23,7 @@ import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
 import { mockEvents } from "@/data/mockEvents";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { organizerSlug } from "@/lib/utils";
 
 interface SocialLinks {
@@ -82,7 +83,11 @@ const OrganizerProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
-  const organizer = ORGANIZERS.find((o) => o.id === id) || ORGANIZERS[0];
+  
+  const [organizer, setOrganizer] = useState<any>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [pastEvents, setPastEvents] = useState<any[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
   const [activeTab, setActiveTab] = useState<"past" | "upcoming">("upcoming");
   const [following, setFollowing] = useState(false);
 
@@ -96,29 +101,96 @@ const OrganizerProfile = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  if (authLoading || !session) {
+  useEffect(() => {
+    const fetchOrganizerData = async () => {
+      setLoadingEvents(true);
+      try {
+        const [orgResponse, eventsResponse] = await Promise.all([
+          api.get(`public/organizers/${id}`),
+          api.get(`public/organizers/${id}/events`)
+        ]);
+
+        if (orgResponse.status === 'success' && orgResponse.organizer) {
+          setOrganizer(orgResponse.organizer);
+          setFollowing(orgResponse.organizer.is_following ?? false);
+        } else {
+          // Fallback logic if API fails for some reason
+          setOrganizer({
+            id,
+            name: "Organizer",
+            initials: "ORG",
+            bio: "Professional event organizer bringing amazing experiences to Nigeria.",
+            location: "Nigeria",
+            totalEvents: 0,
+            totalAttendees: 0,
+            rating: 4.8,
+            reviews: 12,
+            color: "from-blue-500 to-cyan-600",
+            verified: false,
+          });
+        }
+
+        if (eventsResponse.status === 'success' && eventsResponse.events) {
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          
+          const upcoming = eventsResponse.events.filter((e: any) => new Date(e.date || e.start_date) >= today);
+          const past = eventsResponse.events.filter((e: any) => new Date(e.date || e.start_date) < today);
+          
+          setUpcomingEvents(upcoming);
+          setPastEvents(past);
+        } else {
+          setUpcomingEvents([]);
+          setPastEvents([]);
+        }
+
+      } catch (err) {
+        console.error("Failed to load organizer events:", err);
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
+
+    if (id) {
+      fetchOrganizerData();
+    }
+  }, [id, session]); // re-fetch if session changes (for 'is_following')
+
+  const toggleFollow = async () => {
+    if (!session) {
+      navigate(`/login?redirect=/organizer/${id}`);
+      return;
+    }
+
+    try {
+      const originalFollowing = following;
+      setFollowing(!following); // optimistic update
+      
+      const token = localStorage.getItem("access_token") || undefined;
+      const res = following 
+        ? await api.delete(`user-follow/${id}`, token)
+        : await api.post(`user-follow/${id}`, {}, token);
+        
+      if (res.status !== 'success') {
+        // revert if failed
+        setFollowing(originalFollowing);
+      }
+    } catch (error) {
+      setFollowing(!following); // revert on error
+      console.error("Error toggling follow status:", error);
+    }
+  };
+
+  if (authLoading || loadingEvents || !organizer) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-full gradient-primary" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Loading organizer details...</p>
         </div>
       </div>
     );
   }
-
-  const today = new Date("2026-04-21");
-
-  const upcomingEvents = mockEvents.filter(
-    (e) => new Date(e.date) >= today && e.organizer === organizer.name,
-  );
-  const pastEvents = mockEvents.filter(
-    (e) => new Date(e.date) < today && e.organizer === organizer.name,
-  );
-
-  const toggleFollow = () => {
-    setFollowing(!following);
-  };
 
   return (
     <div className="min-h-screen bg-background">

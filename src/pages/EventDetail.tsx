@@ -1,4 +1,4 @@
-  import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,11 +33,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import OrganizerLink from "@/components/OrganizerLink";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,18 +58,13 @@ import Footer from "@/components/Footer";
 import AttendeeList from "@/components/AttendeeList";
 import { EventChatroomTab } from "@/components/EventChatroomTab";
 import { EventBlogSection } from "@/components/EventBlogSection";
-import { mockEvents } from "@/data/mockEvents";
-
+// CHANGED: removed mockEvents import — no longer used as fallback data source
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useBookmark } from "@/hooks/useBookmark";
 
-
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-// ─── sponsorship data ───────────────────────────────────────────────────────
+// ─── sponsorship data ─────────────────────────────────────────────────────────
 
 const SPONSORSHIP_TYPES = [
   {
@@ -98,10 +93,6 @@ const SPONSORSHIP_TYPES = [
     desc: "Custom partnership opportunity",
   },
 ];
-
-// ─── mock data ───────────────────────────────────────────────────────────────
-
-
 
 // ─── Star renderer ────────────────────────────────────────────────────────────
 
@@ -151,7 +142,7 @@ function buildShareLinks(title: string, url: string) {
   };
 }
 
-// ── Calendar helper ───────────────────────────────────────────────────────────
+// ─── Calendar helper ──────────────────────────────────────────────────────────
 
 function buildCalendarLink(event: {
   id?: string;
@@ -196,21 +187,46 @@ const EventDetail = () => {
   const [event, setEvent] = useState<any>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
 
+  // CHANGED: normalizeEvent now correctly resolves location, attendees, and organizer id
   const normalizeEvent = (eventData: any) => {
-    const locationValue =
-      eventData.location?.address ||
-      eventData.location?.name ||
-      eventData.location?.city ||
-      eventData.location ||
-      eventData.online_link ||
-      "Unknown location";
+    // CHANGED: build location string from locations[] relationship (array from DB)
+    // instead of the location string column on events which is NULL.
+    // Priority: backend pre-built label → locations array → raw string → fallback
+    const locationLabel = (() => {
+      if (eventData.location_label) return eventData.location_label;
+      const locs = eventData.locations;
+      if (Array.isArray(locs) && locs.length > 0) {
+        const loc = locs[0];
+        return (
+          [loc.address, loc.city, loc.state].filter(Boolean).join(", ") ||
+          "Location TBD"
+        );
+      }
+      if (typeof eventData.location === "string" && eventData.location)
+        return eventData.location;
+      return "Location TBD";
+    })();
 
+    // CHANGED: get organizer name from organizer_info (new backend field) first,
+    // then fall back to organizer relationship object, then plain string
     const organizerName =
-      typeof eventData.organizer === "string"
-        ? eventData.organizer
-        : eventData.organizer?.name || eventData.organizer?.full_name || "Unknown organizer";
+      eventData.organizer_info?.name ||
+      (typeof eventData.organizer === "object"
+        ? eventData.organizer?.name
+        : eventData.organizer) ||
+      "Unknown organizer";
 
-    const rawDate = eventData.start_date || eventData.date || eventData.event_date || "";
+    // CHANGED: store organizer numeric id separately so OrganizerLink routes to
+    // /organizer/{id} instead of a broken name-based slug
+    const organizerId =
+      eventData.organizer_info?.id ||
+      (typeof eventData.organizer === "object"
+        ? eventData.organizer?.id
+        : null) ||
+      null;
+
+    const rawDate =
+      eventData.start_date || eventData.date || eventData.event_date || "";
     const parsedDate = rawDate ? new Date(rawDate) : null;
 
     return {
@@ -221,9 +237,14 @@ const EventDetail = () => {
       date: rawDate ? rawDate.split("T")[0] : eventData.date || "",
       time:
         parsedDate && !Number.isNaN(parsedDate.getTime())
-          ? parsedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? parsedDate.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
           : eventData.time || "",
-      location: locationValue,
+      // CHANGED: was reading eventData.location (NULL column) — now uses locationLabel
+      // built from the locations[] relationship returned by the API
+      location: locationLabel,
       image:
         eventData.image_url ||
         eventData.image ||
@@ -232,37 +253,44 @@ const EventDetail = () => {
         "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80",
       price: Number(eventData.price) || 0,
       organizer: organizerName,
-      attendees: Number(eventData.capacity ?? eventData.attendees ?? eventData.attendee_count ?? eventData.attendeeCount ?? 0),
+      // CHANGED: new field — numeric organizer id passed to OrganizerLink for correct routing
+      organizerId: organizerId,
+      // CHANGED: was reading capacity/attendees (always 0 or mock) —
+      // now reads tickets_count which comes from withCount('tickets') on the backend
+      attendees: Number(
+        eventData.tickets_count ??
+          eventData.attendees_count ??
+          eventData.attendees ??
+          0
+      ),
       category:
         typeof eventData.category === "string"
           ? eventData.category.toLowerCase()
           : eventData.category?.name?.toLowerCase() || "other",
-      ticketTypes:
-        Array.isArray(eventData.ticketTypes)
-          ? eventData.ticketTypes
-          : Array.isArray(eventData.ticket_tiers)
-          ? eventData.ticket_tiers
-          : eventData.ticketTypes?.data ||
-            eventData.ticket_types ||
-            (eventData.price !== undefined
-              ? [
-                  {
-                    name: "General Admission",
-                    price: Number(eventData.price) || 0,
-                    quantity: Number(eventData.capacity) || 0,
-                    sold: 0,
-                  },
-                ]
-              : []),
+      ticketTypes: Array.isArray(eventData.ticketTypes)
+        ? eventData.ticketTypes
+        : Array.isArray(eventData.ticket_tiers)
+        ? eventData.ticket_tiers
+        : eventData.ticketTypes?.data ||
+          eventData.ticket_types ||
+          (eventData.price !== undefined
+            ? [
+                {
+                  name: "General Admission",
+                  price: Number(eventData.price) || 0,
+                  quantity: Number(eventData.capacity) || 0,
+                  sold: 0,
+                },
+              ]
+            : []),
       agenda: eventData.agenda || eventData.schedule || [],
       rules: eventData.rules || [],
     };
   };
 
-  // ── Track recently viewed (last 6, most-recent first) ─────────────────────
+  // ── Track recently viewed ─────────────────────────────────────────────────
   useEffect(() => {
     const loadEvent = async () => {
-      const fallbackEvent = mockEvents.find((item) => String(item.id) === String(id));
       try {
         const token = localStorage.getItem("access_token");
         if (!token) {
@@ -275,18 +303,12 @@ const EventDetail = () => {
           setEvent(normalizeEvent(res.event));
         } else if (res && res.status === "success" && res.data) {
           setEvent(normalizeEvent(res.data));
-        } else if (fallbackEvent) {
-          setEvent(normalizeEvent(fallbackEvent));
         } else {
           toast.error("Event not found.");
         }
       } catch (error) {
         console.error("Failed to load event:", error);
-        if (fallbackEvent) {
-          setEvent(normalizeEvent(fallbackEvent));
-        } else {
-          toast.error("Failed to load event details.");
-        }
+        toast.error("Failed to load event details.");
       } finally {
         setLoadingEvent(false);
       }
@@ -294,53 +316,57 @@ const EventDetail = () => {
     loadEvent();
   }, [id, navigate]);
 
-  // ── Auth & Attendance checks ────────────────────────────────────────────────
-  const currentUser = user as any; // use authenticated user (any for extended fields)
-  const isOrganizer = user?.user_metadata?.full_name === event?.organizer || user?.email === "organizer@example.com";
-  const hasAttended = false; // attendance check not available in mock data
-  const hasPurchasedTicket = false; // purchase check not available in mock data
+  // ── Auth & Attendance checks ──────────────────────────────────────────────
+  const currentUser = user as any;
+  const isOrganizer =
+    user?.user_metadata?.full_name === event?.organizer ||
+    user?.email === "organizer@example.com";
+  const hasAttended = false;
+  const hasPurchasedTicket = false;
   const canLeaveReview = !!user && hasAttended;
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
 
-  // ── mobile detection ───────────────────────────────────────────────────────────
+  // ── mobile detection ──────────────────────────────────────────────────────
   const isMobile = useIsMobile();
 
-  // ── save/bookmark ───────────────────────────────────────────────────────────
+  // ── save/bookmark ─────────────────────────────────────────────────────────
   const { saved, toggleSave } = useBookmark(id ?? "", event);
 
-  // ── follow organizer ─────────────────────────────────────────────────────────
+  // ── follow organizer ──────────────────────────────────────────────────────
   const [following, setFollowing] = useState(false);
   const toggleFollow = () => {
     setFollowing((v) => !v);
     toast(following ? "Unfollowed organizer" : "Following organizer! 🎉");
   };
 
-  // ── active tab ───────────────────────────────────────────────────────────────
+  // ── active tab ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("details");
 
-   // ── share / social share ─────────────────────────────────────────────────────
-   const [showShareMenu, setShowShareMenu] = useState(false);
-   const shareLinks = event ? buildShareLinks(event.title, window.location.href) : null;
+  // ── share / social share ──────────────────────────────────────────────────
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareLinks = event
+    ? buildShareLinks(event.title, window.location.href)
+    : null;
 
-   const handleAddToCalendar = () => {
-     if (!event) return;
-     const link = buildCalendarLink({
-       id: event.id,
-       title: event.title,
-       date: event.date,
-       time: event.time,
-       location: event.location,
-       description: event.description,
-     });
-     const a = document.createElement("a");
-     a.href = link;
-     a.download = `${event.title.replace(/\s+/g, "_")}.ics`;
-     document.body.appendChild(a);
-     a.click();
-     document.body.removeChild(a);
-     URL.revokeObjectURL(link);
-     toast("Calendar event downloaded! 📅");
-   };
+  const handleAddToCalendar = () => {
+    if (!event) return;
+    const link = buildCalendarLink({
+      id: event.id,
+      title: event.title,
+      date: event.date,
+      time: event.time,
+      location: event.location,
+      description: event.description,
+    });
+    const a = document.createElement("a");
+    a.href = link;
+    a.download = `${event.title.replace(/\s+/g, "_")}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(link);
+    toast("Calendar event downloaded! 📅");
+  };
 
   const copyLink = async () => {
     try {
@@ -352,10 +378,12 @@ const EventDetail = () => {
     }
   };
 
-  // ── online/offline detection ─────────────────────────────────────────────────
-  const isOnline = event ? /online|virtual|zoom|meet|teams/i.test(event.location) : false;
+  // ── online/offline detection ──────────────────────────────────────────────
+  const isOnline = event
+    ? /online|virtual|zoom|meet|teams/i.test(event.location)
+    : false;
 
-  // ── reviews ──────────────────────────────────────────────────────────────────
+  // ── reviews ───────────────────────────────────────────────────────────────
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
@@ -371,23 +399,31 @@ const EventDetail = () => {
     setReviewText("");
   };
 
-  // ── ticket selection (for Tickets tab) ───────────────────────────────────────
+  // ── ticket selection ──────────────────────────────────────────────────────
   const [selectedTicket, setSelectedTicket] = useState(0);
   const [qty, setQty] = useState(1);
   const [promoCode, setPromoCode] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null);
-  const [purchaserName, setPurchaserName] = useState(user?.user_metadata?.display_name || user?.user_metadata?.full_name || "");
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    discount: number;
+  } | null>(null);
+  const [purchaserName, setPurchaserName] = useState(
+    user?.user_metadata?.display_name || user?.user_metadata?.full_name || ""
+  );
   const [purchaserEmail, setPurchaserEmail] = useState("");
   const [purchaserPhone, setPurchaserPhone] = useState("");
   const [showTicketModal, setShowTicketModal] = useState(false);
 
-  // ── sponsorship modal state ────────────────────────────────────────────────
+  // ── sponsorship modal ─────────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [isSponsoring, setIsSponsoring] = useState(false);
   const [isSponsorshipSubmitted, setIsSponsorshipSubmitted] = useState(false);
   const [sponsorshipForm, setSponsorshipForm] = useState({
-    fullName: user?.user_metadata?.display_name || user?.user_metadata?.full_name || "",
+    fullName:
+      user?.user_metadata?.display_name ||
+      user?.user_metadata?.full_name ||
+      "",
     email: user?.email ?? "",
     company: "",
     phone: "",
@@ -397,7 +433,12 @@ const EventDetail = () => {
 
   const handleSponsorshipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sponsorshipForm.fullName || !sponsorshipForm.email || !sponsorshipForm.sponsorshipType || !sponsorshipForm.message) {
+    if (
+      !sponsorshipForm.fullName ||
+      !sponsorshipForm.email ||
+      !sponsorshipForm.sponsorshipType ||
+      !sponsorshipForm.message
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -413,7 +454,9 @@ const EventDetail = () => {
   };
 
   const activeTicketType = event?.ticketTypes?.[selectedTicket];
-  const subtotal = activeTicketType ? activeTicketType.price * qty : (event?.price ?? 0) * qty;
+  const subtotal = activeTicketType
+    ? activeTicketType.price * qty
+    : (event?.price ?? 0) * qty;
   const discountPct = appliedPromo?.discount ?? 0;
   const discountAmount = Math.round((subtotal * discountPct) / 100);
   const serviceFee = subtotal > 0 ? Math.round(subtotal * 0.05) : 0;
@@ -447,7 +490,11 @@ const EventDetail = () => {
 
   const handleTicketFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!purchaserName.trim() || !purchaserEmail.trim() || !purchaserPhone.trim()) {
+    if (
+      !purchaserName.trim() ||
+      !purchaserEmail.trim() ||
+      !purchaserPhone.trim()
+    ) {
       toast.error("Please fill in all ticket details.");
       return;
     }
@@ -460,7 +507,7 @@ const EventDetail = () => {
     navigate(`/checkout/${event?.id}?${params.toString()}`);
   };
 
-  // ── close share menu on outside click ───────────────────────────────────────
+  // ── close share menu on outside click ────────────────────────────────────
   useEffect(() => {
     if (!showShareMenu) return;
     const handler = () => setShowShareMenu(false);
@@ -474,45 +521,45 @@ const EventDetail = () => {
         <Navbar />
         <div className="flex-1 flex flex-col items-center justify-center py-12">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/30 border-t-primary mb-4" />
-          <p className="text-muted-foreground text-sm font-medium animate-pulse">Loading event details...</p>
+          <p className="text-muted-foreground text-sm font-medium animate-pulse">
+            Loading event details...
+          </p>
         </div>
         <Footer />
       </div>
     );
   }
 
-  function organizerSlug(organizer: string) {
-    return organizer
-      .toString()
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "");
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col justify-between">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center py-12">
+          <X className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground text-sm font-medium">
+            Event not found.
+          </p>
+        </div>
+        <Footer />
+      </div>
+    );
   }
 
-  if (!event) {
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-between">
-      <Navbar />
-      <div className="flex-1 flex flex-col items-center justify-center py-12">
-        <X className="h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground text-sm font-medium">Event not found.</p>
-      </div>
-      <Footer />
-    </div>
-  );
-}
-return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* ── Hero banner ─────────────────────────────────────────────────────── */}
+      {/* ── Hero banner ──────────────────────────────────────────────────── */}
       <div className="relative h-[50vh] min-h-[350px] w-full overflow-hidden">
-        <img src={event.image} alt={event.title} className="h-full w-full object-cover" />
+        <img
+          src={event.image}
+          alt={event.title}
+          className="h-full w-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
       </div>
 
-      {/* ── Content ─────────────────────────────────────────────────────────── */}
+      {/* ── Content ──────────────────────────────────────────────────────── */}
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -533,36 +580,44 @@ return (
               {event.category}
             </span>
 
-            {/* Online / Offline badge */}
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                isOnline ? "bg-blue-500/15 text-blue-500" : "bg-emerald-500/15 text-emerald-500"
+                isOnline
+                  ? "bg-blue-500/15 text-blue-500"
+                  : "bg-emerald-500/15 text-emerald-500"
               }`}
             >
-              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {isOnline ? (
+                <Wifi className="h-3 w-3" />
+              ) : (
+                <WifiOff className="h-3 w-3" />
+              )}
               {isOnline ? "Online Event" : "Physical Event"}
             </span>
 
-             <div className="ml-auto flex items-center gap-2">
-               {/* Save */}
-               <button
-                 onClick={toggleSave}
-                 className="flex items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-4 py-1.5 text-sm font-medium backdrop-blur-sm transition-all hover:border-primary/40"
-               >
-                 {saved ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <Bookmark className="h-4 w-4 text-muted-foreground" />}
-                 <span className="text-foreground">{saved ? "Saved" : "Save"}</span>
-               </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={toggleSave}
+                className="flex items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-4 py-1.5 text-sm font-medium backdrop-blur-sm transition-all hover:border-primary/40"
+              >
+                {saved ? (
+                  <BookmarkCheck className="h-4 w-4 text-primary" />
+                ) : (
+                  <Bookmark className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-foreground">
+                  {saved ? "Saved" : "Save"}
+                </span>
+              </button>
 
-               {/* Add to Calendar */}
-               <button
-                 onClick={handleAddToCalendar}
-                 className="flex items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-4 py-1.5 text-sm font-medium backdrop-blur-sm transition-all hover:border-primary/40"
-               >
-                 <PlusCircle className="h-4 w-4 text-muted-foreground" />
-                 <span className="text-foreground">Add to Calendar</span>
-               </button>
+              <button
+                onClick={handleAddToCalendar}
+                className="flex items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-4 py-1.5 text-sm font-medium backdrop-blur-sm transition-all hover:border-primary/40"
+              >
+                <PlusCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-foreground">Add to Calendar</span>
+              </button>
 
-               {/* Share with social dropdown */}
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -649,7 +704,9 @@ return (
           </div>
 
           {/* Title */}
-          <h1 className="mb-6 font-display text-4xl font-bold text-foreground sm:text-5xl">{event.title}</h1>
+          <h1 className="mb-6 font-display text-4xl font-bold text-foreground sm:text-5xl">
+            {event.title}
+          </h1>
 
           {/* Meta */}
           <div className="mb-8 flex flex-wrap gap-5 text-sm text-muted-foreground">
@@ -666,20 +723,29 @@ return (
               <Clock className="h-4 w-4 text-primary" />
               {event.time}
             </span>
-            {/* Clickable location — scrolls to map section */}
             <button
-              onClick={() => document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() =>
+                document
+                  .getElementById("map-section")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
               className="flex items-center gap-2 hover:text-primary transition-colors group"
             >
               <MapPin className="h-4 w-4 text-primary" />
-              <span className="group-hover:underline underline-offset-2">{event.location}</span>
+              {/* CHANGED: event.location now shows real address from locations[] not NULL column */}
+              <span className="group-hover:underline underline-offset-2">
+                {event.location}
+              </span>
               <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
+              {/* CHANGED: event.attendees now shows real ticket count not mock capacity */}
               {event.attendees.toLocaleString()} attending
             </span>
+            {/* CHANGED: OrganizerLink now receives organizerId for correct /organizer/{id} routing */}
             <OrganizerLink
+              organizerId={event.organizerId}
               organizerName={event.organizer}
               className="flex items-center gap-2 hover:text-primary transition-colors"
             >
@@ -693,7 +759,11 @@ return (
             <div className="mb-6">
               <Button
                 size="lg"
-                onClick={() => document.getElementById("ticket-sidebar")?.scrollIntoView({ behavior: "smooth" })}
+                onClick={() =>
+                  document
+                    .getElementById("ticket-sidebar")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
                 className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90 px-8 py-6 text-base font-semibold"
               >
                 Attend Event
@@ -701,37 +771,69 @@ return (
             </div>
           )}
 
-          {/* ── Two-column layout with Tabs ────────────────────────────────────── */}
+          {/* ── Two-column layout ─────────────────────────────────────────── */}
           <div className="grid gap-8 lg:grid-cols-3">
-            {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+            {/* ── LEFT COLUMN ───────────────────────────────────────────── */}
             <div className="lg:col-span-2">
-              <Tabs defaultValue="details" className="w-full" onValueChange={setActiveTab}>
+              <Tabs
+                defaultValue="details"
+                className="w-full"
+                onValueChange={setActiveTab}
+              >
                 <TabsList className="w-full flex rounded-xl bg-muted/50 py-1 px-3 mb-8">
-                  <TabsTrigger value="details" className="flex-1 rounded-lg py-2.5 transition-all">Details</TabsTrigger>
-                  <TabsTrigger value="reviews" className="flex-1 rounded-lg py-2.5 transition-all">Reviews</TabsTrigger>
-                  <TabsTrigger value="attendees" disabled={!canViewAttendees} className="flex-1 rounded-lg py-2.5 transition-all">
+                  <TabsTrigger
+                    value="details"
+                    className="flex-1 rounded-lg py-2.5 transition-all"
+                  >
+                    Details
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="reviews"
+                    className="flex-1 rounded-lg py-2.5 transition-all"
+                  >
+                    Reviews
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="attendees"
+                    disabled={!canViewAttendees}
+                    className="flex-1 rounded-lg py-2.5 transition-all"
+                  >
                     Attendees
                   </TabsTrigger>
-                  <TabsTrigger value="blog" className="flex-1 rounded-lg py-2.5 transition-all">Blog</TabsTrigger>
-                  <TabsTrigger value="chat" className="flex-1 rounded-lg py-2.5 transition-all">Chat</TabsTrigger>
+                  <TabsTrigger
+                    value="blog"
+                    className="flex-1 rounded-lg py-2.5 transition-all"
+                  >
+                    Blog
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="chat"
+                    className="flex-1 rounded-lg py-2.5 transition-all"
+                  >
+                    Chat
+                  </TabsTrigger>
                 </TabsList>
 
-                {/* ── DETAILS TAB ─────────────────────────────────────────── */}
+                {/* ── DETAILS TAB ───────────────────────────────────────── */}
                 <TabsContent value="details" className="mt-0 space-y-6">
-                  {/* About */}
                   <div className="rounded-2xl border border-border/50 bg-card p-6">
-                    <h2 className="mb-4 font-display text-xl font-semibold text-foreground">About this event</h2>
-                    <p className="leading-relaxed text-secondary-foreground/80">{event.description}</p>
+                    <h2 className="mb-4 font-display text-xl font-semibold text-foreground">
+                      About this event
+                    </h2>
+                    <p className="leading-relaxed text-secondary-foreground/80">
+                      {event.description}
+                    </p>
                   </div>
 
-                  {/* Agenda / Schedule */}
                   {event.agenda && event.agenda.length > 0 && (
                     <div className="rounded-2xl border border-border/50 bg-card p-6">
-                      <h2 className="mb-6 font-display text-xl font-semibold text-foreground">Event Schedule</h2>
+                      <h2 className="mb-6 font-display text-xl font-semibold text-foreground">
+                        Event Schedule
+                      </h2>
                       <div className="relative">
                         <div className="absolute left-[5.5rem] top-0 h-full w-px bg-border/50" />
                         <div className="space-y-6">
-                          {event.agenda.map((item, i) => (
+                          {event.agenda.map((item: any, i: number) => (
                             <motion.div
                               key={i}
                               initial={{ opacity: 0, x: -10 }}
@@ -745,9 +847,13 @@ return (
                               </span>
                               <div className="relative z-10 mt-1.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-full gradient-primary shadow-glow" />
                               <div className="flex-1 pb-2">
-                                <p className="font-medium text-foreground">{item.title}</p>
+                                <p className="font-medium text-foreground">
+                                  {item.title}
+                                </p>
                                 {item.description && (
-                                  <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
+                                  <p className="mt-0.5 text-sm text-muted-foreground">
+                                    {item.description}
+                                  </p>
                                 )}
                               </div>
                             </motion.div>
@@ -757,7 +863,6 @@ return (
                     </div>
                   )}
 
-                  {/* Rules & Guidelines */}
                   {event.rules && event.rules.length > 0 && (
                     <div className="rounded-2xl border border-border/50 bg-card p-6">
                       <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-semibold text-foreground">
@@ -765,8 +870,11 @@ return (
                         Rules & Guidelines
                       </h2>
                       <ul className="space-y-2">
-                        {event.rules.map((rule, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-secondary-foreground/80">
+                        {event.rules.map((rule: string, i: number) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2 text-sm text-secondary-foreground/80"
+                          >
                             <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                             {rule}
                           </li>
@@ -775,8 +883,11 @@ return (
                     </div>
                   )}
 
-                  {/* Map Section (anchor for scroll) */}
-                  <section id="map-section" className="rounded-2xl border border-border/50 bg-card p-6 scroll-mt-24">
+                  {/* Map Section */}
+                  <section
+                    id="map-section"
+                    className="rounded-2xl border border-border/50 bg-card p-6 scroll-mt-24"
+                  >
                     <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-primary" />
                       Location
@@ -784,27 +895,49 @@ return (
                     <div className="h-64 rounded-xl border border-border/50 bg-secondary/50 flex items-center justify-center">
                       <div className="text-center">
                         <MapPin className="mx-auto mb-2 h-10 w-10 text-primary" />
-                        <p className="text-sm font-medium text-foreground">{isOnline ? "Online Event" : (event.locations?.[0]?.name || event.locations?.[0]?.address || "Location TBD")}</p>
+                        {/* CHANGED: reads from locations[] array not NULL location column */}
+                        <p className="text-sm font-medium text-foreground">
+                          {isOnline
+                            ? "Online Event"
+                            : event.locations?.[0]?.name ||
+                              event.locations?.[0]?.address ||
+                              event.location ||
+                              "Location TBD"}
+                        </p>
                         {isOnline ? (
-                          <p className="mt-1 text-xs text-muted-foreground">Join link provided after ticket purchase</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Join link provided after ticket purchase
+                          </p>
                         ) : (
                           <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locations?.[0]?.address || event.locations?.[0]?.name || "")}`}
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              event.locations?.[0]?.address ||
+                                event.locations?.[0]?.name ||
+                                event.location ||
+                                ""
+                            )}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 mt-3 text-sm text-primary hover:underline"
                           >
-                            Open in Google Maps <ExternalLink className="h-3 w-3" />
+                            Open in Google Maps {" "}
+                            <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
+
+
                       </div>
                     </div>
                   </section>
 
                   {/* Organizer Section */}
                   <div className="rounded-2xl border border-border/50 bg-card p-6">
-                    <h2 className="mb-4 font-display text-xl font-semibold text-foreground">Organizer</h2>
+                    <h2 className="mb-4 font-display text-xl font-semibold text-foreground">
+                      Organizer
+                    </h2>
+                    {/* CHANGED: passes organizerId so clicking routes to /organizer/{id} correctly */}
                     <OrganizerLink
+                      organizerId={event.organizerId}
                       organizerName={event.organizer}
                       className="flex items-center gap-3 mb-4 group cursor-pointer"
                     >
@@ -814,8 +947,12 @@ return (
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground truncate text-sm group-hover:text-primary transition-colors">{event.organizer}</p>
-                        <p className="text-xs text-muted-foreground">Event Organizer</p>
+                        <p className="font-medium text-foreground truncate text-sm group-hover:text-primary transition-colors">
+                          {event.organizer}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Event Organizer
+                        </p>
                       </div>
                     </OrganizerLink>
                     <div className="flex gap-2">
@@ -823,7 +960,9 @@ return (
                         size="sm"
                         onClick={toggleFollow}
                         className={`flex-1 text-xs ${
-                          following ? "bg-secondary text-foreground hover:bg-secondary/80" : "gradient-primary text-primary-foreground shadow-glow"
+                          following
+                            ? "bg-secondary text-foreground hover:bg-secondary/80"
+                            : "gradient-primary text-primary-foreground shadow-glow"
                         }`}
                       >
                         {following ? (
@@ -841,7 +980,14 @@ return (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedUser(organizerSlug(event.organizer))}
+                        onClick={() =>
+                          setSelectedUser(
+                            // CHANGED: use organizerId as chat target instead of name slug
+                            event.organizerId
+                              ? String(event.organizerId)
+                              : event.organizer
+                          )
+                        }
                         className="flex-1 border-border/50 text-xs"
                       >
                         <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -860,17 +1006,22 @@ return (
                   </div>
                 </TabsContent>
 
-                {/* ── REVIEWS TAB ───────────────────────────────────────────── */}
+                {/* ── REVIEWS TAB ───────────────────────────────────────── */}
                 <TabsContent value="reviews" className="mt-0">
                   <div className="rounded-2xl border border-border/50 bg-card p-6">
-                    {/* Header */}
                     <div className="mb-6 flex items-center justify-between">
                       <div>
-                        <h2 className="font-display text-xl font-semibold text-foreground">Reviews</h2>
+                        <h2 className="font-display text-xl font-semibold text-foreground">
+                          Reviews
+                        </h2>
                         <div className="mt-1 flex items-center gap-2">
                           <Stars rating={4} />
-                          <span className="text-sm font-semibold text-foreground">4.2</span>
-                          <span className="text-sm text-muted-foreground">({event.reviews?.length || 0} reviews)</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            4.2
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            ({event.reviews?.length || 0} reviews)
+                          </span>
                         </div>
                       </div>
                       {canLeaveReview ? (
@@ -883,12 +1034,13 @@ return (
                         </Button>
                       ) : (
                         <p className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
-                          {!user ? "Login & attend to review" : "Attend event to leave a review"}
+                          {!user
+                            ? "Login & attend to review"
+                            : "Attend event to leave a review"}
                         </p>
                       )}
                     </div>
 
-                    {/* Review form – only if logged in and attended */}
                     <AnimatePresence>
                       {canLeaveReview && showReviewForm && (
                         <motion.div
@@ -897,8 +1049,15 @@ return (
                           exit={{ opacity: 0, height: 0 }}
                           className="mb-6 overflow-hidden rounded-xl border border-border/50 bg-secondary/50 p-4"
                         >
-                          <p className="mb-3 text-sm font-medium text-foreground">Your rating</p>
-                          <Stars rating={reviewRating} size="md" interactive onRate={setReviewRating} />
+                          <p className="mb-3 text-sm font-medium text-foreground">
+                            Your rating
+                          </p>
+                          <Stars
+                            rating={reviewRating}
+                            size="md"
+                            interactive
+                            onRate={setReviewRating}
+                          />
                           <Textarea
                             placeholder="Share your experience at this event…"
                             value={reviewText}
@@ -907,7 +1066,10 @@ return (
                             rows={3}
                           />
                           <div className="mt-3 flex justify-end">
-                            <Button onClick={submitReview} className="gradient-primary text-primary-foreground shadow-glow">
+                            <Button
+                              onClick={submitReview}
+                              className="gradient-primary text-primary-foreground shadow-glow"
+                            >
                               Submit Review
                             </Button>
                           </div>
@@ -915,22 +1077,33 @@ return (
                       )}
                     </AnimatePresence>
 
-                    {/* Review list */}
                     <div className="space-y-5">
                       {(event.reviews || []).map((review: any) => (
-                        <div key={review.id} className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0">
+                        <div
+                          key={review.id}
+                          className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0"
+                        >
                           <Avatar className="h-9 w-9 shrink-0">
                             <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
-                              {review.user?.name?.slice(0, 2).toUpperCase() || "U"}
+                              {review.user?.name?.slice(0, 2).toUpperCase() ||
+                                "U"}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">{review.user?.name || "Anonymous"}</p>
+                              <p className="text-sm font-medium text-foreground">
+                                {review.user?.name || "Anonymous"}
+                              </p>
                               <Stars rating={review.rating || 5} />
-                              <span className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(
+                                  review.created_at
+                                ).toLocaleDateString()}
+                              </span>
                             </div>
-                            <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">{review.content || review.comment}</p>
+                            <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">
+                              {review.content || review.comment}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -938,18 +1111,24 @@ return (
                   </div>
                 </TabsContent>
 
-                {/* ── ATTENDEES TAB ────────────────────────────────────────── */}
+                {/* ── ATTENDEES TAB ─────────────────────────────────────── */}
                 <TabsContent value="attendees" className="mt-0">
                   {canViewAttendees ? (
-                    <AttendeeList 
-                      eventId={event.id} 
-                      attendees={event.tickets?.map((t: any) => t.user).filter(Boolean) || []}
-                      onSelectUser={setSelectedUser} 
+                    <AttendeeList
+                      eventId={event.id}
+                      attendees={
+                        event.tickets
+                          ?.map((t: any) => t.user)
+                          .filter(Boolean) || []
+                      }
+                      onSelectUser={setSelectedUser}
                     />
                   ) : (
                     <div className="rounded-2xl border border-border/50 bg-card p-12 text-center">
                       <Users className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                      <h3 className="font-display text-lg font-semibold text-foreground mb-2">Attendees List</h3>
+                      <h3 className="font-display text-lg font-semibold text-foreground mb-2">
+                        Attendees List
+                      </h3>
                       <p className="text-muted-foreground text-sm">
                         {!user
                           ? "Sign in to view attendees"
@@ -959,37 +1138,43 @@ return (
                   )}
                 </TabsContent>
 
-                {/* ── BLOG TAB ─────────────────────────────────────────────── */}
+                {/* ── BLOG TAB ──────────────────────────────────────────── */}
                 <TabsContent value="blog" className="mt-0">
-                  <EventBlogSection category={event.category} blogs={event.blogs || []} />
+                  <EventBlogSection
+                    category={event.category}
+                    blogs={event.blogs || []}
+                  />
                 </TabsContent>
 
-                 {/* ── CHAT TAB ─────────────────────────────────────────────── */}
-                 <TabsContent value="chat" className="mt-0">
-                   <EventChatroomTab 
-                     eventId={event.id} 
-                     organizerName={event.organizer} 
-                     chatrooms={event.chatrooms || []}
-                     onSelectUser={setSelectedUser}
-                     isOrganizer={isOrganizer}
-                     activeTab={activeTab}
-                   />
-                 </TabsContent>
+                {/* ── CHAT TAB ──────────────────────────────────────────── */}
+                <TabsContent value="chat" className="mt-0">
+                  <EventChatroomTab
+                    eventId={event.id}
+                    organizerName={event.organizer}
+                    chatrooms={event.chatrooms || []}
+                    onSelectUser={setSelectedUser}
+                    isOrganizer={isOrganizer}
+                    activeTab={activeTab}
+                  />
+                </TabsContent>
               </Tabs>
             </div>
 
-            {/* ── RIGHT COLUMN (sticky sidebar) ───────────────────────────── */}
+            {/* ── RIGHT COLUMN (sticky sidebar) ─────────────────────────── */}
             <div>
               <div className="sticky top-20 space-y-4">
-                {/* Ticket Purchase Card */}
-                <div id="ticket-sidebar" className="rounded-2xl border border-border/50 bg-card p-5 shadow-card">
-                  <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Get Tickets</h2>
+                <div
+                  id="ticket-sidebar"
+                  className="rounded-2xl border border-border/50 bg-card p-5 shadow-card"
+                >
+                  <h2 className="mb-4 font-display text-lg font-semibold text-foreground">
+                    Get Tickets
+                  </h2>
 
                   {event.ticketTypes && event.ticketTypes.length > 0 ? (
                     <>
-                      {/* Ticket types */}
                       <div className="mb-4 space-y-2">
-                        {event.ticketTypes.map((tt, i) => {
+                        {event.ticketTypes.map((tt: any, i: number) => {
                           const remaining = tt.quantity - tt.sold;
                           const soldOut = remaining <= 0;
                           const isSelected = selectedTicket === i;
@@ -1006,35 +1191,42 @@ return (
                                 soldOut
                                   ? "cursor-not-allowed border-border/30 opacity-50"
                                   : isSelected
-                                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                    : "border-border/50 hover:border-primary/50"
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                  : "border-border/50 hover:border-primary/50"
                               }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium text-foreground text-sm">{tt.name}</span>
+                                <span className="font-medium text-foreground text-sm">
+                                  {tt.name}
+                                </span>
                                 {soldOut ? (
                                   <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
                                     Sold Out
                                   </span>
                                 ) : (
-                                  <span className="font-bold text-foreground">₦{tt.price.toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">
+                                    ₦{tt.price.toLocaleString()}
+                                  </span>
                                 )}
                               </div>
                               {!soldOut && (
-                                <p className="mt-1 text-xs text-muted-foreground">{remaining.toLocaleString()} remaining</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {remaining.toLocaleString()} remaining
+                                </p>
                               )}
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* Quantity */}
                       {!(
                         (event.ticketTypes[selectedTicket]?.sold ?? 0) >=
                         (event.ticketTypes[selectedTicket]?.quantity ?? 0)
                       ) && (
                         <div className="mb-4">
-                          <p className="mb-2 text-xs font-medium text-foreground">Quantity</p>
+                          <p className="mb-2 text-xs font-medium text-foreground">
+                            Quantity
+                          </p>
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -1042,9 +1234,13 @@ return (
                             >
                               <Minus className="h-4 w-4" />
                             </button>
-                            <span className="text-lg font-semibold text-foreground w-6 text-center">{qty}</span>
+                            <span className="text-lg font-semibold text-foreground w-6 text-center">
+                              {qty}
+                            </span>
                             <button
-                              onClick={() => setQty((q) => Math.min(10, q + 1))}
+                              onClick={() =>
+                                setQty((q) => Math.min(10, q + 1))
+                              }
                               className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 text-foreground hover:bg-secondary transition-colors"
                             >
                               <Plus className="h-4 w-4" />
@@ -1053,7 +1249,6 @@ return (
                         </div>
                       )}
 
-                      {/* Promo Code */}
                       <div className="mb-4">
                         <div className="flex gap-2">
                           <Input
@@ -1062,18 +1257,23 @@ return (
                             onChange={(e) => setPromoCode(e.target.value)}
                             className="h-9 text-sm border-border/50"
                           />
-                          <Button size="sm" variant="outline" onClick={applyPromo} className="border-border/50">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={applyPromo}
+                            className="border-border/50"
+                          >
                             Apply
                           </Button>
                         </div>
                         {appliedPromo && (
                           <p className="mt-2 text-xs font-medium text-emerald-500">
-                            Code "{appliedPromo.code}" applied! (-{appliedPromo.discount}%)
+                            Code "{appliedPromo.code}" applied! (-
+                            {appliedPromo.discount}%)
                           </p>
                         )}
                       </div>
 
-                      {/* Summary */}
                       <div className="mb-6 space-y-2 border-t border-border/30 pt-4 text-sm">
                         <div className="flex justify-between text-muted-foreground">
                           <span>Subtotal</span>
@@ -1107,9 +1307,13 @@ return (
                     <>
                       <div className="mb-6 flex items-center justify-between">
                         <span className="font-display text-2xl font-bold text-foreground">
-                          {event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`}
+                          {event.price === 0
+                            ? "Free"
+                            : `₦${event.price.toLocaleString()}`}
                         </span>
-                        <span className="text-xs text-muted-foreground">per person</span>
+                        <span className="text-xs text-muted-foreground">
+                          per person
+                        </span>
                       </div>
 
                       <div className="mb-6 space-y-3">
@@ -1133,24 +1337,44 @@ return (
                     </>
                   )}
 
-                  <p className="mt-4 text-center text-xs text-muted-foreground">Secure checkout powered by EventSpark</p>
+                  <p className="mt-4 text-center text-xs text-muted-foreground">
+                    Secure checkout powered by EventSpark
+                  </p>
                 </div>
 
-                {/* Small share section for desktop */}
                 {!isMobile && (
                   <div className="rounded-2xl border border-border/50 bg-card p-5">
-                    <h3 className="mb-3 text-sm font-semibold text-foreground">Share this event</h3>
+                    <h3 className="mb-3 text-sm font-semibold text-foreground">
+                      Share this event
+                    </h3>
                     <div className="flex gap-2">
-                      <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-border/50 hover:text-primary">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-full border-border/50 hover:text-primary"
+                      >
                         <span className="text-sm">𝕏</span>
                       </Button>
-                      <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-border/50 hover:text-primary">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-full border-border/50 hover:text-primary"
+                      >
                         <span className="text-sm">f</span>
                       </Button>
-                      <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-border/50 hover:text-primary">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-full border-border/50 hover:text-primary"
+                      >
                         <span className="text-sm">in</span>
                       </Button>
-                      <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-border/50 hover:text-primary" onClick={copyLink}>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-full border-border/50 hover:text-primary"
+                        onClick={copyLink}
+                      >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
                     </div>
@@ -1165,8 +1389,11 @@ return (
       <div className="h-20" />
       <Footer />
 
-      {/* Sponsorship Inquiry Modal */}
-      <Dialog open={showSponsorshipModal} onOpenChange={setShowSponsorshipModal}>
+      {/* Sponsorship Modal */}
+      <Dialog
+        open={showSponsorshipModal}
+        onOpenChange={setShowSponsorshipModal}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl font-bold flex items-center gap-2">
@@ -1174,7 +1401,8 @@ return (
               Partner With Us
             </DialogTitle>
             <DialogDescription>
-              Interested in sponsoring or partnering for "{event.title}"? Fill out the form below.
+              Interested in sponsoring or partnering for "{event.title}"? Fill
+              out the form below.
             </DialogDescription>
           </DialogHeader>
 
@@ -1183,11 +1411,14 @@ return (
               <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
                 <CheckCircle className="h-10 w-10 text-emerald-500" />
               </div>
-              <h3 className="mb-4 font-display text-2xl font-bold text-foreground">Inquiry Received!</h3>
+              <h3 className="mb-4 font-display text-2xl font-bold text-foreground">
+                Inquiry Received!
+              </h3>
               <p className="text-muted-foreground mb-8">
-                Thank you for your interest. The organizer will review your request and get back to you soon.
+                Thank you for your interest. The organizer will review your
+                request and get back to you soon.
               </p>
-              <Button 
+              <Button
                 onClick={() => {
                   setShowSponsorshipModal(false);
                   setIsSponsorshipSubmitted(false);
@@ -1198,7 +1429,10 @@ return (
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleSponsorshipSubmit} className="space-y-6 pt-4">
+            <form
+              onSubmit={handleSponsorshipSubmit}
+              className="space-y-6 pt-4"
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="sponsorship-name">Full Name *</Label>
@@ -1206,7 +1440,9 @@ return (
                     id="sponsorship-name"
                     placeholder="John Doe"
                     value={sponsorshipForm.fullName}
-                    onChange={(e) => handleSponsorshipChange("fullName", e.target.value)}
+                    onChange={(e) =>
+                      handleSponsorshipChange("fullName", e.target.value)
+                    }
                     className="bg-secondary border-border/50"
                     required
                   />
@@ -1218,7 +1454,9 @@ return (
                     type="email"
                     placeholder="john@company.com"
                     value={sponsorshipForm.email}
-                    onChange={(e) => handleSponsorshipChange("email", e.target.value)}
+                    onChange={(e) =>
+                      handleSponsorshipChange("email", e.target.value)
+                    }
                     className="bg-secondary border-border/50"
                     required
                   />
@@ -1232,7 +1470,9 @@ return (
                     id="sponsorship-company"
                     placeholder="Your company name"
                     value={sponsorshipForm.company}
-                    onChange={(e) => handleSponsorshipChange("company", e.target.value)}
+                    onChange={(e) =>
+                      handleSponsorshipChange("company", e.target.value)
+                    }
                     className="bg-secondary border-border/50"
                   />
                 </div>
@@ -1243,7 +1483,9 @@ return (
                     type="tel"
                     placeholder="+234..."
                     value={sponsorshipForm.phone}
-                    onChange={(e) => handleSponsorshipChange("phone", e.target.value)}
+                    onChange={(e) =>
+                      handleSponsorshipChange("phone", e.target.value)
+                    }
                     className="bg-secondary border-border/50"
                   />
                 </div>
@@ -1256,15 +1498,21 @@ return (
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => handleSponsorshipChange("sponsorshipType", type.id)}
+                      onClick={() =>
+                        handleSponsorshipChange("sponsorshipType", type.id)
+                      }
                       className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                         sponsorshipForm.sponsorshipType === type.id
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
                           : "border-border/50 bg-secondary/50 hover:border-primary/30"
                       }`}
                     >
-                      <span className="font-medium text-foreground text-sm">{type.label}</span>
-                      <span className="text-[10px] text-muted-foreground">{type.desc}</span>
+                      <span className="font-medium text-foreground text-sm">
+                        {type.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {type.desc}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1276,7 +1524,9 @@ return (
                   id="sponsorship-message"
                   placeholder="Tell us about your goals..."
                   value={sponsorshipForm.message}
-                  onChange={(e) => handleSponsorshipChange("message", e.target.value)}
+                  onChange={(e) =>
+                    handleSponsorshipChange("message", e.target.value)
+                  }
                   className="min-h-[100px] bg-secondary border-border/50"
                   required
                 />
@@ -1308,7 +1558,9 @@ return (
       <Dialog open={showTicketModal} onOpenChange={setShowTicketModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl font-bold">Ticket Details</DialogTitle>
+            <DialogTitle className="font-display text-2xl font-bold">
+              Ticket Details
+            </DialogTitle>
             <DialogDescription>
               Add attendee details for {event.title} before checkout.
             </DialogDescription>
@@ -1317,12 +1569,21 @@ return (
           <form onSubmit={handleTicketFormSubmit} className="space-y-4 pt-2">
             <div className="rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
               <div className="flex justify-between gap-4 text-muted-foreground">
-                <span>{event.ticketTypes?.[selectedTicket]?.name ?? "General Admission"}</span>
-                <span>{qty} ticket{qty > 1 ? "s" : ""}</span>
+                <span>
+                  {event.ticketTypes?.[selectedTicket]?.name ??
+                    "General Admission"}
+                </span>
+                <span>
+                  {qty} ticket{qty > 1 ? "s" : ""}
+                </span>
               </div>
               <div className="mt-2 flex justify-between gap-4 font-semibold text-foreground">
                 <span>Total</span>
-                <span>{ticketTotal === 0 ? "Free" : `₦${ticketTotal.toLocaleString()}`}</span>
+                <span>
+                  {ticketTotal === 0
+                    ? "Free"
+                    : `₦${ticketTotal.toLocaleString()}`}
+                </span>
               </div>
             </div>
 
@@ -1361,36 +1622,58 @@ return (
                 required
               />
             </div>
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground shadow-glow">
+            <Button
+              type="submit"
+              className="w-full gradient-primary text-primary-foreground shadow-glow"
+            >
               Continue to Checkout
             </Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Shared Direct Chat Overlay */}
-      <Sheet open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+      {/* Direct Chat Overlay */}
+      <Sheet
+        open={!!selectedUser}
+        onOpenChange={(open) => !open && setSelectedUser(null)}
+      >
         <SheetContent className="sm:max-w-[450px] p-0 flex flex-col border-l border-border/50 shadow-2xl [&>button]:hidden">
-          <ChatOverlayContent userId={selectedUser} onClose={() => setSelectedUser(null)} />
+          <ChatOverlayContent
+            userId={selectedUser}
+            onClose={() => setSelectedUser(null)}
+          />
         </SheetContent>
       </Sheet>
     </div>
   );
 };
 
-// Internal component for the chat overlay content to handle its own logic
-const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClose: () => void }) => {
+// ─── Chat overlay ─────────────────────────────────────────────────────────────
+
+const ChatOverlayContent = ({
+  userId,
+  onClose,
+}: {
+  userId: string | null;
+  onClose: () => void;
+}) => {
   const { user: currentUser } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
-  const chatUser = userId ? { id: userId, name: "Attendee", initials: "AT", location: "Unknown", avatar: "" } : null;
+
+  const chatUser = userId
+    ? {
+        id: userId,
+        name: "Attendee",
+        initials: "AT",
+        location: "Unknown",
+        avatar: "",
+      }
+    : null;
 
   useEffect(() => {
-    if (userId) {
-      setMessages([]);
-    }
+    if (userId) setMessages([]);
   }, [userId]);
 
   useEffect(() => {
@@ -1406,7 +1689,7 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
       text: input.trim(),
       timestamp: new Date().toISOString(),
     };
-    setMessages(prev => [...prev, newMsg]);
+    setMessages((prev) => [...prev, newMsg]);
     setInput("");
     toast.success("Message sent!");
   };
@@ -1419,17 +1702,26 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
             <AvatarImage src={chatUser.avatar} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">{chatUser.initials}</AvatarFallback>
+            <AvatarFallback className="bg-primary/10 text-primary font-bold">
+              {chatUser.initials}
+            </AvatarFallback>
           </Avatar>
           <div className="text-left">
-            <SheetTitle className="text-base font-bold leading-none">{chatUser.name}</SheetTitle>
+            <SheetTitle className="text-base font-bold leading-none">
+              {chatUser.name}
+            </SheetTitle>
             <div className="flex items-center gap-1 text-[11px] text-primary font-medium mt-1">
               <MapPin className="h-3 w-3" />
               <span>{chatUser.location}</span>
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full hover:bg-muted transition-colors">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-8 w-8 rounded-full hover:bg-muted transition-colors"
+        >
           <X className="h-4 w-4" />
         </Button>
       </SheetHeader>
@@ -1440,13 +1732,19 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
             <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
               <MessageSquare className="h-12 w-12 mb-3" />
               <p className="text-sm font-medium">No messages yet</p>
-              <p className="text-xs">Start the conversation with {chatUser.name}</p>
+              <p className="text-xs">
+                Start the conversation with {chatUser.name}
+              </p>
             </div>
           ) : (
             messages.map((msg) => {
-              const isMine = msg.senderId === (currentUser?.id || "currentUser");
+              const isMine =
+                msg.senderId === (currentUser?.id || "currentUser");
               return (
-                <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={msg.id}
+                  className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                >
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                       isMine
@@ -1455,8 +1753,13 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
                     }`}
                   >
                     <p className="leading-relaxed">{msg.text}</p>
-                    <p className={`mt-1 text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    <p
+                      className={`mt-1 text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                    >
+                      {new Date(msg.timestamp).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
@@ -1470,12 +1773,16 @@ const ChatOverlayContent = ({ userId, onClose }: { userId: string | null, onClos
       <div className="p-4 border-t border-border/50 bg-card">
         <form onSubmit={sendMessage} className="flex gap-2">
           <Input
-            placeholder={`Message ${chatUser.name.split(' ')[0]}...`}
+            placeholder={`Message ${chatUser.name.split(" ")[0]}...`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 bg-secondary border-border/50 h-11"
           />
-          <Button type="submit" size="icon" className="h-11 w-11 gradient-primary text-primary-foreground shrink-0 shadow-glow">
+          <Button
+            type="submit"
+            size="icon"
+            className="h-11 w-11 gradient-primary text-primary-foreground shrink-0 shadow-glow"
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>
