@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { mockEvents } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 interface FoundTicket {
@@ -29,6 +30,7 @@ interface FoundTicket {
   totalPaid: number;
   purchaseDate: string;
   email: string;
+  realEvent?: any;
 }
 
 // Mock ticket database
@@ -136,33 +138,129 @@ const FindMyTickets = () => {
     }
 
     setSearching(true);
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 1200));
 
-    let found: FoundTicket[];
-    if (searchMethod === "email") {
-      found = MOCK_TICKET_DB.filter((t) =>
-        t.email.toLowerCase() === query,
-      );
+    const token = localStorage.getItem("access_token") || "";
+
+    if (token) {
+      // User is authenticated, retrieve live tickets from the backend
+      try {
+        const response = await api.get("user/tickets", undefined, token);
+        if (response?.tickets && Array.isArray(response.tickets)) {
+          const allUserTickets: FoundTicket[] = response.tickets.map((t: any) => {
+            const ev = t.event ?? {};
+            return {
+              ticketId: t.ticket_code || String(t.id),
+              eventId: String(ev.id || t.event_id),
+              ticketType: t.status === "confirmed" ? "Confirmed Ticket" : "Ticket",
+              quantity: t.quantity ?? 1,
+              totalPaid: t.price ?? 0,
+              purchaseDate: t.created_at || "",
+              email: query, // Associated with search query
+              realEvent: {
+                id: ev.id,
+                title: ev.title || "Event",
+                description: ev.description || "",
+                date: ev.start_date || "",
+                time: ev.start_date ? new Date(ev.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+                location: ev.locations?.[0]?.address || ev.locations?.[0]?.name || "TBD",
+                image: ev.image_url || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+              }
+            };
+          });
+
+          let found: FoundTicket[];
+          if (searchMethod === "email") {
+            // Since they are logged in, we return all their tickets (or filter by email if we had user profiles)
+            found = allUserTickets;
+          } else {
+            found = allUserTickets.filter((t) =>
+              t.ticketId.toUpperCase().includes(query),
+            );
+          }
+
+          setResults(found);
+          setSearched(true);
+
+          if (found.length > 0) {
+            toast.success(`Found ${found.length} ticket${found.length !== 1 ? "s" : ""}! 🎟️`);
+          } else {
+            toast.error("No tickets found. Check your reference and try again.");
+          }
+        } else {
+          setResults([]);
+          setSearched(true);
+          toast.error("No tickets found.");
+        }
+      } catch (err: any) {
+        console.error("Failed to query live tickets:", err);
+        toast.error("Failed to fetch tickets from server.");
+      } finally {
+        setSearching(false);
+      }
     } else {
-      found = MOCK_TICKET_DB.filter((t) =>
-        t.ticketId.toUpperCase().includes(query),
-      );
-    }
+      // Guest mode - fallback to search MOCK_TICKET_DB
+      await new Promise((r) => setTimeout(r, 800));
 
-    setResults(found);
-    setSearched(true);
-    setSearching(false);
+      let found: FoundTicket[];
+      if (searchMethod === "email") {
+        found = MOCK_TICKET_DB.filter((t) =>
+          t.email.toLowerCase() === query,
+        );
+      } else {
+        found = MOCK_TICKET_DB.filter((t) =>
+          t.ticketId.toUpperCase().includes(query),
+        );
+      }
 
-    if (found.length > 0) {
-      toast.success(`Found ${found.length} ticket${found.length !== 1 ? "s" : ""}! 🎟️`);
-    } else {
-      toast.error("No tickets found. Check your details and try again.");
+      setResults(found);
+      setSearched(true);
+      setSearching(false);
+
+      if (found.length > 0) {
+        toast.success(`Demo: Found ${found.length} mock ticket${found.length !== 1 ? "s" : ""}!`);
+      } else {
+        toast.error("No tickets found. Check demo credentials and try again.");
+      }
     }
   };
 
-  const handleDownload = (ticketId: string) => {
-    toast(`Downloading ticket ${ticketId}… 📥`);
+  const handleDownload = async (ticket: FoundTicket) => {
+    const token = localStorage.getItem("access_token") || "";
+    if (token && ticket.realEvent) {
+      try {
+        const response = await api.get(
+          `user/tickets/${ticket.ticketId}/download`,
+          undefined,
+          token,
+        );
+        const payload = response?.ticket ?? ticket;
+        const content = [
+          `Event: ${payload.event?.title ?? ticket.realEvent.title}`,
+          `Ticket ID: ${payload.ticket_code ?? ticket.ticketId}`,
+          `Quantity: ${payload.quantity}`,
+          `Status: ${payload.status || "Confirmed"}`,
+          `Price: ₦${(payload.price ?? ticket.totalPaid).toLocaleString()}`,
+          `Purchase date: ${new Date(payload.created_at ?? ticket.purchaseDate).toLocaleString()}`,
+          `Location: ${payload.event?.location ?? ticket.realEvent.location}`,
+        ].join("\n");
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `ticket-${ticket.ticketId}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        toast.success(`Downloaded ticket ${ticket.ticketId} 📥`);
+      } catch (err) {
+        console.error("Ticket download failed", err);
+        toast.error("Ticket download failed.");
+      }
+    } else {
+      toast(`Downloading demo ticket ${ticket.ticketId}… 📥`);
+    }
   };
 
   const resetSearch = () => {
@@ -409,7 +507,7 @@ const FindMyTickets = () => {
               ) : (
                 <div className="space-y-4">
                   {results.map((ticket, i) => {
-                    const event = mockEvents.find(
+                    const event = ticket.realEvent || mockEvents.find(
                       (e) => e.id === ticket.eventId,
                     );
                     if (!event) return null;
@@ -489,7 +587,7 @@ const FindMyTickets = () => {
                           <div className="flex items-center gap-2 shrink-0">
                             <Button
                               size="sm"
-                              onClick={() => handleDownload(ticket.ticketId)}
+                              onClick={() => handleDownload(ticket)}
                               className="gradient-primary text-primary-foreground shadow-glow text-xs gap-1.5"
                             >
                               <Download className="h-3.5 w-3.5" />
@@ -564,13 +662,13 @@ const FindMyTickets = () => {
                                     },
                                     {
                                       label: "Purchase Date",
-                                      value: new Date(
+                                      value: ticket.purchaseDate ? new Date(
                                         ticket.purchaseDate,
                                       ).toLocaleDateString("en-US", {
                                         month: "long",
                                         day: "numeric",
                                         year: "numeric",
-                                      }),
+                                      }) : "—",
                                     },
                                     {
                                       label: "Registered Email",

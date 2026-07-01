@@ -157,7 +157,14 @@ const Footer = () => (
                 Find My Tickets
               </Link>
             </li>
-        
+            <li>
+              <Link
+                to="/community-standards"
+                className="hover:text-foreground transition-colors"
+              >
+                Community Standards
+              </Link>
+            </li>
             <li>
               <Link
                 to="/terms"

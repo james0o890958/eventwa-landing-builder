@@ -135,7 +135,7 @@ const OrganizerBlogs = () => {
               className="rounded-2xl border border-border/50 bg-card p-5 shadow-card"
             >
               <div className="flex flex-col gap-4 sm:flex-row">
-                <img src={blog.image} alt={blog.title} className="h-24 w-full rounded-xl object-cover sm:w-32" />
+                <img src={blog.image} alt={blog.title} loading="lazy" className="h-24 w-full rounded-xl object-cover sm:w-32" />
                 <div className="min-w-0 flex-1 flex flex-col justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">

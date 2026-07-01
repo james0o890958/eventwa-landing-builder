@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Search, X, ChevronDown } from "lucide-react";
+import { ArrowLeft, Search, X, ChevronDown, Loader2, AlertCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
 import { Input } from "@/components/ui/input";
-import { mockEvents, categories } from "@/data/mockEvents";
+import { categories } from "@/data/mockEvents";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 type PriceFilter = "all" | "free" | "paid";
 type SortOption = "soonest" | "popular" | "price-asc" | "price-desc";
@@ -14,13 +16,49 @@ type SortOption = "soonest" | "popular" | "price-asc" | "price-desc";
 const CategoryEvents = () => {
   const { id } = useParams();
   const category = categories.find((c) => c.id === id);
-  const baseEvents = mockEvents.filter((e) => e.category === id);
 
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [sortOption, setSortOption] = useState<SortOption>("soonest");
   const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchCategoryEvents = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await api.get("public/events");
+        if (response.status === "success" && response.events) {
+          const mappedEvents = response.events.map((be: any) => ({
+            id: be.id.toString(),
+            title: be.title,
+            description: be.description,
+            date: be.start_date,
+            time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
+            image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+            price: parseFloat(be.price) || 0,
+            organizer: be.organizer ? be.organizer.name : 'Unknown',
+            attendees: be.capacity || 0,
+            category: be.category ? be.category.name.toLowerCase() : 'other',
+          }));
+          setEvents(mappedEvents);
+        }
+      } catch (err: any) {
+        console.error("Failed to load category events:", err);
+        setError(err.message || "Failed to load events.");
+        toast.error("Failed to retrieve live events from server.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategoryEvents();
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -31,6 +69,8 @@ const CategoryEvents = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const baseEvents = events.filter((e) => e.category === id);
 
   const suggestions =
     searchQuery.length >= 2
@@ -106,15 +146,23 @@ const CategoryEvents = () => {
                   {category.label} Events
                 </h1>
                 <p className="text-muted-foreground">
-                  Showing{" "}
-                  <span className="font-semibold text-foreground">
-                    {filtered.length}
-                  </span>{" "}
-                  of {baseEvents.length} event
-                  {baseEvents.length !== 1 ? "s" : ""} in{" "}
-                  <span className="text-primary font-medium">
-                    {category.label}
-                  </span>
+                  {loading ? (
+                    <span>Loading events…</span>
+                  ) : error ? (
+                    <span className="text-destructive">Failed to load events</span>
+                  ) : (
+                    <>
+                      Showing{" "}
+                      <span className="font-semibold text-foreground">
+                        {filtered.length}
+                      </span>{" "}
+                      of {baseEvents.length} event
+                      {baseEvents.length !== 1 ? "s" : ""} in{" "}
+                      <span className="text-primary font-medium">
+                        {category.label}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
             </motion.div>
@@ -212,7 +260,16 @@ const CategoryEvents = () => {
             </div>
 
             {/* Events grid */}
-            {filtered.length > 0 ? (
+            {loading ? (
+              <div className="py-20 flex justify-center items-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : error ? (
+              <div className="py-20 flex flex-col items-center gap-3 text-center">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+            ) : filtered.length > 0 ? (
               <motion.div
                 key={`${searchQuery}-${priceFilter}-${sortOption}`}
                 initial={{ opacity: 0 }}

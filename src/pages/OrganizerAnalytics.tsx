@@ -1,22 +1,69 @@
 import { motion } from "framer-motion";
-import { BarChart3, TrendingUp, Eye, Users, Ticket } from "lucide-react";
+import { BarChart3, TrendingUp, Eye, Users, Ticket, Loader2, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { organizerMenu } from "@/config/dashboardMenus";
-import { mockEvents } from "@/data/mockEvents";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 const fmt = (n: number) =>
   n >= 1_000_000 ? `₦${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `₦${(n / 1_000).toFixed(1)}K` : `₦${n.toLocaleString()}`;
 
+interface AnalyticsData {
+  page_views: { total: number; growth_percentage: number };
+  total_attendees: { total: number; growth_percentage: number };
+  tickets_sold: { total: number; growth_percentage: number };
+  revenue: { total: number; growth_percentage: number };
+  event_performance: { title: string; percentage: number }[];
+}
+
 const OrganizerAnalytics = () => {
-  const events = mockEvents.slice(0, 6);
-  const totalAttendees = events.reduce((s, e) => s + e.attendees, 0);
-  const revenue = events.reduce((s, e) => s + e.price * Math.floor(e.attendees * 0.7), 0);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("organizer_token") || localStorage.getItem("access_token") || undefined;
+    setLoading(true);
+    api
+      .get("organizer/analytics", undefined, token)
+      .then((res) => {
+        setAnalytics(res.analytics ?? res);
+      })
+      .catch((err) => {
+        console.error("Failed to load analytics:", err);
+        setError(err.message || "Failed to load analytics.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Analytics" subtitle="Track performance across all your events" menu={organizerMenu}>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !analytics) {
+    return (
+      <DashboardLayout title="Analytics" subtitle="Track performance across all your events" menu={organizerMenu}>
+        <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <p className="text-muted-foreground text-sm">{error || "No analytics data available."}</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const formatGrowth = (g: number) => `${g >= 0 ? "+" : ""}${g.toFixed(1)}%`;
 
   const KPIS = [
-    { Icon: Eye, label: "Page Views", value: "24.3K", trend: "+12%" },
-    { Icon: Users, label: "Total Attendees", value: totalAttendees.toLocaleString(), trend: "+8%" },
-    { Icon: Ticket, label: "Tickets Sold", value: Math.floor(totalAttendees * 0.7).toLocaleString(), trend: "+15%" },
-    { Icon: BarChart3, label: "Revenue", value: fmt(revenue), trend: "+22%" },
+    { Icon: Eye, label: "Page Views", value: analytics.page_views.total.toLocaleString(), trend: formatGrowth(analytics.page_views.growth_percentage) },
+    { Icon: Users, label: "Total Attendees", value: analytics.total_attendees.total.toLocaleString(), trend: formatGrowth(analytics.total_attendees.growth_percentage) },
+    { Icon: Ticket, label: "Tickets Sold", value: analytics.tickets_sold.total.toLocaleString(), trend: formatGrowth(analytics.tickets_sold.growth_percentage) },
+    { Icon: BarChart3, label: "Revenue", value: fmt(analytics.revenue.total), trend: formatGrowth(analytics.revenue.growth_percentage) },
   ];
 
   return (
@@ -42,28 +89,28 @@ const OrganizerAnalytics = () => {
 
       <div className="mt-6 rounded-2xl border border-border/50 bg-card p-6 shadow-card">
         <h3 className="mb-4 font-display font-semibold text-foreground">Event Performance</h3>
-        <div className="space-y-4">
-          {events.map((e, i) => {
-            const sold = Math.floor(e.attendees * 0.7);
-            const pct = Math.min(100, Math.round((sold / e.attendees) * 100));
-            return (
-              <div key={e.id}>
+        {analytics.event_performance.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">No events to display yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {analytics.event_performance.map((e, i) => (
+              <div key={i}>
                 <div className="mb-1.5 flex items-center justify-between text-sm">
                   <span className="truncate text-foreground">{e.title}</span>
-                  <span className="text-muted-foreground">{pct}%</span>
+                  <span className="text-muted-foreground">{e.percentage}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-secondary">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
+                    animate={{ width: `${e.percentage}%` }}
                     transition={{ duration: 0.8, delay: i * 0.05 }}
                     className="h-full gradient-primary"
                   />
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -30,7 +30,9 @@ export const api = {
       const errorData = await response.json().catch(() => ({}));
       const rawMessage = errorData.message || errorData.error || errorData.error_description || errorData.detail;
       const parsedMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
-      throw new Error(parsedMessage || `API request failed with status ${response.status}`);
+      const err: any = new Error(parsedMessage || `API request failed with status ${response.status}`);
+      err.data = errorData;
+      throw err;
     }
 
     return response.json();

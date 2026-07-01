@@ -17,6 +17,7 @@ export const BlogCard = ({ id, title, excerpt, image, readTime, date }: BlogCard
         <img
           src={image}
           alt={title}
+          loading="lazy"
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
       </div>

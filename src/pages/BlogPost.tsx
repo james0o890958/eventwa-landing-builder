@@ -117,7 +117,7 @@ const BlogPost = () => {
       .then((res) => {
         setPostLikes(Number(res.likes_count ?? res.likes ?? 0));
       })
-      .catch(() => {});
+      .catch((err) => { console.error('Failed to fetch likes:', err); });
 
     // Comments (public)
     api
@@ -126,7 +126,7 @@ const BlogPost = () => {
         const arr = res.comments ?? res.data ?? [];
         setComments(Array.isArray(arr) ? arr : []);
       })
-      .catch(() => {});
+      .catch((err) => { console.error('Failed to fetch comments:', err); });
   }, [post?.id, id]);
 
   if (loading) {
@@ -305,6 +305,9 @@ const BlogPost = () => {
 
           <div className="rounded-2xl border border-border/50 bg-card p-6 mb-8">
             <h3 className="text-lg font-semibold text-foreground mb-4">Leave a comment</h3>
+            <div className="rounded-2xl border border-border/50 bg-secondary/60 p-4 mb-4 text-sm text-muted-foreground">
+              Please follow Eventwa’s Community Standards when sharing your thoughts. Comments that violate these standards may be flagged, removed, and you will receive a notification if your comment is marked for review. <Link to="/community-standards" className="text-primary hover:underline">Read the full policy.</Link>
+            </div>
             {user ? (
               <div className="space-y-4">
                 <Textarea
@@ -314,25 +317,49 @@ const BlogPost = () => {
                   className="min-h-[100px] bg-secondary border-border/50"
                 />
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newComment.trim()) {
                       toast.error("Please enter a comment");
                       return;
                     }
-                    const comment = {
-                      id: `c${Date.now()}`,
-                      author: user.user_metadata?.display_name || "Anonymous",
-                      authorInitials: (user.user_metadata?.display_name || "A").charAt(0).toUpperCase(),
+                    const token = localStorage.getItem("access_token") || undefined;
+                    if (!token) {
+                      toast.error("Please sign in to comment");
+                      return;
+                    }
+                    // Optimistic update
+                    const optimistic = {
+                      id: `temp-${Date.now()}`,
+                      author: user?.user_metadata?.display_name || "You",
+                      authorInitials: (user?.user_metadata?.display_name || "Y").charAt(0).toUpperCase(),
                       content: newComment.trim(),
                       date: new Date().toISOString().split("T")[0],
                       likes: 0,
-                      is_owner: false,
+                      is_owner: true,
                       is_flagged: false,
                       flag_count: 0,
                     } as unknown as Comment;
-                    setComments([comment, ...comments]);
+                    setComments([optimistic, ...comments]);
+                    const draft = newComment.trim();
                     setNewComment("");
-                    toast.success("Comment added!");
+                    try {
+                      const res = await api.post(
+                        `blogs/${post!.id}/comments`,
+                        { content: draft },
+                        token
+                      );
+                      // Replace optimistic entry with real server comment
+                      const created = res.comment ?? res.data ?? optimistic;
+                      setComments((prev) =>
+                        prev.map((c) => (c.id === optimistic.id ? created : c))
+                      );
+                      toast.success("Comment posted!");
+                    } catch (err: any) {
+                      // Roll back optimistic update
+                      setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+                      setNewComment(draft);
+                      toast.error(err.message || "Failed to post comment.");
+                    }
                   }}
                   className="gap-2"
                 >

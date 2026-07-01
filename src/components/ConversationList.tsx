@@ -5,6 +5,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 
+// Lazily import Echo — app won't crash if Reverb isn't configured yet
+let echo: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  echo = require("@/lib/echo").default;
+} catch {
+  // Reverb not configured
+}
+
 interface User {
   id: string;
   name: string;
@@ -39,6 +48,8 @@ const ConversationList = ({ activeConversationId, onSelectConversation }: Conver
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const token = localStorage.getItem("access_token") || "";
+  const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+  const myId = String(authUser?.id ?? "");
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -57,6 +68,51 @@ const ConversationList = ({ activeConversationId, onSelectConversation }: Conver
 
     fetchConversations();
   }, [token]);
+
+  // ── Real-time: update conversation list when new DM arrives ────────────────
+  useEffect(() => {
+    if (!echo || !myId) return;
+
+    echo
+      .private(`messages.${myId}`)
+      .listen(".PrivateMessageSent", (e: { message: Message & { sender?: any } }) => {
+        const incoming = e.message;
+        setConversations((prev) => {
+          const existingIdx = prev.findIndex(
+            (c) => String(c.userId) === String(incoming.sender_id)
+          );
+          if (existingIdx >= 0) {
+            // Update existing conversation
+            const updated = [...prev];
+            updated[existingIdx] = {
+              ...updated[existingIdx],
+              lastMessage: incoming,
+              unread_count: updated[existingIdx].unread_count + 1,
+            };
+            // Move to top
+            const [conv] = updated.splice(existingIdx, 1);
+            return [conv, ...updated];
+          } else {
+            // New conversation — prepend a stub entry
+            return [
+              {
+                id: `conv-${incoming.sender_id}`,
+                userId: String(incoming.sender_id),
+                user: incoming.sender ?? { id: incoming.sender_id, name: "New User", email: "" },
+                lastMessage: incoming,
+                messages: [incoming],
+                unread_count: 1,
+              },
+              ...prev,
+            ];
+          }
+        });
+      });
+
+    return () => {
+      echo.leave(`messages.${myId}`);
+    };
+  }, [myId]);
 
   const filteredConversations = conversations.filter((c) =>
     c.user?.name.toLowerCase().includes(search.toLowerCase()) ||

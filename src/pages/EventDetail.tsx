@@ -321,9 +321,9 @@ const EventDetail = () => {
   const isOrganizer =
     user?.user_metadata?.full_name === event?.organizer ||
     user?.email === "organizer@example.com";
-  const hasAttended = false;
   const hasPurchasedTicket = false;
-  const canLeaveReview = !!user && hasAttended;
+  // Allow any logged-in user to leave a review (attendee-gate can be added later)
+  const canLeaveReview = !!user;
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
 
   // ── mobile detection ──────────────────────────────────────────────────────
@@ -387,17 +387,63 @@ const EventDetail = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [localReviews, setLocalReviews] = useState<any[]>([]);
 
-  const submitReview = () => {
+  // Seed localReviews from event.reviews when event loads
+  useEffect(() => {
+    if (event?.reviews) {
+      setLocalReviews(event.reviews);
+    }
+  }, [event?.reviews]);
+
+  const submitReview = async () => {
     if (!reviewRating) {
       toast.error("Please select a star rating");
       return;
     }
-    toast("Review submitted! ✨");
-    setShowReviewForm(false);
-    setReviewRating(0);
-    setReviewText("");
+    if (!reviewText.trim()) {
+      toast.error("Please write something about your experience");
+      return;
+    }
+    const token = localStorage.getItem("access_token") || "";
+    if (!token) {
+      toast.error("Please log in to submit a review");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const res = await api.post(
+        `events/${event.id}/reviews`,
+        { rating: reviewRating, content: reviewText },
+        token
+      );
+      const newReview = res?.review ?? {
+        id: Date.now(),
+        rating: reviewRating,
+        content: reviewText,
+        created_at: new Date().toISOString(),
+        user: { name: user?.user_metadata?.full_name || "You" },
+      };
+      // Optimistic update — prepend new review to the list
+      setLocalReviews((prev) => [newReview, ...prev]);
+      toast.success("Review submitted! ✨");
+      setShowReviewForm(false);
+      setReviewRating(0);
+      setReviewText("");
+    } catch (err: any) {
+      console.error("Failed to submit review:", err);
+      toast.error(err?.message || "Failed to submit review. Try again.");
+    } finally {
+      setSubmittingReview(false);
+    }
   };
+
+  // Compute average rating from real reviews
+  const reviewCount = localReviews.length;
+  const averageRating = reviewCount > 0
+    ? Math.round((localReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviewCount) * 10) / 10
+    : 0;
 
   // ── ticket selection ──────────────────────────────────────────────────────
   const [selectedTicket, setSelectedTicket] = useState(0);
@@ -1015,12 +1061,12 @@ const EventDetail = () => {
                           Reviews
                         </h2>
                         <div className="mt-1 flex items-center gap-2">
-                          <Stars rating={4} />
+                          <Stars rating={averageRating} />
                           <span className="text-sm font-semibold text-foreground">
-                            4.2
+                            {reviewCount > 0 ? averageRating.toFixed(1) : "—"}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            ({event.reviews?.length || 0} reviews)
+                            ({reviewCount} review{reviewCount !== 1 ? "s" : ""})
                           </span>
                         </div>
                       </div>
@@ -1034,9 +1080,7 @@ const EventDetail = () => {
                         </Button>
                       ) : (
                         <p className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
-                          {!user
-                            ? "Login & attend to review"
-                            : "Attend event to leave a review"}
+                          Sign in to leave a review
                         </p>
                       )}
                     </div>
@@ -1065,49 +1109,72 @@ const EventDetail = () => {
                             className="mt-3 resize-none border-border/50 bg-background"
                             rows={3}
                           />
-                          <div className="mt-3 flex justify-end">
+                          <div className="mt-3 flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowReviewForm(false)}
+                              className="border-border/50"
+                            >
+                              Cancel
+                            </Button>
                             <Button
                               onClick={submitReview}
+                              disabled={submittingReview}
                               className="gradient-primary text-primary-foreground shadow-glow"
                             >
-                              Submit Review
+                              {submittingReview ? (
+                                <span className="flex items-center gap-2">
+                                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                  Submitting…
+                                </span>
+                              ) : (
+                                "Submit Review"
+                              )}
                             </Button>
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
 
-                    <div className="space-y-5">
-                      {(event.reviews || []).map((review: any) => (
-                        <div
-                          key={review.id}
-                          className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0"
-                        >
-                          <Avatar className="h-9 w-9 shrink-0">
-                            <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
-                              {review.user?.name?.slice(0, 2).toUpperCase() ||
-                                "U"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">
-                                {review.user?.name || "Anonymous"}
+                    {localReviews.length > 0 ? (
+                      <div className="space-y-5">
+                        {localReviews.map((review: any) => (
+                          <div
+                            key={review.id}
+                            className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0"
+                          >
+                            <Avatar className="h-9 w-9 shrink-0">
+                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
+                                {review.user?.name?.slice(0, 2).toUpperCase() || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {review.user?.name || "Anonymous"}
+                                </p>
+                                <Stars rating={review.rating || 5} />
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">
+                                {review.content || review.comment}
                               </p>
-                              <Stars rating={review.rating || 5} />
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  review.created_at
-                                ).toLocaleDateString()}
-                              </span>
                             </div>
-                            <p className="mt-1.5 text-sm leading-relaxed text-secondary-foreground/80">
-                              {review.content || review.comment}
-                            </p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center">
+                        <Star className="mx-auto mb-3 h-10 w-10 text-muted-foreground/20" />
+                        <p className="text-sm font-medium text-foreground">No reviews yet</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Be the first to share your experience!
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 

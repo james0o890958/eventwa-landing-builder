@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Ticket, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
@@ -16,6 +17,13 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [suspended, setSuspended] = useState(false);
+  const [appealPending, setAppealPending] = useState(false);
+  const [banned, setBanned] = useState(false);
+  const [agree, setAgree] = useState(false);
+  const [statement, setStatement] = useState("");
+  const [suspensionMessage, setSuspensionMessage] = useState<string | null>(null);
+  const [submittingAppeal, setSubmittingAppeal] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
@@ -83,11 +91,65 @@ const Login = () => {
       if (isUnverified) {
         toast.error("Please verify your email address to complete sign in.");
         navigate(`/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}&resend=true`);
+      } else if (error?.data?.suspended) {
+        const appealStatus = error.data.appeal_status;
+        setSuspended(true);
+        setAppealPending(appealStatus === 'pending');
+        setBanned(appealStatus === 'banned');
+        setSuspensionMessage(error.message || 'Your account is suspended.');
       } else {
         toast.error(error.message || "Login failed");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSuspensionPledge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingAppeal(true);
+
+    try {
+      const data = await api.post("user-suspension/pledge", {
+        email,
+        password,
+        statement,
+        agree,
+      });
+
+      const token = data.access_token || data.data?.access_token;
+      const userData = data.user || data.data?.user;
+
+      if (token) {
+        localStorage.setItem("access_token", token);
+        if (userData) {
+          const isOrganizer = data.is_organizer || data.data?.is_organizer || !!userData.organizer;
+          const mappedUser = {
+            ...userData,
+            is_organizer: isOrganizer,
+            user_metadata: {
+              ...userData.user_metadata,
+              display_name: userData.name || userData.user_metadata?.display_name || userData.email?.split("@")[0] || "User",
+              full_name: userData.name || userData.user_metadata?.full_name || userData.name || "User",
+              is_organizer: isOrganizer,
+            },
+          };
+          localStorage.setItem("user", JSON.stringify(mappedUser));
+        }
+
+        toast.success("Your account has been reinstated.");
+        window.location.href = redirectTo;
+        return;
+      }
+
+      toast.success("Your appeal has been submitted and is under review.");
+      setAppealPending(true);
+      setSuspended(false);
+      setSuspensionMessage('Your appeal is pending review.');
+    } catch (error: any) {
+      toast.error(error.message || "Unable to submit appeal.");
+    } finally {
+      setSubmittingAppeal(false);
     }
   };
 
@@ -169,70 +231,127 @@ const Login = () => {
             <div className="h-px flex-1 bg-border/50" />
           </div>
 
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-secondary border-border/50"
-                  required
-                />
+          {suspended ? (
+            <form onSubmit={handleSuspensionPledge} className="space-y-4">
+              <div className="rounded-2xl border border-border p-4 bg-destructive/5">
+                <p className="text-sm font-semibold text-destructive">{suspensionMessage || 'Your account is suspended.'}</p>
+                {banned && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Your account has been banned after repeated suspensions and cannot be reinstated automatically.
+                  </p>
+                )}
+                {appealPending && !banned && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Your appeal is pending review. We will notify you when a decision is made.
+                  </p>
+                )}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-secondary border-border/50"
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+              {!banned && !appealPending && (
+                <>
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-3 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={agree}
+                        onChange={(e) => setAgree(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>
+                        I agree to uphold Eventwa's community standards going forward.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="statement" className="text-foreground">
+                      Optional statement
+                    </Label>
+                    <Textarea
+                      id="statement"
+                      value={statement}
+                      onChange={(e) => setStatement(e.target.value)}
+                      placeholder="If you'd like to explain your side, add a statement here"
+                      className="min-h-[120px] bg-secondary border-border/50"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={submittingAppeal || !agree}
+                    className="w-full gradient-primary text-primary-foreground shadow-glow"
+                  >
+                    {submittingAppeal ? "Submitting..." : "Submit Appeal"}
+                  </Button>
+                </>
+              )}
+            </form>
+          ) : (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground">
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-secondary border-border/50"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <Link
-              to="/forgot-password"
-              className="text-sm text-primary hover:underline block"
-            >
-              Forgot password?
-            </Link>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-secondary border-border/50"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full gradient-primary text-primary-foreground shadow-glow"
-            >
-              {loading ? "Please wait..." : "Sign In"}
-            </Button>
-          </form>
+              <Link
+                to="/forgot-password"
+                className="text-sm text-primary hover:underline block"
+              >
+                Forgot password?
+              </Link>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full gradient-primary text-primary-foreground shadow-glow"
+              >
+                {loading ? "Please wait..." : "Sign In"}
+              </Button>
+            </form>
+          )}
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}

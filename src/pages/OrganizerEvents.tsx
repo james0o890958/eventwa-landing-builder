@@ -144,7 +144,7 @@ const OrganizerEvents = () => {
               className="rounded-2xl border border-border/50 bg-card p-5 shadow-card"
             >
               <div className="flex flex-col gap-4 sm:flex-row">
-                <img src={event.image} alt={event.title} className="h-24 w-full rounded-xl object-cover sm:w-32" />
+                <img src={event.image} alt={event.title} loading="lazy" className="h-24 w-full rounded-xl object-cover sm:w-32" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

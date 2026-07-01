@@ -6,6 +6,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "@/lib/api";
 
+// Lazily import Echo — app won't crash if Reverb isn't configured yet
+let echo: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  echo = require("@/lib/echo").default;
+} catch {
+  // Reverb not configured
+}
+
 interface Message {
   id: number;
   content: string;
@@ -32,6 +41,7 @@ interface MessageThreadProps {
 const MessageThread = ({ userId, messages: initialMessages = [], user: initialUser, onBack }: MessageThreadProps) => {
   const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
   const token = localStorage.getItem("access_token") || "";
+  const myId = String(authUser?.id ?? "");
   
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [user, setUser] = useState<User | undefined>(initialUser);
@@ -66,6 +76,27 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
   }, [userId]);
+
+  // ── Real-time: listen for incoming DMs via Laravel Echo ──────────────────
+  useEffect(() => {
+    if (!echo || !myId) return;
+
+    const channel = echo
+      .private(`messages.${myId}`)
+      .listen(".PrivateMessageSent", (e: { message: Message }) => {
+        // Only append if it's from the person we're currently chatting with
+        if (String(e.message.sender_id) === String(userId)) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === e.message.id)) return prev;
+            return [...prev, e.message];
+          });
+        }
+      });
+
+    return () => {
+      echo.leave(`messages.${myId}`);
+    };
+  }, [myId, userId]);
 
   const handleSend = async () => {
     if (!input.trim() || !token) return;

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { mockEvents, categories } from "@/data/mockEvents";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 // ─── geo helpers ────────────────────────────────────────────────────────────
 
@@ -163,9 +164,9 @@ const Explore = () => {
           }));
           setEvents(mappedEvents);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to fetch events", err);
-        setEvents(mockEvents); // fallback to mock events if failed
+        toast.error("Failed to retrieve live events from server.");
       } finally {
         setLoading(false);
       }
