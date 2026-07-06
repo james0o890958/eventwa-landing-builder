@@ -2,11 +2,11 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Clock, User, Calendar, Send,
-  Heart, MessageCircle, Share2, Bookmark, Loader2
+  Heart, MessageCircle, Share2, Bookmark, Loader2, Flag
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import OrganizerLink from "@/components/OrganizerLink";
 import { isOrganizer } from "@/lib/utils";
 import { api } from "@/lib/api";
+import ReportDialog from "@/components/ReportDialog";
+import { moderateComment } from "@/lib/moderation";
 import { useBlogBookmark } from "@/hooks/useSavedBlogs";
 
 // CHANGED: updated Comment interface to match API response
@@ -28,6 +30,11 @@ interface Comment {
   is_flagged: boolean;
   flag_count: number;
   likes?: number;
+  likes_count?: number;
+  is_liked?: boolean;
+  parent_comment_id?: string | number | null;
+  parent_id?: string | number | null;
+  replies?: Comment[];
 }
 
 interface BlogPost {
@@ -43,6 +50,42 @@ interface BlogPost {
   event_id?: number | null;
 }
 
+const getCommentParentId = (comment: Comment) =>
+  comment.parent_comment_id ?? comment.parent_id ?? null;
+
+const flattenComments = (items: Comment[]): Comment[] =>
+  items.flatMap((comment) => {
+    const { replies = [], ...commentWithoutReplies } = comment;
+    const nestedReplies = replies.map((reply) => ({
+      ...reply,
+      parent_comment_id: getCommentParentId(reply) ?? comment.id,
+    }));
+
+    return [commentWithoutReplies, ...flattenComments(nestedReplies)];
+  });
+
+const buildCommentTree = (items: Comment[]): Comment[] => {
+  const byId = new Map<string, Comment>();
+  const roots: Comment[] = [];
+
+  items.forEach((comment) => {
+    byId.set(String(comment.id), { ...comment, replies: [] });
+  });
+
+  byId.forEach((comment) => {
+    const parentId = getCommentParentId(comment);
+    const parent = parentId ? byId.get(String(parentId)) : undefined;
+
+    if (parent) {
+      parent.replies = [...(parent.replies ?? []), comment];
+    } else {
+      roots.push(comment);
+    }
+  });
+
+  return roots;
+};
+
 const BlogPost = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -54,6 +97,12 @@ const BlogPost = () => {
   const [postLikes, setPostLikes] = useState<number>(0);
   const [likesLoading, setLikesLoading] = useState<boolean>(false);
   const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | number | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [postingReplyTo, setPostingReplyTo] = useState<string | number | null>(null);
+  const [likingCommentIds, setLikingCommentIds] = useState<Set<string>>(new Set());
+
+  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
 
   // CHANGED: fetch blog from real API
   useEffect(() => {
@@ -124,10 +173,268 @@ const BlogPost = () => {
       .get(`blogs/${blogId}/comments`, undefined, token)
       .then((res) => {
         const arr = res.comments ?? res.data ?? [];
-        setComments(Array.isArray(arr) ? arr : []);
+        setComments(Array.isArray(arr) ? flattenComments(arr) : []);
       })
       .catch((err) => { console.error('Failed to fetch comments:', err); });
   }, [post?.id, id]);
+
+  const createOptimisticComment = (content: string, parentCommentId?: string | number | null): Comment => ({
+    id: `temp-${Date.now()}`,
+    author: user?.user_metadata?.display_name || "You",
+    authorInitials: (user?.user_metadata?.display_name || "Y").charAt(0).toUpperCase(),
+    content,
+    date: new Date().toISOString().split("T")[0],
+    likes: 0,
+    is_owner: true,
+    is_flagged: false,
+    flag_count: 0,
+    parent_comment_id: parentCommentId ?? null,
+  });
+
+  const submitComment = async (content: string, parentCommentId?: string | number | null) => {
+    if (!content.trim()) {
+      toast.error(parentCommentId ? "Please enter a reply" : "Please enter a comment");
+      return false;
+    }
+
+    const moderation = moderateComment(content);
+    if (moderation.severity === "block") {
+      toast.error(moderation.reason || "This comment cannot be posted.");
+      return false;
+    }
+    if (moderation.severity === "warn") {
+      toast.warning(moderation.reason || "This comment may be reviewed.");
+    }
+
+    const token = localStorage.getItem("access_token") || undefined;
+    if (!token) {
+      toast.error(parentCommentId ? "Please sign in to reply" : "Please sign in to comment");
+      return false;
+    }
+
+    const draft = content.trim();
+    const optimistic = createOptimisticComment(draft, parentCommentId);
+    setComments((prev) => (parentCommentId ? [...prev, optimistic] : [optimistic, ...prev]));
+
+    try {
+      const res = await api.post(
+        `blogs/${post!.id}/comments`,
+        parentCommentId ? { content: draft, parent_comment_id: parentCommentId } : { content: draft },
+        token
+      );
+      const serverComment = res.comment ?? res.data ?? optimistic;
+      const created = parentCommentId
+        ? { ...serverComment, parent_comment_id: getCommentParentId(serverComment) ?? parentCommentId }
+        : serverComment;
+      setComments((prev) =>
+        prev.map((comment) => (comment.id === optimistic.id ? created : comment))
+      );
+      toast.success(parentCommentId ? "Reply posted!" : "Comment posted!");
+      return true;
+    } catch (err: any) {
+      setComments((prev) => prev.filter((comment) => comment.id !== optimistic.id));
+      toast.error(err.message || (parentCommentId ? "Failed to post reply." : "Failed to post comment."));
+      return false;
+    }
+  };
+
+  const updateCommentById = (
+    commentId: string | number,
+    updater: (comment: Comment) => Comment
+  ) => {
+    setComments((prev) =>
+      prev.map((comment) => (String(comment.id) === String(commentId) ? updater(comment) : comment))
+    );
+  };
+
+  const toggleCommentLike = async (comment: Comment) => {
+    if (!user) {
+      toast.error("Please sign in to like comments");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token") || undefined;
+    if (!token || !post) {
+      toast.error("Please sign in to like comments");
+      return;
+    }
+
+    const commentId = String(comment.id);
+    if (commentId.startsWith("temp-") || likingCommentIds.has(commentId)) return;
+
+    const wasLiked = Boolean(comment.is_liked);
+    const previousLikes = Number(comment.likes_count ?? comment.likes ?? 0);
+    const optimisticLikes = Math.max(0, previousLikes + (wasLiked ? -1 : 1));
+
+    setLikingCommentIds((prev) => new Set(prev).add(commentId));
+    updateCommentById(comment.id, (item) => ({
+      ...item,
+      is_liked: !wasLiked,
+      likes: optimisticLikes,
+      likes_count: optimisticLikes,
+    }));
+
+    try {
+      const res = await api.post(
+        `blogs/${post.id}/comments/${comment.id}/likes`,
+        {},
+        token
+      );
+      const likesCount = Number(res.likes_count ?? res.likes ?? optimisticLikes);
+      updateCommentById(comment.id, (item) => ({
+        ...item,
+        is_liked: Boolean(res.is_liked ?? res.liked ?? !wasLiked),
+        likes: likesCount,
+        likes_count: likesCount,
+      }));
+    } catch (err: any) {
+      updateCommentById(comment.id, (item) => ({
+        ...item,
+        is_liked: wasLiked,
+        likes: previousLikes,
+        likes_count: previousLikes,
+      }));
+      toast.error(err.message || "Failed to update comment like");
+    } finally {
+      setLikingCommentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(commentId);
+        return next;
+      });
+    }
+  };
+
+  const renderComment = (comment: Comment, depth = 0) => {
+    const commentId = String(comment.id);
+    const isReplying = replyingTo === comment.id;
+    const replyDraft = replyDrafts[commentId] ?? "";
+    const commentLikes = Number(comment.likes_count ?? comment.likes ?? 0);
+    const isLikingComment = likingCommentIds.has(commentId);
+
+    return (
+      <motion.div
+        key={comment.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={depth === 0 ? "rounded-xl border border-border/50 bg-card p-6" : "border-l border-border/60 pl-4"}
+      >
+        <div className="flex items-start gap-4">
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
+              {comment.authorInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-foreground">{comment.author}</span>
+              <span className="text-sm text-muted-foreground">
+                {new Date(comment.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </span>
+            </div>
+            {comment.is_flagged ? (
+              <div className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                This comment has been flagged and is under review.
+              </div>
+            ) : (
+              <p className="text-secondary-foreground/80 leading-relaxed">{comment.content}</p>
+            )}
+            <div className="mt-3 flex items-center gap-4">
+              <button
+                onClick={() => toggleCommentLike(comment)}
+                disabled={isLikingComment || commentId.startsWith("temp-")}
+                className={`flex items-center gap-1 text-sm transition-colors ${
+                  comment.is_liked ? "text-primary" : "text-muted-foreground hover:text-primary"
+                } ${isLikingComment ? "opacity-70" : ""}`}
+              >
+                <Heart className={`h-4 w-4 ${comment.is_liked ? "fill-primary" : ""}`} />
+                <span>{commentLikes}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Please sign in to reply");
+                    return;
+                  }
+                  setReplyingTo(isReplying ? null : comment.id);
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Reply
+              </button>
+              {!comment.is_owner && !comment.is_flagged && post && (
+                <ReportDialog
+                  targetType="comment"
+                  targetId={comment.id}
+                  blogId={post.id}
+                  targetName={comment.author}
+                  commentContent={comment.content}
+                  onReported={() =>
+                    setComments((prev) =>
+                      prev.map((item) =>
+                        item.id === comment.id
+                          ? { ...item, is_flagged: true, flag_count: (item.flag_count || 0) + 1 }
+                          : item
+                      )
+                    )
+                  }
+                >
+                  <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive transition-colors">
+                    <Flag className="h-4 w-4" />
+                    Report
+                  </button>
+                </ReportDialog>
+              )}
+            </div>
+
+            {isReplying && (
+              <div className="mt-4 space-y-3">
+                <Textarea
+                  placeholder={`Reply to ${comment.author}...`}
+                  value={replyDraft}
+                  onChange={(event) =>
+                    setReplyDrafts((prev) => ({ ...prev, [commentId]: event.target.value }))
+                  }
+                  className="min-h-[88px] bg-secondary border-border/50"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      setPostingReplyTo(comment.id);
+                      const posted = await submitComment(replyDraft, comment.id);
+                      if (posted) {
+                        setReplyDrafts((prev) => ({ ...prev, [commentId]: "" }));
+                        setReplyingTo(null);
+                      }
+                      setPostingReplyTo(null);
+                    }}
+                    disabled={postingReplyTo === comment.id}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    {postingReplyTo === comment.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Post Reply
+                  </Button>
+                  <Button onClick={() => setReplyingTo(null)} variant="outline" size="sm">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(comment.replies ?? []).length > 0 && (
+              <div className="mt-5 space-y-5">
+                {comment.replies!.map((reply) => renderComment(reply, depth + 1))}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   if (loading) {
     return (
@@ -318,47 +625,10 @@ const BlogPost = () => {
                 />
                 <Button
                   onClick={async () => {
-                    if (!newComment.trim()) {
-                      toast.error("Please enter a comment");
-                      return;
-                    }
-                    const token = localStorage.getItem("access_token") || undefined;
-                    if (!token) {
-                      toast.error("Please sign in to comment");
-                      return;
-                    }
-                    // Optimistic update
-                    const optimistic = {
-                      id: `temp-${Date.now()}`,
-                      author: user?.user_metadata?.display_name || "You",
-                      authorInitials: (user?.user_metadata?.display_name || "Y").charAt(0).toUpperCase(),
-                      content: newComment.trim(),
-                      date: new Date().toISOString().split("T")[0],
-                      likes: 0,
-                      is_owner: true,
-                      is_flagged: false,
-                      flag_count: 0,
-                    } as unknown as Comment;
-                    setComments([optimistic, ...comments]);
                     const draft = newComment.trim();
-                    setNewComment("");
-                    try {
-                      const res = await api.post(
-                        `blogs/${post!.id}/comments`,
-                        { content: draft },
-                        token
-                      );
-                      // Replace optimistic entry with real server comment
-                      const created = res.comment ?? res.data ?? optimistic;
-                      setComments((prev) =>
-                        prev.map((c) => (c.id === optimistic.id ? created : c))
-                      );
-                      toast.success("Comment posted!");
-                    } catch (err: any) {
-                      // Roll back optimistic update
-                      setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
-                      setNewComment(draft);
-                      toast.error(err.message || "Failed to post comment.");
+                    const posted = await submitComment(draft);
+                    if (posted) {
+                      setNewComment("");
                     }
                   }}
                   className="gap-2"
@@ -378,40 +648,7 @@ const BlogPost = () => {
           </div>
 
           <div className="space-y-4">
-            {comments.map((comment) => (
-              <motion.div
-                key={comment.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-border/50 bg-card p-6"
-              >
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
-                      {comment.authorInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-foreground">{comment.author}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(comment.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </span>
-                    </div>
-                    <p className="text-secondary-foreground/80 leading-relaxed">{comment.content}</p>
-                    <div className="mt-3 flex items-center gap-4">
-                      <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-                        <Heart className="h-4 w-4" />
-                        <span>{comment.likes ?? 0}</span>
-                      </button>
-                      <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                        Reply
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+            {commentTree.map((comment) => renderComment(comment))}
           </div>
         </div>
       </div>

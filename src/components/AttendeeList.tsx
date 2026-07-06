@@ -1,6 +1,13 @@
-import { MessageCircle, MapPin } from "lucide-react";
+import { Flag, MessageCircle, MoreHorizontal, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import ReportDialog from "@/components/ReportDialog";
 interface AttendeeListProps {
   eventId: string;
   attendees?: any[];
@@ -35,15 +42,35 @@ const AttendeeList = ({ eventId, attendees = [], onSelectUser }: AttendeeListPro
                 )}
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => onSelectUser?.(user.id)}
-              className="h-8 border-primary/20 text-primary hover:bg-primary/5 gap-1.5"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              <span className="text-xs font-semibold">Message</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSelectUser?.(user.id)}
+                className="h-8 border-primary/20 text-primary hover:bg-primary/5 gap-1.5"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">Message</span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <ReportDialog targetType="user" targetId={user.id} targetName={user.name}>
+                    <DropdownMenuItem
+                      className="gap-2 text-destructive focus:text-destructive"
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      <Flag className="h-4 w-4" />
+                      Report account
+                    </DropdownMenuItem>
+                  </ReportDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         ))}
       </div>

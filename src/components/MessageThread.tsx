@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, ArrowLeft } from "lucide-react";
+import { Send, ArrowLeft, Flag, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
+import ReportDialog from "@/components/ReportDialog";
 
 // Lazily import Echo — app won't crash if Reverb isn't configured yet
 let echo: any = null;
@@ -142,10 +149,28 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
             {getInitials(user?.name)}
           </AvatarFallback>
         </Avatar>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{user?.name || "User"}</p>
           <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <ReportDialog targetType="user" targetId={userId} targetName={user?.name || "this user"}>
+              <DropdownMenuItem
+                className="gap-2 text-destructive focus:text-destructive"
+                onSelect={(event) => event.preventDefault()}
+              >
+                <Flag className="h-4 w-4" />
+                Report account
+              </DropdownMenuItem>
+            </ReportDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Messages */}
