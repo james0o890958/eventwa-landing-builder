@@ -105,9 +105,10 @@ const OrganizerProfile = () => {
     const fetchOrganizerData = async () => {
       setLoadingEvents(true);
       try {
+        const token = localStorage.getItem("access_token") || undefined;
         const [orgResponse, eventsResponse] = await Promise.all([
-          api.get(`public/organizers/${id}`),
-          api.get(`public/organizers/${id}/events`)
+          api.get(`public/organizers/${id}`, undefined, token),
+          api.get(`public/organizers/${id}/events`, undefined, token)
         ]);
 
         if (orgResponse.status === 'success' && orgResponse.organizer) {

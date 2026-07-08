@@ -255,6 +255,10 @@ const EventDetail = () => {
       organizer: organizerName,
       // CHANGED: new field — numeric organizer id passed to OrganizerLink for correct routing
       organizerId: organizerId,
+      isFollowing:
+        eventData.organizer?.is_following ??
+        eventData.organizer_info?.is_following ??
+        false,
       // CHANGED: was reading capacity/attendees (always 0 or mock) —
       // now reads tickets_count which comes from withCount('tickets') on the backend
       attendees: Number(
@@ -299,10 +303,11 @@ const EventDetail = () => {
           return;
         }
         const res = await api.get(`public/events/${id}`, undefined, token);
-        if (res && res.status === "success" && res.event) {
-          setEvent(normalizeEvent(res.event));
-        } else if (res && res.status === "success" && res.data) {
-          setEvent(normalizeEvent(res.data));
+        if (res && res.status === "success" && (res.event || res.data)) {
+          const rawEvent = res.event || res.data;
+          const normalized = normalizeEvent(rawEvent);
+          setEvent(normalized);
+          setFollowing(normalized.isFollowing);
         } else {
           toast.error("Event not found.");
         }
@@ -334,9 +339,31 @@ const EventDetail = () => {
 
   // ── follow organizer ──────────────────────────────────────────────────────
   const [following, setFollowing] = useState(false);
-  const toggleFollow = () => {
-    setFollowing((v) => !v);
-    toast(following ? "Unfollowed organizer" : "Following organizer! 🎉");
+  const toggleFollow = async () => {
+    if (!user || !event?.organizerId) {
+      toast.error("Please log in to follow the organizer.");
+      return;
+    }
+
+    try {
+      const originalFollowing = following;
+      setFollowing(!following); // optimistic update
+
+      const token = localStorage.getItem("access_token") || undefined;
+      const res = following
+        ? await api.delete(`user-follow/${event.organizerId}`, token)
+        : await api.post(`user-follow/${event.organizerId}`, {}, token);
+
+      if (res.status !== "success") {
+        setFollowing(originalFollowing);
+      } else {
+        toast(following ? "Unfollowed organizer" : "Following organizer! 🎉");
+      }
+    } catch (error) {
+      setFollowing(!following); // revert on error
+      console.error("Error toggling follow status:", error);
+      toast.error("Failed to update follow status.");
+    }
   };
 
   // ── active tab ────────────────────────────────────────────────────────────

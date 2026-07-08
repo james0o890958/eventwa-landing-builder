@@ -30,7 +30,16 @@ const Login = () => {
 
   useEffect(() => {
     if (user) navigate("/");
-  }, [user, navigate]);
+
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      toast.error(decodeURIComponent(errorParam));
+      // Clear the error parameter from URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("error");
+      navigate({ search: newParams.toString() }, { replace: true });
+    }
+  }, [user, navigate, searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
