@@ -44,6 +44,7 @@ const NotificationSettings = lazy(() => import("./pages/NotificationSettings.tsx
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Signup = lazy(() => import("./pages/Signup.tsx"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail.tsx"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback.tsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
 const Messages = lazy(() => import("./pages/Messages.tsx"));
@@ -74,6 +75,7 @@ const OrganizerSettings = lazy(() => import("./pages/OrganizerSettings.tsx"));
 const OrganizerAnalytics = lazy(() => import("./pages/OrganizerAnalytics.tsx"));
 const OrganizerBlogs = lazy(() => import("./pages/OrganizerBlogs.tsx"));
 const CreateBlogPost = lazy(() => import("./pages/CreateBlogPost.tsx"));
+const OrganizerFollowers = lazy(() => import("./pages/OrganizerFollowers.tsx"));
 
 // Minimal route-level loading fallback — a centered spinner that matches the app theme.
 const PageLoader = () => (
@@ -148,6 +150,7 @@ const App = () => (
                <Route path="/ticket-confirmation" element={<ProtectedRoute><TicketConfirmation /></ProtectedRoute>} />
               <Route path="/checkout/confirmation" element={<ProtectedRoute><TicketConfirmation /></ProtectedRoute>} />
               <Route path="/organizer/events" element={<OrganizerProtectedRoute><OrganizerEvents /></OrganizerProtectedRoute>} />
+              <Route path="/organizer/followers" element={<OrganizerProtectedRoute><OrganizerFollowers /></OrganizerProtectedRoute>} />
               <Route path="/organizer/attendees" element={<OrganizerProtectedRoute><OrganizerAttendees /></OrganizerProtectedRoute>} />
               <Route path="/organizer/chatrooms" element={<OrganizerProtectedRoute><OrganizerChatrooms /></OrganizerProtectedRoute>} />
               <Route path="/organizer/event/:id/chatroom" element={<OrganizerProtectedRoute><EventChatroomPage /></OrganizerProtectedRoute>} />
@@ -178,6 +181,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth" element={<Navigate to="/login" replace />} />
               <Route path="/reset-password" element={<ResetPassword />} />

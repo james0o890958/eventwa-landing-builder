@@ -33,6 +33,7 @@ export const attendeeMenu: MenuItem[] = [
 export const organizerMenu: MenuItem[] = [
   { label: "Dashboard", to: "/organizer", Icon: LayoutDashboard, end: true },
   { label: "My Events", to: "/organizer/events", Icon: Calendar },
+  { label: "Followers", to: "/organizer/followers", Icon: Users },
   { label: "Create Event", to: "/organizer/create-event", Icon: Plus },
   { label: "Blogs", to: "/organizer/blogs", Icon: PenTool },
   { label: "Saved Blogs", to: "/organizer/saved-blogs", Icon: Bookmark },

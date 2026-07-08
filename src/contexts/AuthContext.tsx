@@ -1,27 +1,40 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
 import { AUTH_CONFIG } from "@/config/authConfig";
 import { api } from "@/lib/api";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+export interface User {
+  id: string;
+  email: string;
+  user_metadata?: {
+    display_name?: string;
+    full_name?: string;
+    avatar_url?: string;
+    avatar?: string;
+    is_organizer?: boolean;
+  };
+  name?: string;
+  avatar?: string;
+  is_organizer?: boolean;
+}
+
+export interface Session {
+  access_token: string;
+  user: User;
+  token_type: string;
+}
 
 // ─── Mock User for Development ──────────────────────────────────────────────
 const MOCK_USER: User = {
   id: "mock-user-id",
   email: "demo@eventspark.com",
   user_metadata: { display_name: "Demo User" },
-  aud: "authenticated",
-  role: "authenticated",
-  app_metadata: {},
-  created_at: new Date().toISOString(),
 };
 
 const MOCK_SESSION: Session = {
   access_token: "mock-token",
   token_type: "bearer",
-  expires_in: 3600,
-  refresh_token: "mock-refresh",
   user: MOCK_USER,
-  expires_at: Math.floor(Date.now() / 1000) + 3600,
 };
 
 interface AuthContextType {
@@ -77,7 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           access_token: customToken,
           user: customUser,
           token_type: "bearer",
-        } as any);
+        });
         setLoading(false);
         return;
       } catch (e) {
@@ -87,27 +100,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (!AUTH_CONFIG.AUTH_ENABLED) {
       setSession(MOCK_SESSION);
-      setLoading(false);
-      return;
+    } else {
+      setSession(null);
     }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!localStorage.getItem("access_token")) {
-          setSession(session);
-        }
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!localStorage.getItem("access_token")) {
-        setSession(session);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    setLoading(false);
   }, []);
 
   const signOut = async () => {
@@ -137,9 +133,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("user");
     localStorage.removeItem("organizer_profile");
     
-    if (AUTH_CONFIG.AUTH_ENABLED) {
-      await supabase.auth.signOut();
-    }
     setSession(null);
   };
 
