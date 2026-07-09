@@ -365,7 +365,15 @@ const UserDashboard = () => {
               </h1>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                Member since 2024
+                Member since {(() => {
+                  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                  const createdAt = user?.created_at || storedUser?.created_at;
+                  if (createdAt) {
+                    const year = new Date(createdAt).getFullYear();
+                    if (!isNaN(year)) return year;
+                  }
+                  return new Date().getFullYear();
+                })()}
               </span>
             </div>
           </div>

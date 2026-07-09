@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { LayoutDashboard, Ticket, Bell, MessageSquare, Heart, User } from 'lucide-react';
+import { LayoutDashboard, Ticket, Bell, MessageSquare, Heart, User, Users } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { api } from '@/lib/api';
 
@@ -65,6 +65,7 @@ export default function AttendeeDashboardLayout({ children }: Props) {
       badge: unreadMessages > 0 ? unreadMessages : undefined,
     },
     { label: 'Saved Events', to: '/dashboard/saved-events', Icon: Heart },
+    { label: 'Following', to: '/dashboard/following', Icon: Users },
     { label: 'Profile', to: '/dashboard/profile/me', Icon: User },
   ];
 

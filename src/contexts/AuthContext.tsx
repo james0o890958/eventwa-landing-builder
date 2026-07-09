@@ -16,6 +16,7 @@ export interface User {
   name?: string;
   avatar?: string;
   is_organizer?: boolean;
+  created_at?: string;
 }
 
 export interface Session {
