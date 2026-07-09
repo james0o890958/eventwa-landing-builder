@@ -18,7 +18,7 @@ import EventsNearYou from "@/components/EventsNearYou";
 import ConversationList from "@/components/ConversationList";
 import MessageThread from "@/components/MessageThread";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
   SheetContent,
@@ -30,6 +30,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 import { api } from "@/lib/api";
 import { useSavedEvents } from "@/hooks/useBookmark";
+
+let echo: any = null;
+try {
+  echo = require('@/lib/echo').default;
+} catch { /* Reverb not configured */ }
 
 type Tab = "upcoming" | "saved" | "past" | "notifications" | "messages";
 
@@ -141,6 +146,23 @@ const UserDashboard = () => {
       }
     };
     fetchData();
+  }, []);
+
+  // Real-time Echo: push incoming notifications into state
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = stored?.id;
+    if (!echo || !userId) return;
+
+    echo
+      .private(`notifications.${userId}`)
+      .listen('.NotificationCreated', (e: { notification: any }) => {
+        setNotifications((prev: any[]) => [e.notification, ...prev]);
+      });
+
+    return () => {
+      echo.leave(`notifications.${userId}`);
+    };
   }, []);
 
   const selectedConversation = useMemo(() => {
@@ -326,6 +348,10 @@ const UserDashboard = () => {
         <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-primary/30">
+                <AvatarImage
+                  src={(JSON.parse(localStorage.getItem('user') || '{}')).avatar}
+                  alt={displayName}
+                />
                 <AvatarFallback className="gradient-primary text-primary-foreground text-2xl font-bold">
                   {initials}
                 </AvatarFallback>
@@ -493,12 +519,11 @@ const UserDashboard = () => {
                   const diffHours = Math.floor(diffMs / 3600000);
                   const diffDays = Math.floor(diffMs / 86400000);
 
-                  if (diffMins < 1) return "now";
+                  if (diffMins < 1) return 'Just now';
                   if (diffMins < 60) return `${diffMins}m ago`;
                   if (diffHours < 24) return `${diffHours}h ago`;
-                  if (diffDays < 1) return "Yesterday";
-                  if (diffDays < 7) return `${diffDays}d ago`;
-                  return date.toLocaleDateString();
+                  if (diffDays === 1) return 'Yesterday';
+                  return `${diffDays}d ago`;
                 };
 
                 return (

@@ -8,8 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "./components/ProtectedRoute.tsx";
 import { OrganizerProtectedRoute } from "./components/OrganizerProtectedRoute.tsx";
-import { attendeeMenu } from "./config/dashboardMenus.ts";
-import DashboardLayout from "./components/DashboardLayout.tsx";
+import AttendeeDashboardLayout from "@/components/AttendeeDashboardLayout";
 
 // Lazy-load all page components so each route ships its own JS chunk.
 // Visiting the homepage no longer downloads the JS for every page in the app.
@@ -111,9 +110,9 @@ const App = () => (
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <DashboardLayout menu={attendeeMenu}>
+                    <AttendeeDashboardLayout>
                       <Outlet />
-                    </DashboardLayout>
+                    </AttendeeDashboardLayout>
                   </ProtectedRoute>
                 }
               >

@@ -46,7 +46,7 @@ interface MessageThreadProps {
 }
 
 const MessageThread = ({ userId, messages: initialMessages = [], user: initialUser, onBack }: MessageThreadProps) => {
-  const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+  const authUser = JSON.parse(localStorage.getItem("user") || "{}");
   const token = localStorage.getItem("access_token") || "";
   const myId = String(authUser?.id ?? "");
   

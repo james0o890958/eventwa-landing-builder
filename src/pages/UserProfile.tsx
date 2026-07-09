@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -100,8 +100,12 @@ const UserProfile = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("Music lover & event enthusiast 🎵");
+  const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   const [allLocationOptions, setAllLocationOptions] = useState<{ value: string, label: string, group: string }[]>([]);
@@ -136,7 +140,8 @@ const UserProfile = () => {
           setEmail(u.email || "");
           setUsername(u.email?.split("@")[0] || "");
           setPhone(u.phone || "");
-          setBio(u.bio || "Music lover & event enthusiast 🎵");
+          setBio(u.bio || "");
+          setAvatarUrl(u.avatar || undefined);
           setLocation(u.city_id ? `${u.city?.name}, ${u.state?.name}` : "");
           
           // Load preferences
@@ -447,11 +452,36 @@ const UserProfile = () => {
         toast.error("Not authenticated");
         return;
       }
-      await api.patch("profile/personal", {
-        name: displayName,
-        phone: phone || null,
-        bio: bio || null,
-      }, token);
+
+      // Parse city and state from the location string "City, State"
+      const parts = location.split(",").map((s) => s.trim());
+      const cityName = parts[0] || "";
+      const stateName = parts[1] || parts[0] || "";
+
+      // Use FormData so we can optionally attach a file
+      const formData = new FormData();
+      formData.append("_method", "PATCH");
+      formData.append("name", displayName);
+      if (phone) formData.append("phone", phone);
+      if (bio) formData.append("bio", bio);
+      if (cityName) formData.append("city_name", cityName);
+      if (stateName) formData.append("state_name", stateName);
+      if (avatarFile) formData.append("avatar", avatarFile);
+
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
+      const res = await fetch(`${baseUrl}/api/profile/personal`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message ?? "Failed to update profile");
+
+      if (data?.user?.avatar) {
+        setAvatarUrl(data.user.avatar);
+        setAvatarPreview(undefined);
+        setAvatarFile(null);
+      }
       toast.success("Profile updated successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update profile");
@@ -606,17 +636,40 @@ const UserProfile = () => {
                     {/* Avatar */}
                     <div className="flex items-center gap-5">
                       <Avatar className="h-20 w-20 border-2 border-border">
+                        <AvatarImage src={avatarPreview ?? avatarUrl} alt={displayName} />
                         <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <Button variant="outline" size="sm" className="gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpg,image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 3 * 1024 * 1024) {
+                              toast.error("Image must be under 3MB.");
+                              return;
+                            }
+                            setAvatarFile(file);
+                            setAvatarPreview(URL.createObjectURL(file));
+                          }}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
                           <Camera className="h-4 w-4" />
-                          Change Photo
+                          {avatarPreview ? "Photo Selected" : "Change Photo"}
                         </Button>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          JPG, PNG or GIF. Max 2MB.
+                          JPG, PNG or WebP. Max 3MB.
                         </p>
                       </div>
                     </div>

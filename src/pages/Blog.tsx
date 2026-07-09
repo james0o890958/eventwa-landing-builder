@@ -12,11 +12,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { mockBlogs } from "@/data/mockBlogs";
+
 import { api } from "@/lib/api";
 
 const Blog = () => {
-  const [blogsList, setBlogsList] = useState<any[]>(mockBlogs);
+  const [blogsList, setBlogsList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);

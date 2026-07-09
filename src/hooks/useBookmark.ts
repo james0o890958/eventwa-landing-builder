@@ -83,7 +83,7 @@ export function useBookmark(eventId: string, eventData?: any) {
       toast.error(err.message || "Failed to update bookmark");
     },
     onSuccess: () => {
-      toast.success(saved ? "Event saved! 🔖 " : "Event removed from bookmarks");
+      toast.success(saved ? "Event removed from bookmarks" : "Event saved! 🔖");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-events"] });

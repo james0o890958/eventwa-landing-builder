@@ -486,6 +486,8 @@ const EventDetail = () => {
   const [purchaserEmail, setPurchaserEmail] = useState("");
   const [purchaserPhone, setPurchaserPhone] = useState("");
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [isFreeRegistering, setIsFreeRegistering] = useState(false);
+  const [freeTicketResult, setFreeTicketResult] = useState<{ ticket_code: string; event_title: string } | null>(null);
 
   // ── sponsorship modal ─────────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
@@ -561,7 +563,7 @@ const EventDetail = () => {
     setShowTicketModal(true);
   };
 
-  const handleTicketFormSubmit = (e: React.FormEvent) => {
+  const handleTicketFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
       !purchaserName.trim() ||
@@ -571,6 +573,36 @@ const EventDetail = () => {
       toast.error("Please fill in all ticket details.");
       return;
     }
+
+    // Free event — register directly without checkout
+    if (ticketTotal === 0) {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Please log in to register for this event.");
+        return;
+      }
+      setIsFreeRegistering(true);
+      try {
+        const res = await api.post(
+          `user/events/${event?.id}/book`,
+          { quantity: qty, status: "confirmed" },
+          token
+        );
+        const ticket = res?.ticket ?? res;
+        setFreeTicketResult({
+          ticket_code: ticket?.ticket_code ?? "N/A",
+          event_title: event?.title ?? "",
+        });
+        toast.success("You're registered! Check your email for confirmation.");
+      } catch (err: any) {
+        toast.error(err?.message ?? "Registration failed. Please try again.");
+      } finally {
+        setIsFreeRegistering(false);
+      }
+      return;
+    }
+
+    // Paid event — proceed to checkout
     const ticketType = event?.ticketTypes?.[selectedTicket];
     const params = new URLSearchParams({
       eventId: event?.id ?? "",
@@ -578,6 +610,31 @@ const EventDetail = () => {
       qty: qty.toString(),
     });
     navigate(`/checkout/${event?.id}?${params.toString()}`);
+  };
+
+  const handleDownloadFreeTicket = () => {
+    if (!freeTicketResult) return;
+    const text = [
+      "=====================================",
+      "         EVENTWA — EVENT TICKET",
+      "=====================================",
+      "",
+      `Event:       ${freeTicketResult.event_title}`,
+      `Ticket Code: ${freeTicketResult.ticket_code}`,
+      `Attendee:    ${purchaserName}`,
+      `Email:       ${purchaserEmail}`,
+      `Price:       Free`,
+      "",
+      "Present this ticket at the venue entrance.",
+      "=====================================",
+    ].join("\n");
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ticket-${freeTicketResult.ticket_code}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── close share menu on outside click ────────────────────────────────────
@@ -1649,80 +1706,134 @@ const EventDetail = () => {
       </Dialog>
 
       {/* Ticket Details Modal */}
-      <Dialog open={showTicketModal} onOpenChange={setShowTicketModal}>
+      <Dialog
+        open={showTicketModal}
+        onOpenChange={(open) => {
+          setShowTicketModal(open);
+          if (!open) setFreeTicketResult(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-2xl font-bold">
-              Ticket Details
-            </DialogTitle>
-            <DialogDescription>
-              Add attendee details for {event.title} before checkout.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleTicketFormSubmit} className="space-y-4 pt-2">
-            <div className="rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
-              <div className="flex justify-between gap-4 text-muted-foreground">
-                <span>
-                  {event.ticketTypes?.[selectedTicket]?.name ??
-                    "General Admission"}
-                </span>
-                <span>
-                  {qty} ticket{qty > 1 ? "s" : ""}
-                </span>
+          {freeTicketResult ? (
+            /* ── Free-ticket success state ────────────────── */
+            <div className="flex flex-col items-center gap-5 py-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
+                <CheckCircle className="h-9 w-9 text-green-500" />
               </div>
-              <div className="mt-2 flex justify-between gap-4 font-semibold text-foreground">
-                <span>Total</span>
-                <span>
+              <DialogHeader>
+                <DialogTitle className="font-display text-2xl font-bold">
+                  You're Registered! 🎉
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  A confirmation has been sent to <strong>{purchaserEmail}</strong>.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="w-full rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
+                <p className="text-muted-foreground">Your Ticket Code</p>
+                <p className="mt-1 font-mono text-xl font-bold tracking-widest text-primary">
+                  {freeTicketResult.ticket_code}
+                </p>
+              </div>
+              <div className="flex w-full gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setShowTicketModal(false); setFreeTicketResult(null); }}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 gradient-primary text-primary-foreground shadow-glow"
+                  onClick={handleDownloadFreeTicket}
+                >
+                  Download Ticket
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* ── Ticket details form ───────────────────────── */
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-2xl font-bold">
+                  {ticketTotal === 0 ? "Register for Free" : "Ticket Details"}
+                </DialogTitle>
+                <DialogDescription>
                   {ticketTotal === 0
-                    ? "Free"
-                    : `₦${ticketTotal.toLocaleString()}`}
-                </span>
-              </div>
-            </div>
+                    ? `Fill in your details to register for ${event.title}.`
+                    : `Add attendee details for ${event.title} before checkout.`}
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-2">
-              <Label htmlFor="ticket-name">Full Name</Label>
-              <Input
-                id="ticket-name"
-                value={purchaserName}
-                onChange={(e) => setPurchaserName(e.target.value)}
-                placeholder="Enter attendee name"
-                className="bg-secondary border-border/50"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ticket-email">Email Address</Label>
-              <Input
-                id="ticket-email"
-                type="email"
-                value={purchaserEmail}
-                onChange={(e) => setPurchaserEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="bg-secondary border-border/50"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ticket-phone">Phone Number</Label>
-              <Input
-                id="ticket-phone"
-                type="tel"
-                value={purchaserPhone}
-                onChange={(e) => setPurchaserPhone(e.target.value)}
-                placeholder="+234 800 000 0000"
-                className="bg-secondary border-border/50"
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full gradient-primary text-primary-foreground shadow-glow"
-            >
-              Continue to Checkout
-            </Button>
-          </form>
+              <form onSubmit={handleTicketFormSubmit} className="space-y-4 pt-2">
+                <div className="rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
+                  <div className="flex justify-between gap-4 text-muted-foreground">
+                    <span>
+                      {event.ticketTypes?.[selectedTicket]?.name ??
+                        "General Admission"}
+                    </span>
+                    <span>
+                      {qty} ticket{qty > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex justify-between gap-4 font-semibold text-foreground">
+                    <span>Total</span>
+                    <span>
+                      {ticketTotal === 0
+                        ? "Free"
+                        : `₦${ticketTotal.toLocaleString()}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ticket-name">Full Name</Label>
+                  <Input
+                    id="ticket-name"
+                    value={purchaserName}
+                    onChange={(e) => setPurchaserName(e.target.value)}
+                    placeholder="Enter attendee name"
+                    className="bg-secondary border-border/50"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ticket-email">Email Address</Label>
+                  <Input
+                    id="ticket-email"
+                    type="email"
+                    value={purchaserEmail}
+                    onChange={(e) => setPurchaserEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="bg-secondary border-border/50"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ticket-phone">Phone Number</Label>
+                  <Input
+                    id="ticket-phone"
+                    type="tel"
+                    value={purchaserPhone}
+                    onChange={(e) => setPurchaserPhone(e.target.value)}
+                    placeholder="+234 800 000 0000"
+                    className="bg-secondary border-border/50"
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full gradient-primary text-primary-foreground shadow-glow"
+                  disabled={isFreeRegistering}
+                >
+                  {isFreeRegistering
+                    ? "Registering…"
+                    : ticketTotal === 0
+                    ? "Register for Free"
+                    : "Continue to Checkout"}
+                </Button>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

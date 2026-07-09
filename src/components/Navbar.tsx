@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface NavbarProps {
   selectedLocation?: string;
@@ -53,6 +53,8 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
     : user?.email
     ? user.email.slice(0, 2).toUpperCase()
     : "?";
+
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
     <>
@@ -162,6 +164,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
                   <Avatar className="h-8 w-8 border border-border/50">
+                    <AvatarImage src={storedUser?.avatar} alt={storedUser?.name} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                       {initials}
                     </AvatarFallback>

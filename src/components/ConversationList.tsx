@@ -48,7 +48,7 @@ const ConversationList = ({ activeConversationId, onSelectConversation }: Conver
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const token = localStorage.getItem("access_token") || "";
-  const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+  const authUser = JSON.parse(localStorage.getItem("user") || "{}");
   const myId = String(authUser?.id ?? "");
 
   useEffect(() => {
