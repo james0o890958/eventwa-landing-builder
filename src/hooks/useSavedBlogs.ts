@@ -67,7 +67,7 @@ export function useBlogBookmark(blogId: string, blogData?: any) {
   const saved = savedBlogs.some((b) => String(b.id) === String(blogId));
 
   const toggleMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (wasSaved: boolean) => {
       if (!token) throw new Error("You must be logged in to save blogs.");
 
       // CHANGED: correct endpoint + always POST (toggle on backend)
@@ -77,23 +77,23 @@ export function useBlogBookmark(blogId: string, blogData?: any) {
 
       return api.post(endpoint, {}, token);
     },
-    onMutate: async () => {
+    onMutate: async (wasSaved: boolean) => {
       await queryClient.cancelQueries({ queryKey: ["saved-blogs"] });
       const previous = queryClient.getQueryData<SavedBlog[]>(["saved-blogs"]) || [];
 
-      const next: SavedBlog[] = saved
+      const next: SavedBlog[] = wasSaved
         ? previous.filter((b) => String(b.id) !== String(blogId))
         : [...previous, blogData || { id: String(blogId), title: "Loading..." }];
 
       queryClient.setQueryData(["saved-blogs"], next);
       return { previous };
     },
-    onError: (err: any, _vars, ctx) => {
+    onError: (err: any, wasSaved: boolean, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["saved-blogs"], ctx.previous);
       toast.error(err?.message || "Failed to update blog bookmark");
     },
-    onSuccess: () => {
-      toast.success(saved ? "Blog saved! 📖" : "Blog unsaved! 🗑️");
+    onSuccess: (data: any, wasSaved: boolean) => {
+      toast.success(wasSaved ? "Blog unsaved! 🗑️" : "Blog saved! 📖");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-blogs"] });
@@ -110,7 +110,7 @@ export function useBlogBookmark(blogId: string, blogData?: any) {
       return;
     }
     try {
-      await toggleMutation.mutateAsync();
+      await toggleMutation.mutateAsync(saved);
     } catch (err) {
       console.error("Blog bookmark mutation failed", err);
     }

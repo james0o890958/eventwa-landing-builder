@@ -5,26 +5,27 @@ import Pusher from 'pusher-js';
 (window as any).Pusher = Pusher;
 
 /**
- * Laravel Echo instance configured for Laravel Reverb.
+ * Laravel Echo instance configured for Pusher Channels.
+ * // CHANGED: Switched from self-hosted Reverb to hosted Pusher Channels
+ * // CHANGED: Reason: Render free tier can't run a persistent Reverb WebSocket process
  *
  * Required .env variables in eventwa-landing-builder:
- *   VITE_REVERB_APP_KEY=your-reverb-app-key
- *   VITE_REVERB_HOST=localhost          (or your Railway hostname)
- *   VITE_REVERB_PORT=8080               (Reverb default)
- *   VITE_REVERB_SCHEME=http             (https in production)
- *   VITE_API_BASE_URL=...               (already set)
+ *   VITE_PUSHER_APP_KEY=your-pusher-app-key
+ *   VITE_PUSHER_APP_CLUSTER=your-pusher-cluster   (e.g. mt1, us2, eu)
+ *   VITE_API_BASE_URL=...                          (already set)
  *
- * To start Reverb locally:  php artisan reverb:start
- * To run alongside HTTP:    add to Procfile: reverb: php artisan reverb:start
+ * No local process needed — Pusher is a hosted service.
+ * Get these values from: https://dashboard.pusher.com/apps/YOUR_APP_ID/keys
  */
 const echo = new Echo({
-  broadcaster: 'reverb',
-  key: import.meta.env.VITE_REVERB_APP_KEY,
-  wsHost: import.meta.env.VITE_REVERB_HOST ?? 'localhost',
-  wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 8080),
-  wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 443),
-  forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
-  enabledTransports: ['ws', 'wss'],
+  // CHANGED: broadcaster changed from 'reverb' to 'pusher'
+  broadcaster: 'pusher',
+  // CHANGED: key now reads from VITE_PUSHER_APP_KEY instead of VITE_REVERB_APP_KEY
+  key: import.meta.env.VITE_PUSHER_APP_KEY,
+  // CHANGED: cluster replaces wsHost/wsPort/wssPort/forceTLS/enabledTransports —
+  // Pusher's hosted infrastructure handles routing based on cluster alone
+  cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+  forceTLS: true,
   // Authenticate private channels via the Laravel Sanctum token
   authEndpoint: `${import.meta.env.VITE_API_BASE_URL ?? ''}/broadcasting/auth`,
   auth: {

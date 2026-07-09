@@ -45,18 +45,18 @@ export function useBookmark(eventId: string, eventData?: any) {
   const saved = savedEvents.some((e) => String(e.id) === String(eventId));
 
   const toggleMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (wasSaved: boolean) => {
       if (!token) {
         throw new Error("You must be logged in to bookmark events.");
       }
 
-      if (saved) {
+      if (wasSaved) {
         return api.delete(`user-events/${eventId}/save`, token);
       } else {
         return api.post(`user-events/${eventId}/save`, {}, token);
       }
     },
-    onMutate: async () => {
+    onMutate: async (wasSaved: boolean) => {
       // Cancel outstanding refetches
       await queryClient.cancelQueries({ queryKey: ["saved-events"] });
 
@@ -65,7 +65,7 @@ export function useBookmark(eventId: string, eventData?: any) {
 
       // Optimistically update
       let newEvents;
-      if (saved) {
+      if (wasSaved) {
         newEvents = previousEvents.filter((e) => String(e.id) !== String(eventId));
       } else {
         const newEvent = eventData || { id: eventId, title: "Loading...", image: "" };
@@ -76,14 +76,14 @@ export function useBookmark(eventId: string, eventData?: any) {
 
       return { previousEvents };
     },
-    onError: (err: any, _, context) => {
+    onError: (err: any, wasSaved: boolean, context) => {
       if (context?.previousEvents) {
         queryClient.setQueryData(["saved-events"], context.previousEvents);
       }
       toast.error(err.message || "Failed to update bookmark");
     },
-    onSuccess: () => {
-      toast.success(saved ? "Event removed from bookmarks" : "Event saved! 🔖");
+    onSuccess: (data: any, wasSaved: boolean) => {
+      toast.success(wasSaved ? "Event removed from bookmarks" : "Event saved! 🔖");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-events"] });
@@ -102,7 +102,7 @@ export function useBookmark(eventId: string, eventData?: any) {
     }
 
     try {
-      await toggleMutation.mutateAsync();
+      await toggleMutation.mutateAsync(saved);
     } catch (err) {
       console.error("Mutation failed", err);
     }

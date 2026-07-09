@@ -118,21 +118,27 @@ const App = () => (
               >
                 <Route index element={<UserDashboard />} />
                 <Route path="my-tickets" element={<MyTickets />} />
+                <Route path="tickets" element={<Navigate to="my-tickets" replace />} />
                 <Route path="saved-events" element={<SavedEvents />} />
+                <Route path="saved" element={<Navigate to="saved-events" replace />} />
                 <Route path="saved-blogs" element={<SavedBlogs />} />
                 <Route path="messages" element={<Messages />} />
                 <Route path="following" element={<Following />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="profile/me" element={<UserProfile />} />
+                <Route path="profile" element={<Navigate to="profile/me" replace />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
               <Route path="/my-tickets" element={<Navigate to="/dashboard/my-tickets" replace />} />
+              <Route path="/tickets" element={<Navigate to="/dashboard/my-tickets" replace />} />
               <Route path="/saved-events" element={<Navigate to="/dashboard/saved-events" replace />} />
+              <Route path="/saved" element={<Navigate to="/dashboard/saved-events" replace />} />
               <Route path="/saved-blogs" element={<Navigate to="/dashboard/saved-blogs" replace />} />
               <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
               <Route path="/following" element={<Navigate to="/dashboard/following" replace />} />
               <Route path="/notifications" element={<Navigate to="/dashboard/notifications" replace />} />
               <Route path="/profile/me" element={<Navigate to="/dashboard/profile/me" replace />} />
+              <Route path="/profile" element={<Navigate to="/dashboard/profile/me" replace />} />
               <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
               <Route path="/organizer" element={<OrganizerProtectedRoute><OrganizerDashboard /></OrganizerProtectedRoute>} />
               <Route path="/organizer/dashboard" element={<OrganizerProtectedRoute><OrganizerDashboard /></OrganizerProtectedRoute>} />

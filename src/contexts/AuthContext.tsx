@@ -42,6 +42,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,6 +50,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signOut: async () => {},
+  updateUser: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -106,6 +108,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
+  const updateUser = (updatedUser: User) => {
+    const customUserStr = localStorage.getItem("user");
+    let currentStoredUser = {};
+    if (customUserStr) {
+      try {
+        currentStoredUser = JSON.parse(customUserStr);
+      } catch (e) {}
+    }
+    const mergedUser = {
+      ...currentStoredUser,
+      ...updatedUser,
+      user_metadata: {
+        ...(currentStoredUser as any).user_metadata,
+        ...updatedUser.user_metadata,
+        display_name: updatedUser.name || updatedUser.user_metadata?.display_name || (currentStoredUser as any).user_metadata?.display_name,
+        avatar: updatedUser.avatar || updatedUser.user_metadata?.avatar || (currentStoredUser as any).user_metadata?.avatar,
+        avatar_url: updatedUser.avatar || updatedUser.user_metadata?.avatar_url || (currentStoredUser as any).user_metadata?.avatar_url
+      }
+    };
+    localStorage.setItem("user", JSON.stringify(mergedUser));
+    setSession(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        user: mergedUser
+      };
+    });
+  };
+
   const signOut = async () => {
     const token = localStorage.getItem("access_token");
     const storedUserStr = localStorage.getItem("user");
@@ -141,7 +172,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session: session || (!AUTH_CONFIG.AUTH_ENABLED ? MOCK_SESSION : null), 
       user: session?.user || (!AUTH_CONFIG.AUTH_ENABLED ? MOCK_USER : null), 
       loading, 
-      signOut 
+      signOut,
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>

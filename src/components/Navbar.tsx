@@ -48,13 +48,19 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
     navigate("/");
   };
 
-  const initials = user?.user_metadata?.display_name
-    ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
-    : user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "?";
+  const getFullAvatarUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith("http") || url.startsWith("blob:") || url.startsWith("data:")) {
+      return url;
+    }
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+    const baseUrl = apiBase.replace(/\/api$/, "");
+    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${cleanBase}${cleanPath}`;
+  };
 
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userAvatar = user?.avatar ?? user?.user_metadata?.avatar ?? user?.user_metadata?.avatar_url;
 
   return (
     <>
@@ -164,9 +170,13 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
                   <Avatar className="h-8 w-8 border border-border/50">
-                    <AvatarImage src={storedUser?.avatar} alt={storedUser?.name} />
+                    <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                      {initials}
+                      {user?.user_metadata?.display_name
+                        ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
+                        : user?.email
+                        ? user.email.slice(0, 2).toUpperCase()
+                        : "?"}
                     </AvatarFallback>
                   </Avatar>
                 </button>

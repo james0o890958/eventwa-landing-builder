@@ -1,4 +1,4 @@
-﻿import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { LayoutDashboard, Ticket, Bell, MessageSquare, Heart, User } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { api } from '@/lib/api';
@@ -51,7 +51,7 @@ export default function AttendeeDashboardLayout({ children }: Props) {
 
   const menu = [
     { label: 'Overview', to: '/dashboard', Icon: LayoutDashboard, end: true },
-    { label: 'My Tickets', to: '/dashboard/tickets', Icon: Ticket },
+    { label: 'My Tickets', to: '/dashboard/my-tickets', Icon: Ticket },
     {
       label: 'Notifications',
       to: '/dashboard/notifications',
@@ -60,12 +60,12 @@ export default function AttendeeDashboardLayout({ children }: Props) {
     },
     {
       label: 'Messages',
-      to: '/messages',
+      to: '/dashboard/messages',
       Icon: MessageSquare,
       badge: unreadMessages > 0 ? unreadMessages : undefined,
     },
-    { label: 'Saved Events', to: '/dashboard/saved', Icon: Heart },
-    { label: 'Profile', to: '/dashboard/profile', Icon: User },
+    { label: 'Saved Events', to: '/dashboard/saved-events', Icon: Heart },
+    { label: 'Profile', to: '/dashboard/profile/me', Icon: User },
   ];
 
   return (

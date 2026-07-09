@@ -93,7 +93,7 @@ interface RecommendationPref {
 }
 
 const UserProfile = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateUser } = useAuth();
   const [active, setActive] = useState<Section>("personal");
 
   const [displayName, setDisplayName] = useState("");
@@ -107,6 +107,10 @@ const UserProfile = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  const [savingPersonal, setSavingPersonal] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
 
   const [allLocationOptions, setAllLocationOptions] = useState<{ value: string, label: string, group: string }[]>([]);
 
@@ -435,6 +439,18 @@ const UserProfile = () => {
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
+  const getFullAvatarUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith("http") || url.startsWith("blob:") || url.startsWith("data:")) {
+      return url;
+    }
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+    const baseUrl = apiBase.replace(/\/api$/, "");
+    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${cleanBase}${cleanPath}`;
+  };
+
   const initials = displayName
     ? displayName
         .split(" ")
@@ -446,6 +462,7 @@ const UserProfile = () => {
     : "??";
 
   const savePersonal = async () => {
+    setSavingPersonal(true);
     try {
       const token = localStorage.getItem("access_token");
       if (!token) {
@@ -482,9 +499,14 @@ const UserProfile = () => {
         setAvatarPreview(undefined);
         setAvatarFile(null);
       }
+      if (data?.user) {
+        updateUser(data.user);
+      }
       toast.success("Profile updated successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update profile");
+    } finally {
+      setSavingPersonal(false);
     }
   };
   const savePassword = async () => {
@@ -492,6 +514,7 @@ const UserProfile = () => {
     if (newPwd !== confirmPwd) return toast.error("New passwords don't match");
     if (newPwd.length < 8) return toast.error("Password must be at least 8 characters");
     
+    setSavingPassword(true);
     try {
       const token = localStorage.getItem("access_token");
       if (!token) {
@@ -509,9 +532,12 @@ const UserProfile = () => {
       toast.success("Password changed successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setSavingPassword(false);
     }
   };
   const savePrivacy = async () => {
+    setSavingPrivacy(true);
     try {
       const token = localStorage.getItem("access_token");
       if (!token) {
@@ -529,6 +555,8 @@ const UserProfile = () => {
       toast.success("Privacy settings saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save privacy settings");
+    } finally {
+      setSavingPrivacy(false);
     }
   };
   const handleDelete = async () => {
@@ -636,7 +664,7 @@ const UserProfile = () => {
                     {/* Avatar */}
                     <div className="flex items-center gap-5">
                       <Avatar className="h-20 w-20 border-2 border-border">
-                        <AvatarImage src={avatarPreview ?? avatarUrl} alt={displayName} />
+                        <AvatarImage src={avatarPreview ?? getFullAvatarUrl(avatarUrl)} alt={displayName} />
                         <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
                           {initials}
                         </AvatarFallback>
@@ -731,10 +759,20 @@ const UserProfile = () => {
                     <div className="flex justify-end">
                       <Button
                         onClick={savePersonal}
+                        disabled={savingPersonal}
                         className="gradient-primary text-primary-foreground shadow-glow gap-2"
                       >
-                        <Check className="h-4 w-4" />
-                        Save Changes
+                        {savingPersonal ? (
+                          <>
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Save Changes
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -785,10 +823,20 @@ const UserProfile = () => {
                     <div className="flex justify-end">
                       <Button
                         onClick={savePassword}
+                        disabled={savingPassword}
                         className="gradient-primary text-primary-foreground shadow-glow gap-2"
                       >
-                        <Lock className="h-4 w-4" />
-                        Update Password
+                        {savingPassword ? (
+                          <>
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-4 w-4" />
+                            Update Password
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1219,10 +1267,20 @@ const UserProfile = () => {
                     <div className="flex justify-end">
                       <Button
                         onClick={savePrivacy}
+                        disabled={savingPrivacy}
                         className="gradient-primary text-primary-foreground shadow-glow gap-2"
                       >
-                        <Check className="h-4 w-4" />
-                        Save Privacy Settings
+                        {savingPrivacy ? (
+                          <>
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Save Privacy Settings
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
