@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Ticket, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -181,13 +182,8 @@ const Login = () => {
           <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Link>
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-primary">
-            <Ticket className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <span className="font-display text-2xl font-bold text-foreground">
-            Even<span className="text-gradient">tly</span>
-          </span>
+        <Link to="/" className="mb-8 flex justify-center">
+          <Logo iconSize={40} />
         </Link>
 
         <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-xl p-8">

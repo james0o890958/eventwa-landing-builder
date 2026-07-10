@@ -111,6 +111,18 @@ const MyTickets = () => {
   const [error, setError] = useState<string>("");
   const token = localStorage.getItem("access_token") || "";
 
+  const getEventImageUrl = (url?: string) => {
+    if (!url) return "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80";
+    if (url.startsWith("http") || url.startsWith("blob:") || url.startsWith("data:")) {
+      return url;
+    }
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+    const baseUrl = apiBase.replace(/\/api$/, "");
+    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${cleanBase}${cleanPath}`;
+  };
+
   useEffect(() => {
     const fetchTickets = async () => {
       if (!token) {
@@ -408,7 +420,7 @@ const MyTickets = () => {
                     {/* Event image */}
                     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl">
                       <img
-                        src={ev.image}
+                        src={getEventImageUrl(ev.image)}
                         alt={ev.title}
                         className="h-full w-full object-cover"
                       />

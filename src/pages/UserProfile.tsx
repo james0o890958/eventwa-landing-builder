@@ -8,6 +8,7 @@ import {
   Lock,
   ShieldCheck,
   Bell,
+  Eye,
   EyeOff,
   Trash2,
   Camera,
@@ -120,10 +121,14 @@ const UserProfile = () => {
       
       try {
         const locationsRes = await api.get("states_cities");
-        if (locationsRes && locationsRes.data) {
-          const options = locationsRes.data.flatMap((s: any) => [
+        if (locationsRes) {
+          const states = locationsRes.states || [];
+          const cities = locationsRes.cities || [];
+          const options = states.flatMap((s: any) => [
             { value: s.name, label: s.name, group: s.name },
-            ...s.cities.map((c: any) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name }))
+            ...cities
+              .filter((c: any) => c.state_id === s.id)
+              .map((c: any) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name }))
           ]);
           setAllLocationOptions(options);
         }
@@ -239,10 +244,12 @@ const UserProfile = () => {
     fetchData();
   }, []);
 
-  // Password
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   // 2FA
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
@@ -793,30 +800,72 @@ const UserProfile = () => {
                     <div className="space-y-4 max-w-md">
                       <div className="space-y-1.5">
                         <Label>Current Password</Label>
-                        <Input
-                          type="password"
-                          value={currentPwd}
-                          onChange={(e) => setCurrentPwd(e.target.value)}
-                          placeholder="••••••••"
-                        />
+                        <div className="relative">
+                          <Input
+                            type={showCurrentPwd ? "text" : "password"}
+                            value={currentPwd}
+                            onChange={(e) => setCurrentPwd(e.target.value)}
+                            placeholder="••••••••"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                          >
+                            {showCurrentPwd ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         <Label>New Password</Label>
-                        <Input
-                          type="password"
-                          value={newPwd}
-                          onChange={(e) => setNewPwd(e.target.value)}
-                          placeholder="At least 8 characters"
-                        />
+                        <div className="relative">
+                          <Input
+                            type={showNewPwd ? "text" : "password"}
+                            value={newPwd}
+                            onChange={(e) => setNewPwd(e.target.value)}
+                            placeholder="At least 8 characters"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPwd(!showNewPwd)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                          >
+                            {showNewPwd ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Confirm New Password</Label>
-                        <Input
-                          type="password"
-                          value={confirmPwd}
-                          onChange={(e) => setConfirmPwd(e.target.value)}
-                          placeholder="Re-enter new password"
-                        />
+                        <div className="relative">
+                          <Input
+                            type={showConfirmPwd ? "text" : "password"}
+                            value={confirmPwd}
+                            onChange={(e) => setConfirmPwd(e.target.value)}
+                            placeholder="Re-enter new password"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                          >
+                            {showConfirmPwd ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -907,7 +956,21 @@ const UserProfile = () => {
                               <button
                                 key={m.v}
                                 type="button"
-                                onClick={() => setTwoFAMethod(m.v)}
+                                onClick={async () => {
+                                  try {
+                                    setTwoFAMethod(m.v);
+                                    const token = localStorage.getItem("access_token");
+                                    if (token) {
+                                      await api.patch("profile/2fa", {
+                                        two_fa_enabled: twoFAEnabled,
+                                        two_fa_method: m.v,
+                                      }, token);
+                                      toast.success(`Verification method updated to ${m.label}`);
+                                    }
+                                  } catch (err) {
+                                    toast.error(err instanceof Error ? err.message : "Failed to update verification method");
+                                  }
+                                }}
                                 className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
                                   twoFAMethod === m.v
                                     ? "border-primary bg-primary/5 ring-1 ring-primary"

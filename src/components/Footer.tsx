@@ -1,5 +1,5 @@
-import { Ticket } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Logo } from "./Logo";
 
 const Footer = () => (
   <footer className="border-t border-border/50 bg-card/50 py-12">
@@ -7,13 +7,8 @@ const Footer = () => (
       <div className="grid grid-cols-2 gap-8 md:grid-cols-4 mb-10">
         {/* Brand */}
         <div className="col-span-2 md:col-span-1">
-          <Link to="/" className="flex items-center gap-2 mb-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
-              <Ticket className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="font-display text-lg font-bold text-foreground">
-              Even<span className="text-gradient">tly</span>
-            </span>
+          <Link to="/" className="inline-block mb-4">
+            <Logo iconSize={36} showSubtitle={true} />
           </Link>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Nigeria's premier event discovery and ticketing platform. Find,
@@ -186,13 +181,8 @@ const Footer = () => (
       </div>
 
       <div className="border-t border-border/50 pt-8 flex flex-col items-center gap-4 md:flex-row md:justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg gradient-primary">
-            <Ticket className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-display text-base font-bold text-foreground">
-            Even<span className="text-gradient">tly</span>
-          </span>
+        <Link to="/" className="inline-block">
+          <Logo iconSize={26} />
         </Link>
 
         <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
@@ -211,7 +201,7 @@ const Footer = () => (
         </div>
 
         <p className="text-xs text-muted-foreground">
-          © 2026 Evently. All rights reserved.
+          © 2026 Eventwa. All rights reserved.
         </p>
       </div>
     </div>

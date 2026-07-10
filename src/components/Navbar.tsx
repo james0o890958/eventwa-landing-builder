@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Logo } from "./Logo";
 
 interface NavbarProps {
   selectedLocation?: string;
@@ -66,13 +67,8 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 md:px-6">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 mr-8">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary shrink-0">
-            <Ticket className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-display text-lg font-bold text-foreground">
-            Even<span className="text-gradient">tly</span>
-          </span>
+        <Link to="/" className="flex items-center mr-8">
+          <Logo iconSize={32} />
         </Link>
 
         {/* Navigation Menus (Left) */}
