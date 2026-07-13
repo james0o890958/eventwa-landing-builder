@@ -509,37 +509,55 @@ const UserProfile = () => {
         return;
       }
 
-      // Parse city and state from the location string "City, State"
       const parts = location.split(",").map((s) => s.trim());
       const cityName = parts[0] || "";
       const stateName = parts[1] || parts[0] || "";
 
-      // Use FormData so we can optionally attach a file
-      const formData = new FormData();
-      formData.append("_method", "PATCH");
-      formData.append("name", displayName);
-      if (phone) formData.append("phone", phone);
-      if (bio) formData.append("bio", bio);
-      if (cityName) formData.append("city_name", cityName);
-      if (stateName) formData.append("state_name", stateName);
-      if (avatarFile) formData.append("avatar", avatarFile);
+      let updatedUser: any;
 
-      const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
-      const res = await fetch(`${baseUrl}/api/profile/personal`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message ?? "Failed to update profile");
+      if (avatarFile) {
+        // Use FormData if an avatar file is explicitly selected
+        const formData = new FormData();
+        formData.append("_method", "PATCH");
+        formData.append("name", displayName);
+        if (phone) formData.append("phone", phone);
+        if (bio) formData.append("bio", bio);
+        if (cityName) formData.append("city_name", cityName);
+        if (stateName) formData.append("state_name", stateName);
+        formData.append("avatar", avatarFile);
 
-      if (data?.user?.avatar) {
-        setAvatarUrl(data.user.avatar);
+        const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
+        const res = await fetch(`${baseUrl}/api/profile/personal`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message ?? "Failed to update profile");
+        updatedUser = data.user;
+      } else {
+        // Use fast JSON request for standard text updates
+        const res = await api.patch(
+          "profile/personal",
+          {
+            name: displayName,
+            phone: phone || null,
+            bio: bio || null,
+            city_name: cityName || null,
+            state_name: stateName || null,
+          },
+          token
+        );
+        updatedUser = res.user;
+      }
+
+      if (updatedUser?.avatar) {
+        setAvatarUrl(updatedUser.avatar);
         setAvatarPreview(undefined);
         setAvatarFile(null);
       }
-      if (data?.user) {
-        updateUser(data.user);
+      if (updatedUser) {
+        updateUser(updatedUser);
       }
       toast.success("Profile updated successfully");
     } catch (err) {
