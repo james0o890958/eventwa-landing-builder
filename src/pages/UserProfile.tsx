@@ -106,6 +106,7 @@ const UserProfile = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   
@@ -444,6 +445,51 @@ const UserProfile = () => {
     return `${cleanBase}${cleanPath}`;
   };
 
+  const handleAvatarUpload = async (file: File) => {
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Image must be under 3MB.");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+    setUploadingAvatar(true);
+
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Not authenticated");
+        setAvatarPreview(undefined);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
+      const res = await fetch(`${baseUrl}/api/profile/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message ?? "Failed to upload avatar");
+
+      if (data?.user) {
+        setAvatarUrl(data.user.avatar);
+        setAvatarPreview(undefined);
+        setAvatarFile(null);
+        updateUser(data.user);
+        toast.success("Profile photo updated successfully!");
+      }
+    } catch (err) {
+      setAvatarPreview(undefined);
+      toast.error(err instanceof Error ? err.message : "Failed to upload avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const initials = displayName
     ? displayName
         .split(" ")
@@ -656,12 +702,29 @@ const UserProfile = () => {
 
                     {/* Avatar */}
                     <div className="flex items-center gap-5">
-                      <Avatar className="h-20 w-20 border-2 border-border">
-                        <AvatarImage src={avatarPreview ?? getFullAvatarUrl(avatarUrl)} alt={displayName} />
-                        <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div
+                        onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+                        className="relative h-20 w-20 cursor-pointer group rounded-full overflow-hidden border-2 border-border transition-all hover:border-primary hover:shadow-glow shrink-0"
+                        title="Click circle to upload profile photo"
+                      >
+                        <Avatar className="h-full w-full">
+                          <AvatarImage src={avatarPreview ?? getFullAvatarUrl(avatarUrl)} alt={displayName} />
+                          <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className={`absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white transition-opacity ${uploadingAvatar ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                          {uploadingAvatar ? (
+                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          ) : (
+                            <>
+                              <Camera className="h-5 w-5" />
+                              <span className="text-[9px] font-semibold mt-0.5">Upload</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
                       <div>
                         <input
                           ref={fileInputRef}
@@ -670,13 +733,7 @@ const UserProfile = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (!file) return;
-                            if (file.size > 3 * 1024 * 1024) {
-                              toast.error("Image must be under 3MB.");
-                              return;
-                            }
-                            setAvatarFile(file);
-                            setAvatarPreview(URL.createObjectURL(file));
+                            if (file) handleAvatarUpload(file);
                           }}
                         />
                         <Button
@@ -684,13 +741,14 @@ const UserProfile = () => {
                           size="sm"
                           className="gap-2"
                           type="button"
+                          disabled={uploadingAvatar}
                           onClick={() => fileInputRef.current?.click()}
                         >
                           <Camera className="h-4 w-4" />
-                          {avatarPreview ? "Photo Selected" : "Change Photo"}
+                          {uploadingAvatar ? "Uploading..." : "Change Photo"}
                         </Button>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          JPG, PNG or WebP. Max 3MB.
+                          Click circle or button to upload JPG, PNG or WebP. Max 3MB.
                         </p>
                       </div>
                     </div>
