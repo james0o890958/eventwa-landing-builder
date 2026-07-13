@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ReportDialog from "@/components/ReportDialog";
+
 interface AttendeeListProps {
   eventId: string;
   attendees?: any[];
@@ -15,15 +16,19 @@ interface AttendeeListProps {
 }
 
 const AttendeeList = ({ eventId, attendees = [], onSelectUser }: AttendeeListProps) => {
-  if (attendees.length === 0) return null;
+  const visibleAttendees = attendees.filter(
+    (user: any) => !user?.privacy_settings?.hide_in_attendee_list && !user?.hide_in_attendee_list
+  );
+
+  if (visibleAttendees.length === 0) return null;
 
   return (
     <div className="mt-6 rounded-2xl border border-border/50 bg-card p-6">
       <h2 className="mb-4 font-display text-xl font-semibold text-foreground">
-        Attendees ({attendees.length})
+        Attendees ({visibleAttendees.length})
       </h2>
       <div className="space-y-4">
-        {attendees.map((user: any) => (
+        {visibleAttendees.map((user: any) => (
           <div key={user.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border border-border/50">

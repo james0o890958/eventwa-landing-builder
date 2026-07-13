@@ -196,29 +196,8 @@ const UserProfile = () => {
             setTwoFAMethod(u.two_fa_method ?? "app");
           }
           
-          // Sync to localStorage
-          const storedUserStr = localStorage.getItem("user");
-          if (storedUserStr) {
-            try {
-              const storedUser = JSON.parse(storedUserStr);
-              const isOrganizer = response.is_organizer || u.is_organizer || !!u.organizer || storedUser.is_organizer;
-              const updatedUser = {
-                ...storedUser,
-                ...u,
-                is_organizer: isOrganizer,
-                user_metadata: {
-                  ...storedUser.user_metadata,
-                  ...u.user_metadata,
-                  display_name: u.name || storedUser.user_metadata?.display_name || u.email?.split("@")[0],
-                  full_name: u.name || storedUser.user_metadata?.full_name,
-                  is_organizer: isOrganizer
-                }
-              };
-              localStorage.setItem("user", JSON.stringify(updatedUser));
-            } catch (e) {
-              console.error("Failed to sync profile to localStorage", e);
-            }
-          }
+          // Sync user state with AuthContext
+          updateUser(u);
 
           if (u.organizer) {
             const org = u.organizer;
@@ -448,13 +427,20 @@ const UserProfile = () => {
 
   const getFullAvatarUrl = (url?: string) => {
     if (!url) return undefined;
-    if (url.startsWith("http") || url.startsWith("blob:") || url.startsWith("data:")) {
-      return url;
-    }
+    if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+
     const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
     const baseUrl = apiBase.replace(/\/api$/, "");
     const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+
+    let cleanUrl = url;
+    if (cleanUrl.includes("localhost:") || cleanUrl.includes("127.0.0.1:")) {
+      cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
+    } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+      return cleanUrl;
+    }
+
+    const cleanPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
     return `${cleanBase}${cleanPath}`;
   };
 
@@ -1022,18 +1008,21 @@ const UserProfile = () => {
                             <p className="text-xs text-muted-foreground">{n.desc}</p>
                           </div>
                           <Switch checked={n.val} onCheckedChange={async (v) => {
+                            const prevVal = n.val;
+                            n.set(v);
                             try {
                               const token = localStorage.getItem("access_token");
                               if (!token) {
+                                n.set(prevVal);
                                 toast.error("Not authenticated");
                                 return;
                               }
                               await api.patch("profile/notifications", {
                                 [n.key]: v,
                               }, token);
-                              n.set(v);
                               toast.success("Notification preference updated");
                             } catch (err) {
+                              n.set(prevVal);
                               toast.error(err instanceof Error ? err.message : "Failed to update preferences");
                             }
                           }} />

@@ -51,13 +51,20 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
 
   const getFullAvatarUrl = (url?: string) => {
     if (!url) return undefined;
-    if (url.startsWith("http") || url.startsWith("blob:") || url.startsWith("data:")) {
-      return url;
-    }
+    if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+
     const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
     const baseUrl = apiBase.replace(/\/api$/, "");
     const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+
+    let cleanUrl = url;
+    if (cleanUrl.includes("localhost:") || cleanUrl.includes("127.0.0.1:")) {
+      cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
+    } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+      return cleanUrl;
+    }
+
+    const cleanPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
     return `${cleanBase}${cleanPath}`;
   };
 

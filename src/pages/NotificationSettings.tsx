@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { api } from "@/lib/api";
 import {
   Bell,
   Mail,
@@ -145,6 +146,24 @@ const NotificationSettings = () => {
   const [globalPush, setGlobalPush] = useState(true);
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const fetchPrefs = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+      try {
+        const res = await api.get("profile", undefined, token);
+        if (res?.preferences) {
+          const { email_notifications, push_notifications, marketing_notifications } = res.preferences;
+          if (email_notifications !== undefined) setGlobalEmail(!!email_notifications);
+          if (push_notifications !== undefined) setGlobalPush(!!push_notifications);
+        }
+      } catch (e) {
+        console.error("Failed to load notification settings", e);
+      }
+    };
+    fetchPrefs();
+  }, []);
+
   const toggleChannel = (
     id: string,
     channel: "email" | "push",
@@ -157,7 +176,7 @@ const NotificationSettings = () => {
     setSaved(false);
   };
 
-  const toggleAll = (channel: "email" | "push", value: boolean) => {
+  const toggleAll = async (channel: "email" | "push", value: boolean) => {
     if (channel === "email") {
       setGlobalEmail(value);
       setSettings((prev) => prev.map((s) => ({ ...s, email: value })));
@@ -169,9 +188,21 @@ const NotificationSettings = () => {
   };
 
   const handleSave = async () => {
-    await new Promise((r) => setTimeout(r, 600));
-    setSaved(true);
-    toast.success("Notification preferences saved! ✅");
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    try {
+      await api.patch("profile/notifications", {
+        email_notifications: globalEmail,
+        push_notifications: globalPush,
+      }, token);
+      setSaved(true);
+      toast.success("Notification preferences saved!");
+    } catch (err) {
+      toast.error("Failed to save preferences");
+    }
   };
 
   return (
