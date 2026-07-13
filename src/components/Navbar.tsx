@@ -4,6 +4,7 @@ import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, Chevr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { getFullAvatarUrl } from "@/lib/api";
 import CategoryMegaMenu from "@/components/CategoryMegaMenu";
 import LocationMenu from "@/components/LocationMenu";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -49,24 +50,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
     navigate("/");
   };
 
-  const getFullAvatarUrl = (url?: string) => {
-    if (!url) return undefined;
-    if (url.startsWith("blob:") || url.startsWith("data:")) return url;
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
-    const baseUrl = apiBase.replace(/\/api$/, "");
-    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-    let cleanUrl = url;
-    if (cleanUrl.includes("localhost:") || cleanUrl.includes("127.0.0.1:")) {
-      cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
-    } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
-      return cleanUrl;
-    }
-
-    const cleanPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
-    return `${cleanBase}${cleanPath}`;
-  };
 
   const userAvatar = user?.avatar ?? user?.user_metadata?.avatar ?? user?.user_metadata?.avatar_url;
 

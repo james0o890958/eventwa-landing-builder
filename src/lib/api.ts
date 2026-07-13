@@ -1,5 +1,23 @@
-
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://eventwaversion3-production.up.railway.app/api';
+
+export const getFullAvatarUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+
+  const apiBase = import.meta.env.VITE_API_BASE_URL || API_BASE_URL || "";
+  const baseUrl = apiBase.replace(/\/api$/, "");
+  const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+
+  let cleanUrl = url;
+  if (cleanUrl.includes("localhost:") || cleanUrl.includes("127.0.0.1:")) {
+    cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
+  } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+    return cleanUrl;
+  }
+
+  const cleanPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
+  return `${cleanBase}${cleanPath}`;
+};
 
 export const api = {
   async post(endpoint: string, data: any, token?: string) {

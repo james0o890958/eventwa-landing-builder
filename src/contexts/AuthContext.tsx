@@ -73,7 +73,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user_metadata: { display_name: "User" }
         };
         
-        // Ensure user_metadata is initialized and maps display_name, full_name, is_organizer
         if (customUser) {
           if (!customUser.user_metadata) {
             customUser.user_metadata = {};
@@ -94,7 +93,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user: customUser,
           token_type: "bearer",
         });
-        setLoading(false);
+
+        // Sync latest profile from backend database
+        api.get("profile", undefined, customToken)
+          .then((res) => {
+            if (res?.user) {
+              updateUser(res.user);
+            }
+          })
+          .catch((e) => console.warn("Failed to sync profile on boot", e))
+          .finally(() => setLoading(false));
+
         return;
       } catch (e) {
         console.error("Failed to parse stored user", e);

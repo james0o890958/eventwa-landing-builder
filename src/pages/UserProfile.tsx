@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { LocationCombobox, LocationOption } from "@/components/LocationCombobox";
@@ -21,6 +21,7 @@ import {
   Pencil,
   X,
   CreditCard,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -427,24 +428,7 @@ const UserProfile = () => {
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
-  const getFullAvatarUrl = (url?: string) => {
-    if (!url) return undefined;
-    if (url.startsWith("blob:") || url.startsWith("data:")) return url;
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
-    const baseUrl = apiBase.replace(/\/api$/, "");
-    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-    let cleanUrl = url;
-    if (cleanUrl.includes("localhost:") || cleanUrl.includes("127.0.0.1:")) {
-      cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
-    } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
-      return cleanUrl;
-    }
-
-    const cleanPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
-    return `${cleanBase}${cleanPath}`;
-  };
 
   const handleAvatarUpload = async (file: File) => {
     if (file.size > 3 * 1024 * 1024) {
