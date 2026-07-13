@@ -98,6 +98,7 @@ interface RecommendationPref {
 const UserProfile = () => {
   const { user, signOut, updateUser } = useAuth();
   const [active, setActive] = useState<Section>("personal");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -652,9 +653,59 @@ const UserProfile = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[260px_1fr] max-w-full">
-          {/* Sidebar nav */}
-          <aside className="lg:sticky lg:top-24 lg:self-start max-w-full overflow-hidden">
-            <nav className="flex gap-2 overflow-x-auto pb-2 max-w-full lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0 scrollbar-none">
+          {/* Mobile Profile Section Select Dropdown (< lg screens) */}
+          {(() => {
+            const activeSectionObj = SECTIONS.find((s) => s.id === active) || SECTIONS[0];
+            return (
+              <div className="lg:hidden mb-2 max-w-full">
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(!mobileNavOpen)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-card transition-colors hover:border-primary/50 text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <activeSectionObj.Icon className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="font-semibold text-foreground text-sm truncate">{activeSectionObj.label}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 text-muted-foreground ${mobileNavOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {mobileNavOpen && (
+                  <div className="mt-2 rounded-xl border border-border/60 bg-card p-2 shadow-xl space-y-1 z-20">
+                    {SECTIONS.map((s) => {
+                      const isActive = active === s.id;
+                      const isDanger = s.id === "danger";
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setActive(s.id);
+                            setMobileNavOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                            isActive
+                              ? isDanger
+                                ? "bg-destructive/10 text-destructive border border-destructive/30"
+                                : "gradient-primary text-primary-foreground font-semibold"
+                              : isDanger
+                                ? "text-destructive/80 hover:bg-destructive/5"
+                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          }`}
+                        >
+                          <s.Icon className="h-4 w-4 shrink-0" />
+                          <span>{s.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Desktop Sidebar nav (lg+ screens) */}
+          <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start max-w-full">
+            <nav className="flex flex-col gap-1">
               {SECTIONS.map((s) => {
                 const isActive = active === s.id;
                 const isDanger = s.id === "danger";
@@ -662,7 +713,7 @@ const UserProfile = () => {
                   <button
                     key={s.id}
                     onClick={() => setActive(s.id)}
-                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all lg:w-full ${
+                    className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all w-full ${
                       isActive
                         ? isDanger
                           ? "bg-destructive/10 text-destructive border border-destructive/30"

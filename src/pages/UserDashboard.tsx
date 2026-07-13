@@ -335,35 +335,27 @@ const UserDashboard = () => {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-          My Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Welcome back to your event hub
-        </p>
-      </div>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         {/* Profile header */}
-        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="relative">
-              <Avatar className="h-20 w-20 border-2 border-primary/30">
+        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start max-w-full">
+          <div className="relative shrink-0">
+              <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-primary/30">
                 <AvatarImage
                   src={(JSON.parse(localStorage.getItem('user') || '{}')).avatar}
                   alt={displayName}
                 />
-                <AvatarFallback className="gradient-primary text-primary-foreground text-2xl font-bold">
+                <AvatarFallback className="gradient-primary text-primary-foreground text-xl sm:text-2xl font-bold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-background bg-green-500" />
+              <span className="absolute bottom-1 right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full border-2 border-background bg-green-500" />
             </div>
-            <div className="text-center sm:text-left">
-              <h1 className="font-display text-3xl font-bold text-foreground">
+            <div className="text-center sm:text-left min-w-0 max-w-full">
+              <h2 className="font-display text-xl sm:text-3xl font-bold text-foreground break-words max-w-full">
                 Welcome back,{" "}
-                <span className="text-gradient">{displayName}</span>!
-              </h1>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <span className="text-gradient inline-block">{displayName}</span>!
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{user?.email}</p>
               <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                 Member since {(() => {
                   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -379,19 +371,19 @@ const UserDashboard = () => {
           </div>
 
           {/* Quick action cards */}
-          <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 max-w-full">
             {QUICK_ACTIONS.map((item) => (
               <button
                 key={item.label}
                 onClick={item.action}
-                className="group rounded-2xl border border-border/50 bg-card p-5 text-center transition-all hover:border-primary/30 hover:bg-secondary/50 hover:shadow-card"
+                className="group rounded-2xl border border-border/50 bg-card p-3.5 sm:p-5 text-center transition-all hover:border-primary/30 hover:bg-secondary/50 hover:shadow-card"
               >
-                <item.Icon className="mx-auto mb-2 h-6 w-6 text-primary" />
-                <p className="text-sm font-medium text-foreground">
+                <item.Icon className="mx-auto mb-1.5 sm:mb-2 h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                <p className="text-xs sm:text-sm font-medium text-foreground truncate">
                   {item.label}
                 </p>
                 {item.count !== null && (
-                  <p className="mt-1 text-2xl font-bold text-foreground">
+                  <p className="mt-0.5 text-xl sm:text-2xl font-bold text-foreground">
                     {item.count}
                   </p>
                 )}
@@ -400,13 +392,13 @@ const UserDashboard = () => {
           </div>
 
           {/* Tab bar */}
-          <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
+          <div className="mb-8 flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={[
-                  "flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200",
+                  "flex shrink-0 items-center gap-2 rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all duration-200",
                   activeTab === tab.id
                     ? "gradient-primary text-white shadow-glow"
                     : "bg-secondary text-muted-foreground hover:text-foreground",
