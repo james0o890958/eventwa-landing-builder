@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { LocationCombobox, LocationOption } from "@/components/LocationCombobox";
 import {
   ArrowLeft,
   User as UserIcon,
@@ -666,10 +667,10 @@ const UserProfile = () => {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[260px_1fr] max-w-full">
           {/* Sidebar nav */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <nav className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
+          <aside className="lg:sticky lg:top-24 lg:self-start max-w-full overflow-hidden">
+            <nav className="flex gap-2 overflow-x-auto pb-2 max-w-full lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0 scrollbar-none">
               {SECTIONS.map((s) => {
                 const isActive = active === s.id;
                 const isDanger = s.id === "danger";
@@ -677,7 +678,7 @@ const UserProfile = () => {
                   <button
                     key={s.id}
                     onClick={() => setActive(s.id)}
-                    className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all lg:w-full ${
+                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all lg:w-full ${
                       isActive
                         ? isDanger
                           ? "bg-destructive/10 text-destructive border border-destructive/30"
@@ -696,7 +697,7 @@ const UserProfile = () => {
           </aside>
 
           {/* Content panel */}
-          <main className="min-w-0">
+          <main className="min-w-0 max-w-full overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
@@ -704,7 +705,7 @@ const UserProfile = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18 }}
-                className="rounded-2xl border border-border/50 bg-card p-6 shadow-card sm:p-8"
+                className="rounded-2xl border border-border/50 bg-card p-4 sm:p-8 shadow-card max-w-full"
               >
                 {/* PERSONAL */}
                 {active === "personal" && (
@@ -1206,21 +1207,16 @@ const UserProfile = () => {
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Location</Label>
-                          <Select value={draftLocation} onValueChange={setDraftLocation}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select location" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allLocationOptions.map((l) => (
-                                <SelectItem key={l.value} value={l.value}>
-                                  {l.label}
-                                  <span className="ml-2 text-xs text-muted-foreground">
-                                    {l.label === l.group ? "(state)" : `· ${l.group}`}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <LocationCombobox
+                            options={allLocationOptions}
+                            value={draftLocation}
+                            onSelect={setDraftLocation}
+                            onAddCustomLocation={(newLoc) => {
+                              setAllLocationOptions((prev) => [newLoc, ...prev]);
+                              toast.success(`Added "${newLoc.value}" as a custom location option`);
+                            }}
+                            placeholder="Search or add location..."
+                          />
                         </div>
                         <div className="flex items-end gap-2">
                           <Button

@@ -39,13 +39,15 @@ const DashboardLayout = ({ title, subtitle, menu, menuTitle = "Menu", children }
       )}
 
         <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-          {/* Sidebar */}
+          {/* Sidebar Navigation */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-2xl border border-border/50 bg-card p-3 shadow-card">
+            <div className="rounded-2xl border border-border/50 bg-card p-3 shadow-card max-w-full overflow-hidden">
               <p className="mb-2 px-3 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {menuTitle}
               </p>
-              <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+
+              {/* Mobile View: Horizontal Scrollable Pills without breaking canvas width */}
+              <nav className="flex gap-1.5 overflow-x-auto pb-1 max-w-full lg:flex-col lg:overflow-visible lg:pb-0 scrollbar-none">
                 {menu.map((item) => {
                   const active = isActive(item);
                   return (
@@ -53,18 +55,18 @@ const DashboardLayout = ({ title, subtitle, menu, menuTitle = "Menu", children }
                       key={item.to}
                       to={item.to}
                       className={cn(
-                        "flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                        "flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all",
                         active
                           ? "gradient-primary text-primary-foreground shadow-glow"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                       )}
                     >
                       <item.Icon className="h-4 w-4 shrink-0" />
-                      <span className="flex-1 whitespace-nowrap">{item.label}</span>
+                      <span className="whitespace-nowrap">{item.label}</span>
                       {item.badge !== undefined && (
                         <span
                           className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            "rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
                             active ? "bg-white/20 text-white" : "bg-primary/10 text-primary",
                           )}
                         >
@@ -78,8 +80,8 @@ const DashboardLayout = ({ title, subtitle, menu, menuTitle = "Menu", children }
             </div>
           </aside>
 
-          {/* Main */}
-          <main className="min-w-0">{children}</main>
+          {/* Main Content Area */}
+          <main className="min-w-0 max-w-full overflow-hidden">{children}</main>
         </div>
       </div>
       <Footer />
