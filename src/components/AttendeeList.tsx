@@ -1,4 +1,4 @@
-import { Flag, MessageCircle, MoreHorizontal, MapPin } from "lucide-react";
+import { Flag, MessageCircle, MoreHorizontal, MapPin, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -20,7 +20,15 @@ const AttendeeList = ({ eventId, attendees = [], onSelectUser }: AttendeeListPro
     (user: any) => !user?.privacy_settings?.hide_in_attendee_list && !user?.hide_in_attendee_list
   );
 
-  if (visibleAttendees.length === 0) return null;
+  if (visibleAttendees.length === 0) {
+    return (
+      <div className="mt-6 rounded-2xl border border-border/50 bg-card p-8 text-center">
+        <Users className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
+        <p className="text-sm font-medium text-foreground">No other visible attendees yet</p>
+        <p className="text-xs text-muted-foreground mt-1">Other attendees will show up here as they register and enable public visibility.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 rounded-2xl border border-border/50 bg-card p-6">

@@ -19,8 +19,45 @@ export const getFullAvatarUrl = (url?: string) => {
   return `${cleanBase}${cleanPath}`;
 };
 
+// In-memory TTL Cache and in-flight request deduplication store
+interface CacheEntry {
+  timestamp: number;
+  data: any;
+}
+
+const responseCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+export interface ApiGetOptions {
+  bypassCache?: boolean;
+  ttlMs?: number; // Custom Time-To-Live in milliseconds (default: 3 mins)
+}
+
+const DEFAULT_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
 export const api = {
+  clearCache(endpointPrefix?: string) {
+    if (!endpointPrefix) {
+      responseCache.clear();
+      return;
+    }
+    for (const key of responseCache.keys()) {
+      if (key.includes(endpointPrefix)) {
+        responseCache.delete(key);
+      }
+    }
+  },
+
+  prewarmBackend() {
+    // Non-blocking ping to prevent Render free-tier cold-start latency
+    const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    fetch(`${cleanBaseUrl}/public/events`, { method: 'GET' }).catch(() => {});
+  },
+
   async post(endpoint: string, data: any, token?: string) {
+    // Invalidate cached GET endpoints after mutations
+    this.clearCache();
+
     // Clean up potential double slashes
     const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -56,7 +93,7 @@ export const api = {
     return response.json();
   },
 
-  async get(endpoint: string, params?: Record<string, any>, token?: string) {
+  async get(endpoint: string, params?: Record<string, any>, token?: string, options?: ApiGetOptions) {
     const headers: HeadersInit = {
       'Accept': 'application/json',
     };
@@ -82,23 +119,52 @@ export const api = {
       }
     }
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers,
-    });
+    const cacheKey = `${token || 'guest'}:${url}`;
+    const ttl = options?.ttlMs ?? DEFAULT_CACHE_TTL;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const rawMessage = errorData.message || errorData.error || errorData.error_description || errorData.detail;
-      const parsedMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
-      throw new Error(parsedMessage || `API request failed with status ${response.status}`);
+    // 1. Check cached response
+    if (!options?.bypassCache && responseCache.has(cacheKey)) {
+      const cached = responseCache.get(cacheKey)!;
+      if (Date.now() - cached.timestamp < ttl) {
+        return cached.data;
+      }
+      responseCache.delete(cacheKey);
     }
 
-    return response.json();
+    // 2. Reuse in-flight promise to avoid duplicate simultaneous network requests
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const rawMessage = errorData.message || errorData.error || errorData.error_description || errorData.detail;
+          const parsedMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
+          throw new Error(parsedMessage || `API request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        // Store in cache
+        responseCache.set(cacheKey, { timestamp: Date.now(), data });
+        return data;
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    inFlightRequests.set(cacheKey, fetchPromise);
+    return fetchPromise;
   },
 
   async put(endpoint: string, data: any, token?: string) {
-    // Clean up potential double slashes
+    this.clearCache();
     const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${cleanBaseUrl}${cleanEndpoint}`;
@@ -132,7 +198,7 @@ export const api = {
   },
 
   async delete(endpoint: string, token?: string) {
-    // Clean up potential double slashes
+    this.clearCache();
     const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${cleanBaseUrl}${cleanEndpoint}`;
@@ -161,7 +227,7 @@ export const api = {
   },
 
   async patch(endpoint: string, data: any, token?: string) {
-    // Clean up potential double slashes
+    this.clearCache();
     const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${cleanBaseUrl}${cleanEndpoint}`;

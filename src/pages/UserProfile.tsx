@@ -452,14 +452,7 @@ const UserProfile = () => {
       const formData = new FormData();
       formData.append("avatar", file);
 
-      const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
-      const res = await fetch(`${baseUrl}/api/profile/avatar`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message ?? "Failed to upload avatar");
+      const data = await api.post("profile/avatar", formData, token);
 
       if (data?.user) {
         setAvatarUrl(data.user.avatar);
@@ -512,14 +505,7 @@ const UserProfile = () => {
         if (stateName) formData.append("state_name", stateName);
         formData.append("avatar", avatarFile);
 
-        const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/api$/, "");
-        const res = await fetch(`${baseUrl}/api/profile/personal`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-          body: formData,
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message ?? "Failed to update profile");
+        const data = await api.post("profile/personal", formData, token);
         updatedUser = data.user;
       } else {
         // Use fast JSON request for standard text updates

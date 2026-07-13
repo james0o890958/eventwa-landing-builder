@@ -49,6 +49,7 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
               src={event.image}
               alt={titleLabel}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
@@ -151,25 +151,58 @@ function buildCalendarLink(event: {
   time: string;
   location: string;
   description: string;
+  rawDate?: string;
 }) {
-  const startDate = new Date(event.date + "T" + event.time);
+  let startDate: Date | null = null;
+
+  if (event.rawDate) {
+    const d = new Date(event.rawDate);
+    if (!isNaN(d.getTime())) startDate = d;
+  }
+
+  if (!startDate && event.date) {
+    const d = new Date(event.date);
+    if (!isNaN(d.getTime())) {
+      startDate = d;
+      if (event.time) {
+        const match = event.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const ampm = match[3];
+          if (ampm) {
+            if (ampm.toUpperCase() === "PM" && hours < 12) hours += 12;
+            if (ampm.toUpperCase() === "AM" && hours === 12) hours = 0;
+          }
+          startDate.setHours(hours, minutes, 0, 0);
+        }
+      }
+    }
+  }
+
+  if (!startDate || isNaN(startDate.getTime())) {
+    startDate = new Date();
+  }
+
   const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
 
-  const format = (d: Date) =>
-    d.toISOString().replace(/-|:|\.\d\d\d/g, "").slice(0, 15);
+  const format = (d: Date) => {
+    const validD = isNaN(d.getTime()) ? new Date() : d;
+    return validD.toISOString().replace(/-|:|\.\d\d\d/g, "").slice(0, 15);
+  };
 
   const ics = `
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//EventSpark//EN
+PRODID:-//Eventwa//EN
 BEGIN:VEVENT
-UID:${event.id || Date.now()}@eventspark
+UID:${event.id || Date.now()}@eventwa
 DTSTAMP:${format(new Date())}
 DTSTART:${format(startDate)}
 DTEND:${format(endDate)}
-SUMMARY:${event.title}
-DESCRIPTION:${event.description}
-LOCATION:${event.location}
+SUMMARY:${(event.title || "Event").replace(/\n/g, " ")}
+DESCRIPTION:${(event.description || "").replace(/\n/g, "\\n")}
+LOCATION:${(event.location || "").replace(/\n/g, " ")}
 END:VEVENT
 END:VCALENDAR
 `.trim();
@@ -235,6 +268,7 @@ const EventDetail = () => {
       title: eventData.title || eventData.name || "Untitled Event",
       description: eventData.description || eventData.summary || "",
       date: rawDate ? rawDate.split("T")[0] : eventData.date || "",
+      rawDate: rawDate,
       time:
         parsedDate && !Number.isNaN(parsedDate.getTime())
           ? parsedDate.toLocaleTimeString([], {
@@ -321,12 +355,67 @@ const EventDetail = () => {
     loadEvent();
   }, [id, navigate]);
 
+  // ── User ticket loading ───────────────────────────────────────────────────
+  const [userTickets, setUserTickets] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchUserTickets = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+      try {
+        const res = await api.get("user/tickets", undefined, token);
+        const list = res?.tickets || res?.data || (Array.isArray(res) ? res : []);
+        setUserTickets(list);
+      } catch (err) {
+        console.error("Failed to load user tickets:", err);
+      }
+    };
+    fetchUserTickets();
+  }, [user]);
+
   // ── Auth & Attendance checks ──────────────────────────────────────────────
   const currentUser = user as any;
-  const isOrganizer =
-    user?.user_metadata?.full_name === event?.organizer ||
-    user?.email === "organizer@example.com";
-  const hasPurchasedTicket = false;
+  const isOrganizer = useMemo(() => {
+    if (!currentUser) return false;
+    const myId = String(currentUser.id || currentUser.user_id || "");
+    const myName = (currentUser.name || currentUser.user_metadata?.full_name || "").toLowerCase();
+    const eventOrgName = (event?.organizer || "").toLowerCase();
+    
+    return (
+      (myId && event?.organizerId && myId === String(event.organizerId)) ||
+      (currentUser.organizer?.id && event?.organizerId && String(currentUser.organizer.id) === String(event.organizerId)) ||
+      (myName && eventOrgName && myName === eventOrgName) ||
+      currentUser.email === "organizer@example.com"
+    );
+  }, [currentUser, event]);
+
+  const hasPurchasedTicket = useMemo(() => {
+    if (!currentUser) return false;
+    const myId = String(currentUser.id || currentUser.user_id || "");
+    const myEmail = (currentUser.email || "").toLowerCase();
+
+    // 1. Check if user is in event.tickets array returned from event API
+    if (Array.isArray(event?.tickets)) {
+      const foundInEvent = event.tickets.some((t: any) => {
+        const tUserId = String(t.user_id || t.user?.id || "");
+        const tEmail = (t.user?.email || "").toLowerCase();
+        return (myId && tUserId === myId) || (myEmail && tEmail && tEmail === myEmail);
+      });
+      if (foundInEvent) return true;
+    }
+
+    // 2. Check user's tickets loaded from /user/tickets endpoint
+    if (Array.isArray(userTickets)) {
+      const foundInUserTickets = userTickets.some((t: any) => {
+        const tEvtId = String(t.eventId || t.event_id || t.event?.id || "");
+        return tEvtId && String(event?.id) === String(tEvtId);
+      });
+      if (foundInUserTickets) return true;
+    }
+
+    return false;
+  }, [currentUser, event, userTickets]);
+
   // Allow any logged-in user to leave a review (attendee-gate can be added later)
   const canLeaveReview = !!user;
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
@@ -384,6 +473,7 @@ const EventDetail = () => {
       time: event.time,
       location: event.location,
       description: event.description,
+      rawDate: event.rawDate,
     });
     const a = document.createElement("a");
     a.href = link;

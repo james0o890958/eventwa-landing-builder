@@ -76,6 +76,9 @@ const OrganizerBlogs = lazy(() => import("./pages/OrganizerBlogs.tsx"));
 const CreateBlogPost = lazy(() => import("./pages/CreateBlogPost.tsx"));
 const OrganizerFollowers = lazy(() => import("./pages/OrganizerFollowers.tsx"));
 
+import { api } from "@/lib/api";
+import { useEffect } from "react";
+
 // Minimal route-level loading fallback — a centered spinner that matches the app theme.
 const PageLoader = () => (
   <div className="flex min-h-screen items-center justify-center bg-background">
@@ -83,9 +86,39 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 15 * 60 * 1000, // 15 minutes cache retention
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    // 1. Immediately prewarm backend to prevent Render free-tier cold-start latency
+    api.prewarmBackend();
+
+    // 2. Prefetch primary lazy route chunks in idle time for instant navigation
+    const prefetchRoutes = () => {
+      import("./pages/Explore.tsx");
+      import("./pages/EventDetail.tsx");
+      import("./pages/CategoryEvents.tsx");
+      import("./pages/Blog.tsx");
+      import("./pages/Login.tsx");
+    };
+
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(prefetchRoutes);
+    } else {
+      setTimeout(prefetchRoutes, 1000);
+    }
+  }, []);
+
+  return (
    <QueryClientProvider client={queryClient}>
      <TooltipProvider>
        <Toaster />
@@ -201,8 +234,9 @@ const App = () => (
            </AuthProvider>
            </ThemeProvider>
        </BrowserRouter>
-     </TooltipProvider>
-   </QueryClientProvider>
-);
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
