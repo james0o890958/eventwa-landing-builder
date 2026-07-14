@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import { useSavedEvents } from "@/hooks/useBookmark";
 
 let echo: any = null;
@@ -244,6 +244,26 @@ const UserDashboard = () => {
     "User";
   const initials = displayName.slice(0, 2).toUpperCase();
 
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  }, [user]);
+
+  const rawAvatarUrl =
+    user?.avatar ||
+    user?.avatar_url ||
+    user?.user_metadata?.avatar ||
+    user?.user_metadata?.avatar_url ||
+    storedUser?.avatar ||
+    storedUser?.avatar_url ||
+    storedUser?.user_metadata?.avatar ||
+    storedUser?.user_metadata?.avatar_url;
+
+  const fullAvatarUrl = getFullAvatarUrl(rawAvatarUrl);
+
   useEffect(() => {
     try {
       const recent = localStorage.getItem("recentlyViewedEvents");
@@ -341,7 +361,7 @@ const UserDashboard = () => {
           <div className="relative shrink-0">
               <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-primary/30">
                 <AvatarImage
-                  src={(JSON.parse(localStorage.getItem('user') || '{}')).avatar}
+                  src={fullAvatarUrl}
                   alt={displayName}
                 />
                 <AvatarFallback className="gradient-primary text-primary-foreground text-xl sm:text-2xl font-bold">

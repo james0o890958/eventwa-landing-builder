@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
 import type { Event } from "@/data/mockEvents";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 
 type OrgTab = "events" | "analytics" | "announcements";
 
@@ -257,7 +257,7 @@ const OrganizerDashboard = () => {
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 border-2 border-primary/30">
               {logoUrl && (
-                <AvatarImage src={logoUrl} alt={displayName} className="object-cover" />
+                <AvatarImage src={getFullAvatarUrl(logoUrl)} alt={displayName} className="object-cover" />
               )}
               <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
                 {initials}

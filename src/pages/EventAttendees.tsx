@@ -91,7 +91,8 @@ const EventAttendees = () => {
   const id = eventId ?? "1";
   const event = mockEvents.find((e) => e.id === id) ?? mockEvents[0];
 
-  const [attendees, setAttendees] = useState<Attendee[]>(() => generateAttendees(id));
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | Attendee["status"]>("all");
   const [ticketFilter, setTicketFilter] = useState<string>("all");
@@ -102,6 +103,40 @@ const EventAttendees = () => {
   const [emailBody, setEmailBody] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const fetchAttendees = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("access_token") || "";
+        const res = await api.get(`events/${id}/attendees`, undefined, token);
+        if (res?.attendees && Array.isArray(res.attendees)) {
+          const mapped: Attendee[] = res.attendees.map((t: any) => ({
+            id: t.ticket_code || String(t.id),
+            name: t.name || "Guest",
+            email: t.email || "—",
+            ticketType: t.ticket_type || "Standard",
+            quantity: 1,
+            amountPaid: Number(t.price || 0),
+            purchaseDate: t.registered_at ? t.registered_at.split("T")[0] : "Recently",
+            status: t.status?.toLowerCase() === "checked_in" ? "confirmed" : (t.status?.toLowerCase() || "confirmed"),
+            checkedIn: Boolean(t.checked_in),
+            rawId: t.id,
+          }));
+          setAttendees(mapped);
+        } else {
+          setAttendees(generateAttendees(id));
+        }
+      } catch (err) {
+        console.error("Failed to fetch live event attendees:", err);
+        setAttendees(generateAttendees(id));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendees();
+  }, [id]);
 
   const ticketTypes = Array.from(new Set(attendees.map((a) => a.ticketType)));
 
@@ -140,10 +175,28 @@ const EventAttendees = () => {
   };
 
   // ── Check-in toggle ────────────────────────────────────────────────────────
-  const toggleCheckin = (id: string) => {
-    setAttendees((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, checkedIn: !a.checkedIn } : a)),
-    );
+  const toggleCheckin = async (attendeeId: string) => {
+    const target = attendees.find((a) => a.id === attendeeId);
+    if (!target) return;
+
+    const token = localStorage.getItem("access_token") || "";
+    try {
+      const res = await api.post(
+        `events/${id}/checkin`,
+        { ticket_code: target.id },
+        token,
+      );
+      toast.success(res.message || "Attendee checked in! 🎟️");
+      setAttendees((prev) =>
+        prev.map((a) => (a.id === attendeeId ? { ...a, checkedIn: true, status: "confirmed" } : a)),
+      );
+    } catch (err: any) {
+      // Local state toggle if API returns error (e.g. offline testing)
+      setAttendees((prev) =>
+        prev.map((a) => (a.id === attendeeId ? { ...a, checkedIn: !a.checkedIn } : a)),
+      );
+      toast.info(err.message || "Updated check-in status locally.");
+    }
   };
 
   // ── Export CSV ─────────────────────────────────────────────────────────────

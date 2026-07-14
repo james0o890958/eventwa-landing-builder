@@ -198,28 +198,54 @@ const FindMyTickets = () => {
         setSearching(false);
       }
     } else {
-      // Guest mode - fallback to search MOCK_TICKET_DB
-      await new Promise((r) => setTimeout(r, 800));
+      // Guest mode - query real public tickets API endpoint
+      try {
+        const payload = searchMethod === "email" ? { email: query } : { code: query };
+        const response = await api.post("public/tickets/find", payload);
 
-      let found: FoundTicket[];
-      if (searchMethod === "email") {
-        found = MOCK_TICKET_DB.filter((t) =>
-          t.email.toLowerCase() === query,
-        );
-      } else {
-        found = MOCK_TICKET_DB.filter((t) =>
-          t.ticketId.toUpperCase().includes(query),
-        );
-      }
+        if (response?.tickets && Array.isArray(response.tickets)) {
+          const publicFound: FoundTicket[] = response.tickets.map((t: any) => {
+            const ev = t.event ?? {};
+            return {
+              ticketId: t.ticket_code || String(t.id),
+              eventId: String(ev.id || t.event_id),
+              ticketType: t.status === "confirmed" ? "Confirmed Ticket" : "Ticket",
+              quantity: t.quantity ?? 1,
+              totalPaid: t.price ?? 0,
+              purchaseDate: t.created_at || "",
+              email: query,
+              realEvent: {
+                id: ev.id,
+                title: ev.title || "Event",
+                description: ev.description || "",
+                date: ev.start_date || "",
+                time: ev.start_date ? new Date(ev.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+                location: ev.locations?.[0]?.address || ev.locations?.[0]?.name || "TBD",
+                image: ev.image_url || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+              }
+            };
+          });
 
-      setResults(found);
-      setSearched(true);
-      setSearching(false);
+          setResults(publicFound);
+          setSearched(true);
 
-      if (found.length > 0) {
-        toast.success(`Demo: Found ${found.length} mock ticket${found.length !== 1 ? "s" : ""}!`);
-      } else {
-        toast.error("No tickets found. Check demo credentials and try again.");
+          if (publicFound.length > 0) {
+            toast.success(`Found ${publicFound.length} ticket${publicFound.length !== 1 ? "s" : ""}! 🎟️`);
+          } else {
+            toast.error("No tickets found matching your query.");
+          }
+        } else {
+          setResults([]);
+          setSearched(true);
+          toast.error("No tickets found.");
+        }
+      } catch (err: any) {
+        console.error("Failed to query public tickets:", err);
+        toast.error("No tickets found. Check reference code or email.");
+        setResults([]);
+        setSearched(true);
+      } finally {
+        setSearching(false);
       }
     }
   };

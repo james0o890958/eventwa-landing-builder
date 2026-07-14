@@ -33,6 +33,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import OrganizerLink from "@/components/OrganizerLink";
+import PublicProfileModal from "@/components/PublicProfileModal";
 import {
   Sheet,
   SheetContent,
@@ -61,7 +62,7 @@ import { EventBlogSection } from "@/components/EventBlogSection";
 // CHANGED: removed mockEvents import — no longer used as fallback data source
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import { useBookmark } from "@/hooks/useBookmark";
 
 // ─── sponsorship data ─────────────────────────────────────────────────────────
@@ -416,8 +417,8 @@ const EventDetail = () => {
     return false;
   }, [currentUser, event, userTickets]);
 
-  // Allow any logged-in user to leave a review (attendee-gate can be added later)
-  const canLeaveReview = !!user;
+  // Allow only ticket holders or event organizer to leave a review
+  const canLeaveReview = !!user && (hasPurchasedTicket || isOrganizer);
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
 
   // ── mobile detection ──────────────────────────────────────────────────────
@@ -581,7 +582,8 @@ const EventDetail = () => {
 
   // ── sponsorship modal ─────────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [publicProfileUser, setPublicProfileUser] = useState<any | null>(null);
   const [isSponsoring, setIsSponsoring] = useState(false);
   const [isSponsorshipSubmitted, setIsSponsorshipSubmitted] = useState(false);
   const [sponsorshipForm, setSponsorshipForm] = useState({
@@ -679,6 +681,23 @@ const EventDetail = () => {
           token
         );
         const ticket = res?.ticket ?? res;
+        const newTicketObj = {
+          id: ticket?.id ?? Date.now(),
+          event_id: event?.id,
+          eventId: event?.id,
+          user_id: currentUser?.id,
+          ticket_code: ticket?.ticket_code,
+          user: currentUser,
+        };
+        setUserTickets((prev) => [...prev, newTicketObj]);
+        setEvent((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                tickets: [...(prev.tickets || []), newTicketObj],
+              }
+            : prev
+        );
         setFreeTicketResult({
           ticket_code: ticket?.ticket_code ?? "N/A",
           event_title: event?.title ?? "",
@@ -944,11 +963,14 @@ const EventDetail = () => {
               {event.time}
             </span>
             <button
-              onClick={() =>
-                document
-                  .getElementById("map-section")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
+              onClick={() => {
+                setActiveTab("details");
+                setTimeout(() => {
+                  document
+                    .getElementById("map-section")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }, 100);
+              }}
               className="flex items-center gap-2 hover:text-primary transition-colors group"
             >
               <MapPin className="h-4 w-4 text-primary" />
@@ -1244,7 +1266,7 @@ const EventDetail = () => {
                           </span>
                         </div>
                       </div>
-                      {canLeaveReview ? (
+                      {canLeaveReview && (
                         <Button
                           size="sm"
                           onClick={() => setShowReviewForm((v) => !v)}
@@ -1252,10 +1274,6 @@ const EventDetail = () => {
                         >
                           {showReviewForm ? "Cancel" : "Write a Review"}
                         </Button>
-                      ) : (
-                        <p className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
-                          Sign in to leave a review
-                        </p>
                       )}
                     </div>
 
@@ -1318,14 +1336,22 @@ const EventDetail = () => {
                             key={review.id}
                             className="flex gap-3 border-b border-border/30 pb-5 last:border-0 last:pb-0"
                           >
-                            <Avatar className="h-9 w-9 shrink-0">
+                            <Avatar
+                              onClick={() => review.user && setPublicProfileUser(review.user)}
+                              className="h-9 w-9 shrink-0 cursor-pointer hover:opacity-85 transition-opacity"
+                              title={review.user?.name ? `View ${review.user.name}'s profile` : "User profile"}
+                            >
+                              <AvatarImage src={getFullAvatarUrl(review.user?.avatar || review.user?.avatar_url)} />
                               <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
                                 {review.user?.name?.slice(0, 2).toUpperCase() || "U"}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium text-foreground">
+                                <p
+                                  onClick={() => review.user && setPublicProfileUser(review.user)}
+                                  className="text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
+                                >
                                   {review.user?.name || "Anonymous"}
                                 </p>
                                 <Stars rating={review.rating || 5} />
@@ -1363,6 +1389,7 @@ const EventDetail = () => {
                           .filter(Boolean) || []
                       }
                       onSelectUser={setSelectedUser}
+                      onViewProfile={(u) => setPublicProfileUser(u)}
                     />
                   ) : (
                     <div className="rounded-2xl border border-border/50 bg-card p-12 text-center">
@@ -1389,14 +1416,39 @@ const EventDetail = () => {
 
                 {/* ── CHAT TAB ──────────────────────────────────────────── */}
                 <TabsContent value="chat" className="mt-0">
-                  <EventChatroomTab
-                    eventId={event.id}
-                    organizerName={event.organizer}
-                    chatrooms={event.chatrooms || []}
-                    onSelectUser={setSelectedUser}
-                    isOrganizer={isOrganizer}
-                    activeTab={activeTab}
-                  />
+                  {canViewAttendees ? (
+                    <EventChatroomTab
+                      eventId={event.id}
+                      organizerName={event.organizer}
+                      chatrooms={event.chatrooms || []}
+                      onSelectUser={(u) => setPublicProfileUser(u)}
+                      isOrganizer={isOrganizer}
+                      activeTab={activeTab}
+                    />
+                  ) : (
+                    <div className="rounded-2xl border border-border/50 bg-card p-12 text-center">
+                      <MessageCircle className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                      <h3 className="font-display text-lg font-semibold text-foreground mb-2">
+                        Event Chatroom
+                      </h3>
+                      <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
+                        {!user
+                          ? "Sign in and purchase a ticket to join the live event chatroom and connect with other attendees."
+                          : "The chatroom is exclusively available to ticket holders. Get a ticket to join the conversation!"}
+                      </p>
+                      {!hasPurchasedTicket && (
+                        <Button
+                          onClick={() => {
+                            const el = document.getElementById("ticket-sidebar");
+                            el?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="gradient-primary text-primary-foreground shadow-glow"
+                        >
+                          Get Tickets
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
@@ -1934,11 +1986,20 @@ const EventDetail = () => {
       >
         <SheetContent className="sm:max-w-[450px] p-0 flex flex-col border-l border-border/50 shadow-2xl [&>button]:hidden">
           <ChatOverlayContent
-            userId={selectedUser}
+            targetUser={selectedUser}
             onClose={() => setSelectedUser(null)}
           />
         </SheetContent>
       </Sheet>
+
+      {/* Public Profile View Modal */}
+      <PublicProfileModal
+        isOpen={!!publicProfileUser}
+        onClose={() => setPublicProfileUser(null)}
+        userId={typeof publicProfileUser === "object" ? publicProfileUser?.id : publicProfileUser}
+        user={typeof publicProfileUser === "object" ? publicProfileUser : undefined}
+        onSendMessage={(u) => setSelectedUser(u)}
+      />
     </div>
   );
 };
@@ -1946,10 +2007,10 @@ const EventDetail = () => {
 // ─── Chat overlay ─────────────────────────────────────────────────────────────
 
 const ChatOverlayContent = ({
-  userId,
+  targetUser,
   onClose,
 }: {
-  userId: string | null;
+  targetUser: any;
   onClose: () => void;
 }) => {
   const { user: currentUser } = useAuth();
@@ -1957,19 +2018,54 @@ const ChatOverlayContent = ({
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const chatUser = userId
-    ? {
-        id: userId,
-        name: "Attendee",
-        initials: "AT",
-        location: "Unknown",
-        avatar: "",
-      }
-    : null;
+  const [chatUser, setChatUser] = useState<any>(() => {
+    if (!targetUser) return null;
+    if (typeof targetUser === "object") {
+      const name = targetUser.name || targetUser.display_name || "Attendee";
+      const avatar = getFullAvatarUrl(targetUser.avatar || targetUser.avatar_url);
+      const location = targetUser.location || (targetUser.city && targetUser.state ? `${targetUser.city.name}, ${targetUser.state.name}` : (targetUser.city?.name || targetUser.state?.name || "Unknown"));
+      const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
+      return { id: targetUser.id, name, avatar, location, initials };
+    }
+    return { id: targetUser, name: "Attendee", initials: "AT", location: "Unknown", avatar: "" };
+  });
 
   useEffect(() => {
-    if (userId) setMessages([]);
-  }, [userId]);
+    if (!targetUser) return;
+
+    if (typeof targetUser === "object") {
+      const name = targetUser.name || targetUser.display_name || "Attendee";
+      const avatar = getFullAvatarUrl(targetUser.avatar || targetUser.avatar_url);
+      const location = targetUser.location || (targetUser.city && targetUser.state ? `${targetUser.city.name}, ${targetUser.state.name}` : (targetUser.city?.name || targetUser.state?.name || "Unknown"));
+      const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
+      setChatUser({ id: targetUser.id, name, avatar, location, initials });
+    }
+
+    const fetchUserDetails = async () => {
+      const uid = typeof targetUser === "object" ? targetUser.id : targetUser;
+      if (!uid) return;
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await api.get(`profile/${uid}`, undefined, token || undefined);
+        if (res?.user) {
+          const u = res.user;
+          const name = u.name || "Attendee";
+          const avatar = getFullAvatarUrl(u.avatar);
+          const location = u.location || (u.city && u.state ? `${u.city}, ${u.state}` : (u.city || u.state || "Unknown"));
+          const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
+          setChatUser({ id: u.id, name, avatar, location, initials });
+        }
+      } catch (err) {
+        console.warn("Could not fetch user details for chat overlay:", err);
+      }
+    };
+
+    fetchUserDetails();
+  }, [targetUser]);
+
+  useEffect(() => {
+    if (targetUser) setMessages([]);
+  }, [targetUser]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "auto" });

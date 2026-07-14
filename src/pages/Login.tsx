@@ -19,6 +19,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [suspended, setSuspended] = useState(false);
   const [appealPending, setAppealPending] = useState(false);
+  const [appealRejected, setAppealRejected] = useState(false);
   const [banned, setBanned] = useState(false);
   const [agree, setAgree] = useState(false);
   const [statement, setStatement] = useState("");
@@ -102,9 +103,17 @@ const Login = () => {
         navigate(`/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}&resend=true`);
       } else if (error?.data?.suspended) {
         const appealStatus = error.data.appeal_status;
+        const requiresPledge = error.data.requires_pledge;
         setSuspended(true);
-        setAppealPending(appealStatus === 'pending');
+        // DB statuses: 'active' (new suspension), 'appeal_pending', 'appeal_rejected', 'pledge_reinstated'
+        // 'banned' is a synthetic value set only when isBanned=true
+        const isAppealPending = appealStatus === 'appeal_pending';
+        const isAppealRejected = appealStatus === 'appeal_rejected';
+        setAppealPending(isAppealPending);
+        setAppealRejected(isAppealRejected);
         setBanned(appealStatus === 'banned');
+        // Show pledge form if: first offense (requiresPledge=true) OR appeal was rejected (can re-pledge)
+        // Hide pledge form (show read-only message) only when appeal is pending review
         setSuspensionMessage(error.message || 'Your account is suspended.');
       } else {
         toast.error(error.message || "Login failed");
@@ -153,6 +162,7 @@ const Login = () => {
 
       toast.success("Your appeal has been submitted and is under review.");
       setAppealPending(true);
+      setAppealRejected(false);
       setSuspended(false);
       setSuspensionMessage('Your appeal is pending review.');
     } catch (error: any) {
@@ -244,6 +254,11 @@ const Login = () => {
                 {appealPending && !banned && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     Your appeal is pending review. We will notify you when a decision is made.
+                  </p>
+                )}
+                {appealRejected && !banned && (
+                  <p className="mt-2 text-sm text-amber-500">
+                    Your previous appeal was rejected. You may submit a new appeal below.
                   </p>
                 )}
               </div>

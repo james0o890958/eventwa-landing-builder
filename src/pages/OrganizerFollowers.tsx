@@ -7,7 +7,7 @@ import { organizerMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Follower {
@@ -116,7 +116,7 @@ const OrganizerFollowers = () => {
                   <div>
                     <div className="flex items-start gap-4">
                       <Avatar className="h-12 w-12 border border-border/40 shadow-sm shrink-0">
-                        <AvatarImage src={follower.avatar} />
+                        <AvatarImage src={getFullAvatarUrl(follower.avatar)} />
                         <AvatarFallback className="gradient-primary text-primary-foreground font-bold text-sm">
                           {initials || "U"}
                         </AvatarFallback>

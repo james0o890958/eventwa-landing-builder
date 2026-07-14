@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, MessageCircle, Megaphone, Send, X, Loader2, WifiOff } from "lucide-react";
+import { Users, MessageCircle, Megaphone, Send, X, Loader2, WifiOff, Pencil, Trash2, Check, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Lazily import Echo so the app doesn't crash if Reverb isn't configured yet
@@ -22,6 +28,7 @@ interface ChatMessage {
   id: string | number;
   content: string;
   user_id: string | number;
+  is_edited?: boolean;
   created_at: string;
   isOrganizer?: boolean;
   user?: { id: string | number; name: string; avatar?: string | null };
@@ -44,18 +51,24 @@ export const EventChatroomTab = ({
   activeTab,
 }: EventChatroomTabProps) => {
   const { user } = useAuth();
+  const token = localStorage.getItem("access_token");
+  const [chatroomId, setChatroomId] = useState<string | number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState<ChatMessage | null>(null);
-  const [chatroomId, setChatroomId] = useState<number | null>(null);
+  const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [sending, setSending] = useState(false);
 
-  const token = localStorage.getItem("access_token") ?? "";
-  const myUserId = (user as any)?.id;
+  // Edit state
+  const [editingChatId, setEditingChatId] = useState<string | number | null>(null);
+  const [editChatInput, setEditChatInput] = useState("");
+  const [savingChatEdit, setSavingChatEdit] = useState(false);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const myUserId = user?.id;
 
   // ── Load chatroom and message history ─────────────────────────────────────
   useEffect(() => {
@@ -67,6 +80,7 @@ export const EventChatroomTab = ({
     const load = async () => {
       setLoading(true);
       setError(false);
+      setForbidden(false);
       try {
         // 1. Get or create chatroom for this event
         const roomRes = await api.get(`events/${eventId}/chatroom`, undefined, token);
@@ -81,10 +95,15 @@ export const EventChatroomTab = ({
         // Pin first organizer message as announcement if any
         const firstOrg = (msgRes?.messages ?? []).find((m: ChatMessage) => m.isOrganizer);
         if (firstOrg) setPinnedAnnouncement(firstOrg);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load chatroom:", err);
-        setError(true);
-        toast.error("Couldn't load chat. Check your connection.");
+        const is403 = err?.status === 403 || err?.response?.status === 403 || String(err?.message).includes("403") || String(err?.message).includes("Only confirmed ticket holders");
+        if (is403) {
+          setForbidden(true);
+        } else {
+          setError(true);
+          toast.error("Couldn't load chat. Check your connection.");
+        }
       } finally {
         setLoading(false);
       }
@@ -101,10 +120,17 @@ export const EventChatroomTab = ({
       .private(`chatroom.${chatroomId}`)
       .listen(".ChatroomMessageSent", (e: { message: ChatMessage }) => {
         setMessages((prev) => {
-          // Avoid duplicates if our own message was already optimistically added
           if (prev.some((m) => m.id === e.message.id)) return prev;
           return [...prev, e.message];
         });
+      })
+      .listen(".ChatroomMessageUpdated", (e: { message: ChatMessage }) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === e.message.id ? { ...m, content: e.message.content, is_edited: true } : m))
+        );
+      })
+      .listen(".ChatroomMessageDeleted", (e: { message_id: number }) => {
+        setMessages((prev) => prev.filter((m) => m.id !== e.message_id));
       });
 
     return () => {
@@ -169,6 +195,43 @@ export const EventChatroomTab = ({
     toast.success("Message pinned as announcement!");
   };
 
+  const handleStartEditChat = (msg: ChatMessage) => {
+    setEditingChatId(msg.id);
+    setEditChatInput(msg.content);
+  };
+
+  const handleSaveEditChat = async (msgId: string | number) => {
+    if (!editChatInput.trim() || !token) return;
+    setSavingChatEdit(true);
+    try {
+      const response = await api.put(`chatrooms/messages/${msgId}`, { content: editChatInput.trim() }, token);
+      if (response?.data) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msgId ? { ...m, content: response.data.content, is_edited: true } : m))
+        );
+        setEditingChatId(null);
+        toast.success("Message updated");
+      }
+    } catch (err: any) {
+      console.error("Failed to edit chatroom message", err);
+      toast.error(err?.message || "Failed to update message");
+    } finally {
+      setSavingChatEdit(false);
+    }
+  };
+
+  const handleDeleteChat = async (msgId: string | number) => {
+    if (!token) return;
+    try {
+      await api.delete(`chatrooms/messages/${msgId}`, token);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      toast.success("Message deleted");
+    } catch (err: any) {
+      console.error("Failed to delete chatroom message", err);
+      toast.error(err?.message || "Failed to delete message");
+    }
+  };
+
   // ── Render helpers ─────────────────────────────────────────────────────────
   const isMyMessage = (msg: ChatMessage) =>
     String(msg.user_id) === String(myUserId) || msg.id?.toString().startsWith("temp-");
@@ -228,6 +291,14 @@ export const EventChatroomTab = ({
           <div className="flex h-full items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
           </div>
+        ) : forbidden ? (
+          <div className="flex h-full flex-col items-center justify-center py-16 text-center gap-3 px-6">
+            <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-1" />
+            <h4 className="text-base font-semibold text-foreground">Chatroom Access Restricted</h4>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              Only confirmed ticket holders and event organizers can access this chatroom. Get a ticket to join the discussion.
+            </p>
+          </div>
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center py-16 gap-3">
             <WifiOff className="h-8 w-8 text-muted-foreground/30" />
@@ -249,6 +320,8 @@ export const EventChatroomTab = ({
               const announcement = !!msg.isOrganizer;
               const senderName = msg.user?.name ?? (mine ? "You" : "Attendee");
               const initials = senderName.slice(0, 2).toUpperCase();
+              const isEditing = editingChatId === msg.id;
+              const canDelete = mine || isOrganizer || user?.role === "admin";
 
               return (
                 <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} group`}>
@@ -256,13 +329,24 @@ export const EventChatroomTab = ({
                     {!mine && (
                       <button
                         onClick={() => {
-                          const uid = String(msg.user?.id ?? msg.user_id);
-                          if (uid && uid !== "organizer") onSelectUser?.(uid);
+                          const uid = msg.user?.id ?? msg.user_id;
+                          const userPayload = msg.user ? {
+                            id: msg.user.id,
+                            name: msg.user.name,
+                            avatar: getFullAvatarUrl(msg.user.avatar || (msg.user as any).avatar_url),
+                            location: (msg.user as any).location || ((msg.user as any).city && (msg.user as any).state ? `${(msg.user as any).city.name}, ${(msg.user as any).state.name}` : null),
+                          } : {
+                            id: uid,
+                            name: senderName,
+                            avatar: getFullAvatarUrl(undefined),
+                          };
+                          if (uid && uid !== "organizer") onSelectUser?.(userPayload as any);
                         }}
                         className="h-9 w-9 mt-1 shrink-0 transition-transform hover:scale-110 active:scale-95"
+                        title={`View ${senderName}'s profile`}
                       >
                         <Avatar className={`h-full w-full border shadow-sm ${announcement ? "border-amber-500/40 bg-amber-500/10" : "border-border/50"}`}>
-                          <AvatarImage src={msg.user?.avatar ?? undefined} />
+                          <AvatarImage src={getFullAvatarUrl(msg.user?.avatar ?? (msg.user as any)?.avatar_url ?? undefined)} />
                           <AvatarFallback className={`${announcement ? "text-amber-600" : "bg-primary/10 text-primary"} text-[11px] font-bold`}>
                             {initials}
                           </AvatarFallback>
@@ -285,29 +369,88 @@ export const EventChatroomTab = ({
                             {announcement && <span className="ml-1 opacity-70">• Organizer</span>}
                           </span>
                         )}
-                        <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                        <div className="mt-1.5 flex items-center justify-end gap-1.5">
-                          {pinnedAnnouncement?.id === msg.id && (
-                            <Megaphone className="h-2.5 w-2.5 text-amber-500" />
-                          )}
-                          <p className="text-[10px] opacity-50 font-medium">
-                            {new Date(msg.created_at).toLocaleTimeString("en-US", {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                        </div>
+
+                        {isEditing ? (
+                          <div className="flex flex-col gap-2 min-w-[200px] my-1">
+                            <Input
+                              value={editChatInput}
+                              onChange={(e) => setEditChatInput(e.target.value)}
+                              className="text-sm bg-background/20 text-foreground border-border/40 focus-visible:ring-1"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-xs"
+                                onClick={() => setEditingChatId(null)}
+                                disabled={savingChatEdit}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                className="h-7 w-7 bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                                onClick={() => handleSaveEditChat(msg.id)}
+                                disabled={savingChatEdit || !editChatInput.trim()}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            <div className="mt-1.5 flex items-center justify-end gap-1.5">
+                              {pinnedAnnouncement?.id === msg.id && (
+                                <Megaphone className="h-2.5 w-2.5 text-amber-500" />
+                              )}
+                              {msg.is_edited && <span className="text-[10px] opacity-70 italic">(edited)</span>}
+                              <p className="text-[10px] opacity-50 font-medium">
+                                {new Date(msg.created_at).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </div>
 
-                      {/* Pin button for organizers */}
-                      {isOrganizer && pinnedAnnouncement?.id !== msg.id && (
-                        <button
-                          onClick={() => handlePinMessage(msg)}
-                          className={`absolute top-0 ${mine ? "-left-8" : "-right-8"} opacity-0 group-hover:opacity-100 transition-all p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-amber-500`}
-                          title="Pin as announcement"
-                        >
-                          <Megaphone className="h-3.5 w-3.5" />
-                        </button>
+                      {/* Dropdown Actions for Chatroom Message (Edit / Delete / Pin) */}
+                      {!isEditing && (mine || canDelete || isOrganizer) && (
+                        <div className={`absolute top-0 ${mine ? "-left-12" : "-right-12"} flex items-center opacity-0 group-hover:opacity-100 transition-all`}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={mine ? "start" : "end"} className="w-36">
+                              {mine && (
+                                <DropdownMenuItem onClick={() => handleStartEditChat(msg)} className="gap-2 cursor-pointer text-xs">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </DropdownMenuItem>
+                              )}
+                              {isOrganizer && pinnedAnnouncement?.id !== msg.id && (
+                                <DropdownMenuItem onClick={() => handlePinMessage(msg)} className="gap-2 cursor-pointer text-xs">
+                                  <Megaphone className="h-3.5 w-3.5 text-amber-500" />
+                                  Pin as Announcement
+                                </DropdownMenuItem>
+                              )}
+                              {canDelete && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteChat(msg.id)}
+                                  className="gap-2 cursor-pointer text-xs text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       )}
                     </div>
                   </div>
