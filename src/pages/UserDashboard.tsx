@@ -30,11 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 import { api, getFullAvatarUrl } from "@/lib/api";
 import { useSavedEvents } from "@/hooks/useBookmark";
-
-let echo: any = null;
-try {
-  echo = require('@/lib/echo').default;
-} catch { /* Reverb not configured */ }
+import echo from "@/lib/echo";
 
 type Tab = "upcoming" | "saved" | "past" | "notifications" | "messages";
 
@@ -107,8 +103,6 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get("tab") as Tab) || "upcoming";
-  const selectedUserId = searchParams.get("userId");
-  const chatViewOpen = searchParams.get("chat") === "true";
 
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [notifFilter, setNotifFilter] = useState<"all" | NotifCategory>("all");
@@ -165,75 +159,14 @@ const UserDashboard = () => {
     };
   }, []);
 
-  const selectedConversation = useMemo(() => {
-    if (!selectedUserId) return null;
-    const conv = conversations.find(c => c.userId === selectedUserId);
-    if (conv) return conv;
-    // Fallback for temporary conversation
-    const u = users.find(x => x.id === selectedUserId);
-    if (u) return { id: `temp-${selectedUserId}`, userId: selectedUserId, messages: [] };
-    return null;
-  }, [selectedUserId, conversations, users]);
-
-  // Only open the sheet if we're NOT on the dedicated messages tab
-  const chatOpen = (chatViewOpen || !!selectedConversation) && activeTab !== "messages";
-
   const setActiveTab = (tab: Tab) => {
     const params = new URLSearchParams(searchParams);
     params.set("tab", tab);
     setSearchParams(params);
   };
 
-  const setSelectedConversation = (conv: any | null) => {
-    const params = new URLSearchParams(searchParams);
-    if (conv) {
-      params.set("userId", conv.userId);
-      // Ensure we are in messages tab or show chat sheet
-      if (activeTab !== "messages") {
-        params.set("chat", "true");
-      }
-    } else {
-      params.delete("userId");
-    }
-    setSearchParams(params);
-  };
-
-  const setChatOpen = (open: boolean) => {
-    const params = new URLSearchParams(searchParams);
-    if (open) {
-      params.set("chat", "true");
-    } else {
-      params.delete("chat");
-      params.delete("userId");
-    }
-    setSearchParams(params);
-  };
-
-
-  const chatContacts = conversations
-    .map((conv) => {
-      const last = conv.lastMessage;
-      return conv.user && last ? { user: conv.user, last } : null;
-    })
-    .filter((c): c is { user: any; last: any } => Boolean(c));
-
-  const openChat = (uid: string) => {
-    const conv = conversations.find(c => c.userId === uid);
-    if (conv) {
-      setSelectedConversation(conv);
-      setChatOpen(true);
-    } else {
-      const u = users.find(x => x.id === uid);
-      if (u) {
-        setSelectedConversation({ id: `temp-${uid}`, userId: uid, messages: [] });
-        setChatOpen(true);
-      }
-    }
-  };
-
   const handleOpenMessages = () => {
-    setSelectedConversation(null);
-    setChatOpen(true);
+    navigate("/dashboard/messages");
   };
 
 
@@ -324,7 +257,7 @@ const UserDashboard = () => {
     { id: "saved", label: "Saved", Icon: Bookmark, count: savedEvents.length },
     { id: "past", label: "Past", Icon: Ticket },
     { id: "notifications", label: "Notifications", Icon: Bell, count: notifications.filter(n => !n.read_at).length },
-    { id: "messages", label: "Messages", Icon: MessageCircle, count: chatContacts.length },
+    { id: "messages", label: "Messages", Icon: MessageCircle, count: conversations.reduce((total, c) => total + (c.unread_count || 0), 0) },
   ];
 
   const QUICK_ACTIONS: {
@@ -348,7 +281,7 @@ const UserDashboard = () => {
     {
       label: "Messages",
       Icon: MessageCircle,
-      count: chatContacts.length,
+      count: conversations.reduce((total, c) => total + (c.unread_count || 0), 0) || null,
       action: handleOpenMessages,
     },
   ];
@@ -416,7 +349,13 @@ const UserDashboard = () => {
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  if (tab.id === "messages") {
+                    navigate("/dashboard/messages");
+                  } else {
+                    setActiveTab(tab.id);
+                  }
+                }}
                 className={[
                   "flex shrink-0 items-center gap-2 rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all duration-200",
                   activeTab === tab.id
@@ -660,49 +599,7 @@ const UserDashboard = () => {
                 );
               })()}
 
-              {/* Messages Tab */}
-              {activeTab === "messages" && (
-                <div className="space-y-4">
-                  {selectedConversation ? (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                      <div className="flex items-center">
-                        <BackButton 
-                          label="Back to Messages" 
-                          onClick={() => setSelectedConversation(null)} 
-                        />
-                      </div>
-                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card h-[600px]">
-                        <MessageThread 
-                          userId={selectedConversation.userId}
-                          messages={selectedConversation.messages}
-                          onBack={() => setSelectedConversation(null)}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                      <div className="flex items-center">
-                        <BackButton 
-                          label="Back to Dashboard" 
-                          onClick={() => {
-                            const params = new URLSearchParams(searchParams);
-                            params.delete("tab");
-                            setSearchParams(params);
-                          }} 
-                        />
-                      </div>
-                      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card h-[600px]">
-                        <ConversationList 
-                          activeConversationId={null}
-                          onSelectConversation={(conv) => {
-                            setSelectedConversation(conv);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Messages Tab consolidated and handled in /dashboard/messages */}
             </motion.div>
 
           </AnimatePresence>
@@ -734,61 +631,7 @@ const UserDashboard = () => {
           </motion.div>
         </motion.div>
 
-        {/* Right off-canvas: Direct Chat */}
-        <Sheet open={chatOpen} onOpenChange={setChatOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col border-l border-border/50 shadow-2xl">
-            <SheetHeader className="border-b border-border/50 p-4 flex-row items-center gap-3 space-y-0 bg-background/80 backdrop-blur-md sticky top-0 z-10">
-              {(selectedConversation || chatViewOpen) && (
-                <BackButton 
-                  className="shrink-0"
-                  onClick={() => {
-                    if (selectedConversation) {
-                      setSelectedConversation(null);
-                    } else {
-                      setChatOpen(false);
-                    }
-                  }}
-                />
-              )}
-              <div className="flex-1">
-                <SheetTitle className="font-display text-lg font-bold">
-                  {selectedConversation ? "Direct Chat" : "Chat with attendees"}
-                </SheetTitle>
-                <SheetDescription className="text-xs font-medium text-muted-foreground">
-                  {selectedConversation 
-                    ? `Messaging with ${users.find(u => u.id === selectedConversation.userId)?.name}` 
-                    : "Connect with event participants"}
-                </SheetDescription>
-              </div>
-            </SheetHeader>
-            
-            <div className="flex-1 overflow-hidden bg-card/30">
-              {selectedConversation ? (
-                <MessageThread 
-                  userId={selectedConversation.userId}
-                  messages={selectedConversation.messages}
-                  onBack={() => {
-                    setSelectedConversation(null);
-                    setActiveTab("messages");
-                  }}
-                />
-              ) : (
-                <ConversationList 
-                  activeConversationId={null}
-                  onSelectConversation={(conv) => setSelectedConversation(conv)}
-                />
-              )}
-            </div>
-
-            {!selectedConversation && (
-              <div className="border-t border-border/50 p-4 bg-background/50">
-                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold">
-                  Private & Secure Messaging
-                </p>
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
+        {/* Consolidated messaging drawer sheet removed */}
 
         {/* Floating Chat Button */}
         <motion.div 

@@ -17,23 +17,36 @@ import Pusher from 'pusher-js';
  * No local process needed — Pusher is a hosted service.
  * Get these values from: https://dashboard.pusher.com/apps/YOUR_APP_ID/keys
  */
-const echo = new Echo({
-  // CHANGED: broadcaster changed from 'reverb' to 'pusher'
-  broadcaster: 'pusher',
-  // CHANGED: key now reads from VITE_PUSHER_APP_KEY instead of VITE_REVERB_APP_KEY
-  key: import.meta.env.VITE_PUSHER_APP_KEY,
-  // CHANGED: cluster replaces wsHost/wsPort/wssPort/forceTLS/enabledTransports —
-  // Pusher's hosted infrastructure handles routing based on cluster alone
-  cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-  forceTLS: true,
-  // Authenticate private channels via the Laravel Sanctum token
-  authEndpoint: `${import.meta.env.VITE_API_BASE_URL ?? ''}/broadcasting/auth`,
-  auth: {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}`,
-      Accept: 'application/json',
-    },
-  },
-});
+const echoKey = import.meta.env.VITE_PUSHER_APP_KEY;
+
+const echo = echoKey
+  ? new Echo({
+      broadcaster: 'pusher',
+      key: echoKey,
+      cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER || 'eu',
+      forceTLS: true,
+      authEndpoint: `${(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/api\/?$/, '')}/broadcasting/auth`,
+      authorizer: (channel: any) => ({
+        authorize: (socketId: string, callback: Function) => {
+          const token = localStorage.getItem('access_token') || localStorage.getItem('admin_token') || '';
+          fetch(`${(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/api\/?$/, '')}/broadcasting/auth`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              socket_id: socketId,
+              channel_name: channel.name,
+            }),
+          })
+            .then((res) => res.json())
+            .then((data) => callback(null, data))
+            .catch((err) => callback(err));
+        },
+      }),
+    })
+  : null;
 
 export default echo;

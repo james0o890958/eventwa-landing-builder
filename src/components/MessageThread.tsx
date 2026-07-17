@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, ArrowLeft, Flag, MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
@@ -10,17 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 import ReportDialog from "@/components/ReportDialog";
+import PublicProfileModal from "@/components/PublicProfileModal";
 
-// Lazily import Echo — app won't crash if Reverb isn't configured yet
-let echo: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  echo = require("@/lib/echo").default;
-} catch {
-  // Reverb not configured
-}
+import echo from "@/lib/echo";
 
 interface Message {
   id: number;
@@ -55,6 +49,7 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
   const [user, setUser] = useState<User | undefined>(initialUser);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   
   // Edit state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -64,26 +59,38 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Clear messages visually when switched to a new conversation
   useEffect(() => {
-    // Fetch conversation if not provided
-    if (!initialMessages.length && token && userId) {
-      const fetchConversation = async () => {
-        try {
-          const response = await api.get(`messages/${userId}`, undefined, token);
-          if (response?.conversation) {
-            setMessages(response.conversation.messages || []);
-            setUser(response.conversation.user);
-          }
-        } catch (err) {
-          console.error("Failed to fetch conversation", err);
+    setMessages([]);
+    setUser(undefined);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchConversation = async () => {
+      try {
+        const response = await api.get(`messages/${userId}`, undefined, token);
+        if (response?.conversation) {
+          setMessages(response.conversation.messages || []);
+          setUser(response.conversation.user);
+          // Dispatch window event so sidebar unread count clears instantly
+          window.dispatchEvent(new CustomEvent("messages-read", { detail: { userId } }));
         }
-      };
-      fetchConversation();
-    }
+      } catch (err) {
+        console.error("Failed to fetch conversation", err);
+      }
+    };
+    fetchConversation();
   }, [userId, token]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const viewport = bottomRef.current?.closest('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -93,7 +100,12 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
 
   // ── Real-time: listen for incoming DMs, edits & deletions via Echo ──────
   useEffect(() => {
-    if (!echo || !myId) return;
+    if (!echo || !myId || !import.meta.env.VITE_PUSHER_APP_KEY) return;
+
+    // Dynamically set or update the token in Echo auth headers before connecting/subscribing
+    if (token && echo.connector?.options?.auth?.headers) {
+      echo.connector.options.auth.headers.Authorization = `Bearer ${token}`;
+    }
 
     const channel = echo
       .private(`messages.${myId}`)
@@ -191,13 +203,14 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <Avatar className="h-9 w-9">
+        <Avatar className="h-9 w-9 cursor-pointer hover:opacity-85 transition-opacity" onClick={() => setViewingProfileId(userId)}>
+          <AvatarImage src={getFullAvatarUrl(user?.avatar)} />
           <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
             {getInitials(user?.name)}
           </AvatarFallback>
         </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{user?.name || "User"}</p>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setViewingProfileId(userId)}>
+          <p className="text-sm font-semibold text-foreground hover:text-primary transition-colors">{user?.name || "User"}</p>
           <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
         </div>
         <DropdownMenu>
@@ -336,6 +349,12 @@ const MessageThread = ({ userId, messages: initialMessages = [], user: initialUs
           </Button>
         </form>
       </div>
+      <PublicProfileModal
+        isOpen={!!viewingProfileId}
+        userId={viewingProfileId}
+        onClose={() => setViewingProfileId(null)}
+        onSendMessage={() => setViewingProfileId(null)}
+      />
     </div>
   );
 };

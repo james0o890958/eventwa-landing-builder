@@ -36,8 +36,9 @@ interface TicketEvent {
   location?: string;
 }
 
-type TicketStatus = "pending" | "confirmed" | "cancelled";
-type TicketViewStatus = "upcoming" | "attended" | "cancelled";
+type TicketStatus = "pending" | "confirmed" | "cancelled" | "checked_in";
+type TicketViewStatus = "attending" | "attended" | "cancelled" | "expired";
+type RefundStatus = "not_applicable" | "pending" | "processing" | "refunded";
 
 interface PurchasedTicket {
   ticketId: string;
@@ -47,6 +48,7 @@ interface PurchasedTicket {
   totalPaid: number;
   purchaseDate: string;
   status: TicketStatus;
+  refund_status?: RefundStatus;
   ticket_code: string;
   event: TicketEvent;
   viewStatus: TicketViewStatus;
@@ -83,18 +85,45 @@ const QRCodeDisplay = ({ value }: { value: string }) => {
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: PurchasedTicket["status"] }) {
-  const map = {
-    upcoming: "bg-emerald-500/15 text-emerald-500",
-    attended: "bg-muted text-muted-foreground",
+function StatusBadge({ status, refundStatus }: { status: PurchasedTicket["status"]; refundStatus?: RefundStatus }) {
+  const map: Record<string, string> = {
+    pending: "bg-amber-500/15 text-amber-500",
+    confirmed: "bg-blue-500/15 text-blue-500",
+    checked_in: "bg-emerald-500/15 text-emerald-500",
     cancelled: "bg-destructive/15 text-destructive",
   };
+
+  const labelMap: Record<string, string> = {
+    pending: "Pending",
+    confirmed: "Confirmed",
+    checked_in: "Checked In",
+    cancelled: "Cancelled",
+  };
+
+  const refundMap = {
+    pending: { label: "Refund Pending", cls: "bg-amber-500/15 text-amber-500" },
+    processing: { label: "Refund Processing", cls: "bg-blue-500/15 text-blue-500" },
+    refunded: { label: "Refunded", cls: "bg-emerald-500/15 text-emerald-500" },
+    not_applicable: null,
+  };
+
+  const refBadge = refundStatus ? refundMap[refundStatus] : null;
+
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${map[status]}`}
-    >
-      {status}
-    </span>
+    <div className="flex items-center gap-2">
+      <span
+        className={`rounded-full px-3 py-1 text-xs font-semibold ${map[status] || "bg-muted text-muted-foreground"}`}
+      >
+        {labelMap[status] || status}
+      </span>
+      {status === "cancelled" && refBadge && (
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${refBadge.cls}`}
+        >
+          {refBadge.label}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -102,7 +131,7 @@ function StatusBadge({ status }: { status: PurchasedTicket["status"] }) {
 
 const MyTickets = () => {
   const [activeFilter, setActiveFilter] = useState<
-    "all" | "upcoming" | "attended" | "cancelled"
+    "all" | "attending" | "attended" | "cancelled"
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
@@ -146,9 +175,11 @@ const MyTickets = () => {
             const viewStatus: TicketViewStatus =
               status === "cancelled"
                 ? "cancelled"
-                : eventEnd && eventEnd < now
+                : status === "checked_in" && eventEnd && eventEnd < now
                 ? "attended"
-                : "upcoming";
+                : eventEnd && eventEnd < now
+                ? "expired"
+                : "attending";
             const location = event.locations?.[0]?.address || event.locations?.[0]?.name || "";
             const startTime = eventStart
               ? eventStart.toLocaleTimeString("en-US", {
@@ -164,6 +195,7 @@ const MyTickets = () => {
               totalPaid: ticket.price ?? event.price ?? 0,
               purchaseDate: ticket.created_at || ticket.createdAt || "",
               status,
+              refund_status: ticket.refund_status,
               ticket_code: ticket.ticket_code,
               event: {
                 id: event.id,
@@ -300,9 +332,9 @@ const MyTickets = () => {
   const FILTERS = [
     { id: "all" as const, label: "All Tickets", count: enriched.length },
     {
-      id: "upcoming" as const,
-      label: "Upcoming",
-      count: enriched.filter((t) => t.viewStatus === "upcoming").length,
+      id: "attending" as const,
+      label: "Attending",
+      count: enriched.filter((t) => t.viewStatus === "attending").length,
     },
     {
       id: "attended" as const,
@@ -429,7 +461,7 @@ const MyTickets = () => {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <StatusBadge status={ticket.status} />
+                        <StatusBadge status={ticket.status} refundStatus={ticket.refund_status} />
                         <span className="text-xs font-mono text-muted-foreground">
                           {ticket.ticketId}
                         </span>
@@ -583,7 +615,7 @@ const MyTickets = () => {
                               </div>
                             ))}
 
-                            {(ticket.status as string) === "upcoming" && (
+                            {ticket.viewStatus === "attending" && (
                               <button
                                 onClick={() => handleAddToCalendar(ticket)}
                                 className="mt-2 flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors"

@@ -1,9 +1,9 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api, getFullAvatarUrl } from "@/lib/api";
 
 // Lazily import Echo — app won't crash if Reverb isn't configured yet
 let echo: any = null;
@@ -68,6 +68,18 @@ const ConversationList = ({ activeConversationId, onSelectConversation }: Conver
 
     fetchConversations();
   }, [token]);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      setConversations((prev) =>
+        prev.map((c) =>
+          String(c.userId) === String(activeConversationId)
+            ? { ...c, unread_count: 0 }
+            : c
+        )
+      );
+    }
+  }, [activeConversationId]);
 
   // ── Real-time: update conversation list when new DM arrives ────────────────
   useEffect(() => {
@@ -158,6 +170,7 @@ const ConversationList = ({ activeConversationId, onSelectConversation }: Conver
             >
               <div className="relative">
                 <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarImage src={getFullAvatarUrl(conv.user?.avatar)} />
                   <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                     {getInitials(conv.user?.name)}
                   </AvatarFallback>

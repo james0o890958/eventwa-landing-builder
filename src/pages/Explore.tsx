@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   MapPin,
@@ -139,40 +140,31 @@ const Explore = () => {
   // ── scroll detection for sticky header ────────────────────────────────────────────
   const [isScrolled, setIsScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  // ── fetch backend events ─────────────────────────────────────────────────────
-  const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await api.get('public/events');
-        if (response.status === 'success' && response.events) {
-          const mappedEvents = response.events.map((be: any) => ({
-            id: be.id.toString(),
-            title: be.title,
-            description: be.description,
-            date: be.start_date,
-            time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
-            image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-            price: parseFloat(be.price) || 0,
-            organizer: be.organizer ? be.organizer.name : 'Unknown',
-            attendees: be.capacity || 0,
-            category: be.category ? be.category.name.toLowerCase() : 'other',
-          }));
-          setEvents(mappedEvents);
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch events", err);
-        toast.error("Failed to retrieve live events from server.");
-      } finally {
-        setLoading(false);
+  // ── fetch backend events with React Query caching ────────────────────────────
+  const { data: events = [], isLoading: loading } = useQuery({
+    queryKey: ["public-events"],
+    queryFn: async () => {
+      const response = await api.get('public/events');
+      if (response.status === 'success' && response.events) {
+        return response.events.map((be: any) => ({
+          id: be.id.toString(),
+          title: be.title,
+          description: be.description,
+          date: be.start_date,
+          time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
+          image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+          price: parseFloat(be.price) || 0,
+          organizer: be.organizer ? be.organizer.name : 'Unknown',
+          attendees: be.capacity || 0,
+          category: be.category ? be.category.name.toLowerCase() : 'other',
+        }));
       }
-    };
-    fetchEvents();
-  }, []);
+      return [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     const handleScroll = () => {

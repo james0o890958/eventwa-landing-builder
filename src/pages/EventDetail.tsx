@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +29,7 @@ import {
   PlusCircle,
   Building2,
   CheckCircle,
+  AlertTriangle,
   Send,
   Handshake,
   MessageSquare,
@@ -64,6 +66,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, getFullAvatarUrl } from "@/lib/api";
 import { useBookmark } from "@/hooks/useBookmark";
+import echo from "@/lib/echo";
 
 // ─── sponsorship data ─────────────────────────────────────────────────────────
 
@@ -219,7 +222,6 @@ const EventDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [event, setEvent] = useState<any>(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
 
   // CHANGED: normalizeEvent now correctly resolves location, attendees, and organizer id
   const normalizeEvent = (eventData: any) => {
@@ -327,34 +329,28 @@ const EventDetail = () => {
     };
   };
 
-  // ── Track recently viewed ─────────────────────────────────────────────────
-  useEffect(() => {
-    const loadEvent = async () => {
-      try {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          toast.error("You must be logged in to view event details.");
-          navigate("/login");
-          return;
-        }
-        const res = await api.get(`public/events/${id}`, undefined, token);
-        if (res && res.status === "success" && (res.event || res.data)) {
-          const rawEvent = res.event || res.data;
-          const normalized = normalizeEvent(rawEvent);
-          setEvent(normalized);
-          setFollowing(normalized.isFollowing);
-        } else {
-          toast.error("Event not found.");
-        }
-      } catch (error) {
-        console.error("Failed to load event:", error);
-        toast.error("Failed to load event details.");
-      } finally {
-        setLoadingEvent(false);
+  const token = localStorage.getItem("access_token");
+
+  const { data: eventData, isLoading: loadingEvent } = useQuery({
+    queryKey: ["public-event", id],
+    queryFn: async () => {
+      if (!token) return null;
+      const res = await api.get(`public/events/${id}`, undefined, token);
+      if (res && res.status === "success" && (res.event || res.data)) {
+        return normalizeEvent(res.event || res.data);
       }
-    };
-    loadEvent();
-  }, [id, navigate]);
+      return null;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!id && !!token,
+  });
+
+  useEffect(() => {
+    if (eventData) {
+      setEvent(eventData);
+      setFollowing(eventData.isFollowing);
+    }
+  }, [eventData]);
 
   // ── User ticket loading ───────────────────────────────────────────────────
   const [userTickets, setUserTickets] = useState<any[]>([]);
@@ -417,8 +413,22 @@ const EventDetail = () => {
     return false;
   }, [currentUser, event, userTickets]);
 
-  // Allow only ticket holders or event organizer to leave a review
-  const canLeaveReview = !!user && (hasPurchasedTicket || isOrganizer);
+  // Check if event is locked/cancelled
+  const isLocked = useMemo(() => {
+    return event?.status === "cancelled" || event?.is_locked === true;
+  }, [event]);
+
+  // Check if event has ended
+  const hasEnded = useMemo(() => {
+    if (!event) return false;
+    const endStr = event.end_date || event.start_date || event.date;
+    if (!endStr) return false;
+    const endDate = new Date(endStr);
+    return !isNaN(endDate.getTime()) && endDate < new Date();
+  }, [event]);
+
+  // Allow only ticket holders or event organizer to leave a review (and event is not locked)
+  const canLeaveReview = !!user && (hasPurchasedTicket || isOrganizer) && !isLocked;
   const canViewAttendees = !!user && (hasPurchasedTicket || isOrganizer);
 
   // ── mobile detection ──────────────────────────────────────────────────────
@@ -582,7 +592,6 @@ const EventDetail = () => {
 
   // ── sponsorship modal ─────────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [publicProfileUser, setPublicProfileUser] = useState<any | null>(null);
   const [isSponsoring, setIsSponsoring] = useState(false);
   const [isSponsorshipSubmitted, setIsSponsorshipSubmitted] = useState(false);
@@ -942,6 +951,28 @@ const EventDetail = () => {
             </div>
           </div>
 
+          {/* Cancellation Notice Banner */}
+          {isLocked && (
+            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-destructive">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">This event is no longer available.</p>
+                <p className="text-xs opacity-90">Ticket sales and interactions for this event have been disabled.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Ended Event Notice Banner */}
+          {hasEnded && !isLocked && (
+            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-muted/30 bg-muted/10 p-4 text-muted-foreground bg-muted/5">
+              <Calendar className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="font-semibold text-sm">This event has ended.</p>
+                <p className="text-xs opacity-90">Registration for this event is closed because the event date has passed.</p>
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <h1 className="mb-6 font-display text-4xl font-bold text-foreground sm:text-5xl">
             {event.title}
@@ -1222,14 +1253,12 @@ const EventDetail = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() =>
-                          setSelectedUser(
-                            // CHANGED: use organizerId as chat target instead of name slug
-                            event.organizerId
-                              ? String(event.organizerId)
-                              : event.organizer
-                          )
-                        }
+                        onClick={() => {
+                          const targetId = event.organizerId ? String(event.organizerId) : event.organizer;
+                          if (targetId) {
+                            navigate(`/dashboard/messages?user=${targetId}`);
+                          }
+                        }}
                         className="flex-1 border-border/50 text-xs"
                       >
                         <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -1388,7 +1417,7 @@ const EventDetail = () => {
                           ?.map((t: any) => t.user)
                           .filter(Boolean) || []
                       }
-                      onSelectUser={setSelectedUser}
+                      onSelectUser={(u) => navigate(`/dashboard/messages?user=${u.id}`)}
                       onViewProfile={(u) => setPublicProfileUser(u)}
                     />
                   ) : (
@@ -1588,13 +1617,31 @@ const EventDetail = () => {
                         </div>
                       </div>
 
-                      <Button
-                        size="lg"
-                        className="w-full gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
-                        onClick={handleGetTickets}
-                      >
-                        Get Tickets
-                      </Button>
+                      {isLocked ? (
+                        <Button
+                          size="lg"
+                          className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                          disabled
+                        >
+                          Event No Longer Available
+                        </Button>
+                      ) : hasEnded ? (
+                        <Button
+                          size="lg"
+                          className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                          disabled
+                        >
+                          Event Ended
+                        </Button>
+                      ) : (
+                        <Button
+                          size="lg"
+                          className="w-full gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                          onClick={handleGetTickets}
+                        >
+                          Get Tickets
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <>
@@ -1620,13 +1667,31 @@ const EventDetail = () => {
                         </div>
                       </div>
 
-                      <Button
-                        size="lg"
-                        className="w-full gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
-                        onClick={handleGetTickets}
-                      >
-                        {event.price === 0 ? "Register for Free" : "Get Tickets"}
-                      </Button>
+                      {isLocked ? (
+                        <Button
+                          size="lg"
+                          className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                          disabled
+                        >
+                          Event No Longer Available
+                        </Button>
+                      ) : hasEnded ? (
+                        <Button
+                          size="lg"
+                          className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                          disabled
+                        >
+                          Event Ended
+                        </Button>
+                      ) : (
+                        <Button
+                          size="lg"
+                          className="w-full gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                          onClick={handleGetTickets}
+                        >
+                          {event.price === 0 ? "Register for Free" : "Get Tickets"}
+                        </Button>
+                      )}
                     </>
                   )}
 
@@ -1979,206 +2044,18 @@ const EventDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Direct Chat Overlay */}
-      <Sheet
-        open={!!selectedUser}
-        onOpenChange={(open) => !open && setSelectedUser(null)}
-      >
-        <SheetContent className="sm:max-w-[450px] p-0 flex flex-col border-l border-border/50 shadow-2xl [&>button]:hidden">
-          <ChatOverlayContent
-            targetUser={selectedUser}
-            onClose={() => setSelectedUser(null)}
-          />
-        </SheetContent>
-      </Sheet>
-
       {/* Public Profile View Modal */}
       <PublicProfileModal
         isOpen={!!publicProfileUser}
         onClose={() => setPublicProfileUser(null)}
         userId={typeof publicProfileUser === "object" ? publicProfileUser?.id : publicProfileUser}
         user={typeof publicProfileUser === "object" ? publicProfileUser : undefined}
-        onSendMessage={(u) => setSelectedUser(u)}
+        onSendMessage={(u) => {
+          setPublicProfileUser(null);
+          navigate(`/dashboard/messages?user=${u.id}`);
+        }}
       />
     </div>
-  );
-};
-
-// ─── Chat overlay ─────────────────────────────────────────────────────────────
-
-const ChatOverlayContent = ({
-  targetUser,
-  onClose,
-}: {
-  targetUser: any;
-  onClose: () => void;
-}) => {
-  const { user: currentUser } = useAuth();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState("");
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  const [chatUser, setChatUser] = useState<any>(() => {
-    if (!targetUser) return null;
-    if (typeof targetUser === "object") {
-      const name = targetUser.name || targetUser.display_name || "Attendee";
-      const avatar = getFullAvatarUrl(targetUser.avatar || targetUser.avatar_url);
-      const location = targetUser.location || (targetUser.city && targetUser.state ? `${targetUser.city.name}, ${targetUser.state.name}` : (targetUser.city?.name || targetUser.state?.name || "Unknown"));
-      const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
-      return { id: targetUser.id, name, avatar, location, initials };
-    }
-    return { id: targetUser, name: "Attendee", initials: "AT", location: "Unknown", avatar: "" };
-  });
-
-  useEffect(() => {
-    if (!targetUser) return;
-
-    if (typeof targetUser === "object") {
-      const name = targetUser.name || targetUser.display_name || "Attendee";
-      const avatar = getFullAvatarUrl(targetUser.avatar || targetUser.avatar_url);
-      const location = targetUser.location || (targetUser.city && targetUser.state ? `${targetUser.city.name}, ${targetUser.state.name}` : (targetUser.city?.name || targetUser.state?.name || "Unknown"));
-      const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
-      setChatUser({ id: targetUser.id, name, avatar, location, initials });
-    }
-
-    const fetchUserDetails = async () => {
-      const uid = typeof targetUser === "object" ? targetUser.id : targetUser;
-      if (!uid) return;
-      try {
-        const token = localStorage.getItem("access_token");
-        const res = await api.get(`profile/${uid}`, undefined, token || undefined);
-        if (res?.user) {
-          const u = res.user;
-          const name = u.name || "Attendee";
-          const avatar = getFullAvatarUrl(u.avatar);
-          const location = u.location || (u.city && u.state ? `${u.city}, ${u.state}` : (u.city || u.state || "Unknown"));
-          const initials = name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "AT";
-          setChatUser({ id: u.id, name, avatar, location, initials });
-        }
-      } catch (err) {
-        console.warn("Could not fetch user details for chat overlay:", err);
-      }
-    };
-
-    fetchUserDetails();
-  }, [targetUser]);
-
-  useEffect(() => {
-    if (targetUser) setMessages([]);
-  }, [targetUser]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [messages]);
-
-  const sendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    const newMsg = {
-      id: `dm${Date.now()}`,
-      senderId: currentUser?.id || "currentUser",
-      text: input.trim(),
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
-    toast.success("Message sent!");
-  };
-
-  if (!chatUser) return null;
-
-  return (
-    <>
-      <SheetHeader className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm flex-row items-center justify-between space-y-0">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
-            <AvatarImage src={chatUser.avatar} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
-              {chatUser.initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="text-left">
-            <SheetTitle className="text-base font-bold leading-none">
-              {chatUser.name}
-            </SheetTitle>
-            <div className="flex items-center gap-1 text-[11px] text-primary font-medium mt-1">
-              <MapPin className="h-3 w-3" />
-              <span>{chatUser.location}</span>
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-8 w-8 rounded-full hover:bg-muted transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </SheetHeader>
-
-      <ScrollArea className="flex-1 p-4 bg-muted/20">
-        <div className="space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-              <MessageSquare className="h-12 w-12 mb-3" />
-              <p className="text-sm font-medium">No messages yet</p>
-              <p className="text-xs">
-                Start the conversation with {chatUser.name}
-              </p>
-            </div>
-          ) : (
-            messages.map((msg) => {
-              const isMine =
-                msg.senderId === (currentUser?.id || "currentUser");
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
-                      isMine
-                        ? "gradient-primary text-primary-foreground rounded-br-none"
-                        : "bg-card text-foreground border border-border/50 rounded-bl-none"
-                    }`}
-                  >
-                    <p className="leading-relaxed">{msg.text}</p>
-                    <p
-                      className={`mt-1 text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}
-                    >
-                      {new Date(msg.timestamp).toLocaleTimeString("en-US", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={chatEndRef} />
-        </div>
-      </ScrollArea>
-
-      <div className="p-4 border-t border-border/50 bg-card">
-        <form onSubmit={sendMessage} className="flex gap-2">
-          <Input
-            placeholder={`Message ${chatUser.name.split(" ")[0]}...`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="flex-1 bg-secondary border-border/50 h-11"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            className="h-11 w-11 gradient-primary text-primary-foreground shrink-0 shadow-glow"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
-    </>
   );
 };
 

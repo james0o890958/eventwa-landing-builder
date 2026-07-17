@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -74,6 +74,14 @@ const Checkout = () => {
   const ticketType = event?.ticketTypes?.[ticketTypeIndex >= 0 ? ticketTypeIndex : 0];
   const unitPrice = ticketType?.price ?? event?.price ?? 0;
 
+  const hasEnded = useMemo(() => {
+    if (!event) return false;
+    const endStr = event.end_date || event.start_date || event.date;
+    if (!endStr) return false;
+    const endDate = new Date(endStr);
+    return !isNaN(endDate.getTime()) && endDate < new Date();
+  }, [event]);
+
   // ── state ───────────────────────────────────────────────────────────────────
   const [qty, setQty] = useState(Math.max(1, initialQty));
   const [promoCode, setPromoCode] = useState("");
@@ -113,6 +121,28 @@ const Checkout = () => {
             </h1>
             <Link to="/" className="mt-4 inline-block text-primary hover:underline">
               Back to Home
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (hasEnded) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="font-display text-2xl font-bold text-foreground">
+              This event has ended
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Registration for this event is closed because the event date has passed.
+            </p>
+            <Link to={`/event/${eventId}`} className="mt-4 inline-block text-primary hover:underline font-semibold">
+              Back to Event Details
             </Link>
           </div>
         </div>

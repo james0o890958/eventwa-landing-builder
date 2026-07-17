@@ -24,9 +24,32 @@ export default function AttendeeDashboardLayout({ children }: Props) {
     api.get('notifications?unread=1', undefined, token)
       .then((r: any) => setUnreadNotifications(r?.unread_count ?? 0))
       .catch(() => {});
-    api.get('messages?unread=1', undefined, token)
-      .then((r: any) => setUnreadMessages(r?.unread_count ?? 0))
+    api.get('messages', undefined, token)
+      .then((r: any) => {
+        if (r?.conversations) {
+          const totalUnread = r.conversations.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+          setUnreadMessages(totalUnread);
+        }
+      })
       .catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
+    const handleRead = () => {
+      if (token) {
+        api.get('messages', undefined, token)
+          .then((r: any) => {
+            if (r?.conversations) {
+              const totalUnread = r.conversations.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+              setUnreadMessages(totalUnread);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener('messages-read', handleRead);
+    return () => window.removeEventListener('messages-read', handleRead);
   }, [token]);
 
   useEffect(() => {

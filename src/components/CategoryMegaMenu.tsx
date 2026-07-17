@@ -79,10 +79,11 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
     fetchCategories();
   }, []);
 
-  // CHANGED: fetches preview events from categories/{numericId}/events on hover
+  // CHANGED: fetches preview events from categories/{numericId}/events on hover or default category on open
   // Previously was getCategoryEvents() which filtered mockEvents locally
   useEffect(() => {
-    if (!hoveredCategory) {
+    const activeCategory = hoveredCategory || (isOpen && categories[0]?.id);
+    if (!activeCategory) {
       setPreviewEvents([]);
       return;
     }
@@ -91,8 +92,8 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
       setPreviewLoading(true);
       try {
         // CHANGED: use numericId (DB integer) instead of slug — backend route expects numeric category id
-        const categoryObj = categories.find((c) => c.id === hoveredCategory);
-        const identifier = categoryObj?.numericId ?? hoveredCategory;
+        const categoryObj = categories.find((c) => c.id === activeCategory);
+        const identifier = categoryObj?.numericId ?? activeCategory;
         const data = await api.get(`categories/${identifier}/events`);
         // CHANGED: normalises response — handles array, data.events, or data.data shapes
         const events = Array.isArray(data) ? data : data.events || data.data || [];
@@ -102,7 +103,7 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
             id: e.id,
             title: e.title ?? e.name,
             date: e.start_date ?? e.date,
-            location: e.location ?? e.venue ?? "",
+            location: e.location ?? e.locations?.[0]?.name ?? e.locations?.[0]?.address ?? e.venue ?? "",
             price: e.price ?? 0,
             image: e.banner_image ?? e.image_url ?? e.image ?? "",
           }))
@@ -116,7 +117,7 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
     };
 
     fetchCategoryEvents();
-  }, [hoveredCategory, categories]);
+  }, [hoveredCategory, categories, isOpen]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

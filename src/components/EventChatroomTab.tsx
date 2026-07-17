@@ -14,15 +14,7 @@ import {
 import { toast } from "sonner";
 import { api, getFullAvatarUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Lazily import Echo so the app doesn't crash if Reverb isn't configured yet
-let echo: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  echo = require("@/lib/echo").default;
-} catch {
-  // Reverb not configured — real-time updates won't work but REST still will
-}
+import echo from "@/lib/echo";
 
 interface ChatMessage {
   id: string | number;
@@ -92,9 +84,9 @@ export const EventChatroomTab = ({
         const msgRes = await api.get(`chatrooms/${room.id}/messages`, undefined, token);
         setMessages(msgRes?.messages ?? []);
 
-        // Pin first organizer message as announcement if any
-        const firstOrg = (msgRes?.messages ?? []).find((m: ChatMessage) => m.isOrganizer);
-        if (firstOrg) setPinnedAnnouncement(firstOrg);
+        // Pin latest organizer message as announcement if any
+        const latestOrg = [...(msgRes?.messages ?? [])].reverse().find((m: ChatMessage) => m.isOrganizer);
+        if (latestOrg) setPinnedAnnouncement(latestOrg);
       } catch (err: any) {
         console.error("Failed to load chatroom:", err);
         const is403 = err?.status === 403 || err?.response?.status === 403 || String(err?.message).includes("403") || String(err?.message).includes("Only confirmed ticket holders");
@@ -114,7 +106,12 @@ export const EventChatroomTab = ({
 
   // ── Subscribe to real-time messages via Echo ───────────────────────────────
   useEffect(() => {
-    if (!chatroomId || !echo) return;
+    if (!chatroomId || !echo || !import.meta.env.VITE_PUSHER_APP_KEY) return;
+
+    // Dynamically set or update the token in Echo auth headers before connecting/subscribing
+    if (token && echo.connector?.options?.auth?.headers) {
+      echo.connector.options.auth.headers.Authorization = `Bearer ${token}`;
+    }
 
     const channel = echo
       .private(`chatroom.${chatroomId}`)
@@ -123,14 +120,21 @@ export const EventChatroomTab = ({
           if (prev.some((m) => m.id === e.message.id)) return prev;
           return [...prev, e.message];
         });
+        if (e.message.isOrganizer) {
+          setPinnedAnnouncement(e.message);
+        }
       })
       .listen(".ChatroomMessageUpdated", (e: { message: ChatMessage }) => {
         setMessages((prev) =>
           prev.map((m) => (m.id === e.message.id ? { ...m, content: e.message.content, is_edited: true } : m))
         );
+        setPinnedAnnouncement((prev) =>
+          prev?.id === e.message.id ? { ...prev, content: e.message.content, is_edited: true } : prev
+        );
       })
       .listen(".ChatroomMessageDeleted", (e: { message_id: number }) => {
         setMessages((prev) => prev.filter((m) => m.id !== e.message_id));
+        setPinnedAnnouncement((prev) => (prev?.id === e.message_id ? null : prev));
       });
 
     return () => {
@@ -140,7 +144,13 @@ export const EventChatroomTab = ({
 
   // ── Auto-scroll to bottom on new messages ─────────────────────────────────
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const viewport = bottomRef.current?.closest('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [messages]);
 
   // ── Focus input when chat tab becomes active ───────────────────────────────
@@ -262,7 +272,15 @@ export const EventChatroomTab = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="px-4 py-2 bg-amber-500/5 border-b border-amber-500/20 flex items-center gap-3 relative group"
+            className="px-4 py-2 bg-amber-500/5 hover:bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-3 relative group cursor-pointer transition-colors"
+            onClick={() => {
+              const el = document.getElementById(`chat-message-${pinnedAnnouncement.id}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.classList.add("bg-amber-500/15");
+                setTimeout(() => el.classList.remove("bg-amber-500/15"), 1500);
+              }
+            }}
           >
             <Megaphone className="h-4 w-4 text-amber-500 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -275,7 +293,10 @@ export const EventChatroomTab = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setPinnedAnnouncement(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedAnnouncement(null);
+                }}
                 className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X className="h-3 w-3" />
@@ -324,7 +345,11 @@ export const EventChatroomTab = ({
               const canDelete = mine || isOrganizer || user?.role === "admin";
 
               return (
-                <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} group`}>
+                <div
+                  id={`chat-message-${msg.id}`}
+                  key={msg.id}
+                  className={`flex ${mine ? "justify-end" : "justify-start"} group rounded-xl transition-colors duration-500`}
+                >
                   <div className={`flex gap-3 max-w-[85%] ${mine ? "flex-row-reverse" : "flex-row"}`}>
                     {!mine && (
                       <button

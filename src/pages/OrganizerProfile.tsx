@@ -258,29 +258,39 @@ const OrganizerProfile = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <Button
-                  onClick={toggleFollow}
-                  className={`${
-                    following
-                      ? "bg-secondary text-foreground hover:bg-secondary/80"
-                      : "gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
-                  }`}
-                >
-                  {following ? (
-                    <>
-                      <UserCheck className="mr-2 h-4 w-4" />
-                      Following
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Follow
-                    </>
-                  )}
-                </Button>
-              </div>
+              {organizer.status !== "suspended" && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={toggleFollow}
+                    className={`${
+                      following
+                        ? "bg-secondary text-foreground hover:bg-secondary/80"
+                        : "gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                    }`}
+                  >
+                    {following ? (
+                      <>
+                        <UserCheck className="mr-2 h-4 w-4" />
+                        Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Follow
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {/* Suspended Organizer Neutral Banner */}
+            {organizer.status === "suspended" && (
+              <div className="mb-6 flex items-center gap-3 rounded-2xl border border-muted bg-secondary/50 p-4 text-muted-foreground">
+                <Building2 className="h-5 w-5 shrink-0 text-primary" />
+                <p className="text-sm font-medium">This organizer is not currently hosting events.</p>
+              </div>
+            )}
 
             <div className="grid gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-6">

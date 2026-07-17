@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, getFullAvatarUrl } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +49,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -102,7 +111,20 @@ const UserProfile = () => {
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
+
   const [email, setEmail] = useState("");
+  const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
+  const [emailChangeStep, setEmailChangeStep] = useState<1 | 2 | 3>(1); // 1: Password, 2: New Email, 3: OTP
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailOtp, setEmailOtp] = useState("");
+  const [verifyingEmailChange, setVerifyingEmailChange] = useState(false);
+
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
@@ -111,7 +133,6 @@ const UserProfile = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
   
   const [savingPersonal, setSavingPersonal] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -119,113 +140,100 @@ const UserProfile = () => {
 
   const [allLocationOptions, setAllLocationOptions] = useState<{ value: string, label: string, group: string }[]>([]);
 
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("access_token");
+
   useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem("access_token");
-      
-      try {
-        const locationsRes = await api.get("states_cities");
-        if (locationsRes) {
-          const states = locationsRes.states || [];
-          const cities = locationsRes.cities || [];
-          const options = states.flatMap((s: any) => [
-            { value: s.name, label: s.name, group: s.name },
-            ...cities
-              .filter((c: any) => c.state_id === s.id)
-              .map((c: any) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name }))
-          ]);
-          setAllLocationOptions(options);
-        }
-      } catch (err) {
-        console.error("Failed to fetch locations", err);
+    api.get("states_cities").then((locationsRes) => {
+      if (locationsRes) {
+        const states = locationsRes.states || [];
+        const cities = locationsRes.cities || [];
+        const options = states.flatMap((s: any) => [
+          { value: s.name, label: s.name, group: s.name },
+          ...cities
+            .filter((c: any) => c.state_id === s.id)
+            .map((c: any) => ({ value: `${c.name}, ${s.name}`, label: c.name, group: s.name }))
+        ]);
+        setAllLocationOptions(options);
       }
-
-      if (!token) {
-        setLoadingProfile(false);
-        return;
-      }
-
-      try {
-        const response = await api.get("profile", undefined, token);
-        if (response.user) {
-          const u = response.user;
-          setDisplayName(u.name || "");
-          setEmail(u.email || "");
-          setUsername(u.email?.split("@")[0] || "");
-          setPhone(u.phone || "");
-          setBio(u.bio || "");
-          setAvatarUrl(u.avatar || undefined);
-          setLocation(u.city_id ? `${u.city?.name}, ${u.state?.name}` : "");
-          
-          // Load preferences
-          if (response.preferences) {
-            setEmailNotif(response.preferences.email_notifications ?? true);
-            setPushNotif(response.preferences.push_notifications ?? true);
-            setMarketingNotif(response.preferences.marketing_notifications ?? false);
-          }
-          
-          // Load privacy settings
-          if (response.privacy_settings) {
-            setHideInChatrooms(response.privacy_settings.hide_in_chatrooms ?? false);
-            setHideInAttendeeList(response.privacy_settings.hide_in_attendee_list ?? false);
-            setHideAttendedEvents(response.privacy_settings.hide_attended_events ?? false);
-            setHideHostedEvents(response.privacy_settings.hide_hosted_events ?? false);
-            setAllowDMsFromAnyone(response.privacy_settings.allow_dms_from_anyone ?? true);
-            setShowOnlineStatus(response.privacy_settings.show_online_status ?? true);
-          }
-          
-          // Load payment methods
-          if (response.payment_methods && Array.isArray(response.payment_methods)) {
-            setPaymentMethods(response.payment_methods.map((pm: any) => ({
-              id: pm.id,
-              brand: pm.brand,
-              last4: pm.last4,
-              expiry: pm.expiry,
-              isDefault: pm.is_default,
-            })));
-          }
-          
-          // Load recommendations
-          if (response.recommendations && Array.isArray(response.recommendations)) {
-            setRecommendations(response.recommendations.map((r: any) => ({
-              id: r.id,
-              category: r.category,
-              location: r.location,
-            })));
-          }
-          
-          // Load 2FA settings
-          if (u.two_fa_enabled !== undefined) {
-            setTwoFAEnabled(u.two_fa_enabled ?? false);
-            setTwoFAMethod(u.two_fa_method ?? "app");
-          }
-          
-          // Sync user state with AuthContext
-          updateUser(u);
-
-          if (u.organizer) {
-            const org = u.organizer;
-            const organizerProfile = {
-              name: org.name || "",
-              bio: org.bio || "",
-              logo: org.logo || null,
-              address: org.address || "",
-              state: org.state?.name || "",
-              city: org.city?.name || ""
-            };
-            localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-        toast.error("Failed to load profile details");
-      } finally {
-        setLoadingProfile(false);
-      }
-    };
-
-    fetchData();
+    }).catch((err) => console.error("Failed to fetch locations", err));
   }, []);
+
+  const { data: response, isLoading: loadingProfile } = useQuery({
+    queryKey: ["user-profile"],
+    queryFn: async () => {
+      if (!token) return null;
+      return await api.get("profile", undefined, token);
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!token,
+  });
+
+  useEffect(() => {
+    if (response?.user) {
+      const u = response.user;
+      setDisplayName(u.name || "");
+      setEmail(u.email || "");
+      setUsername(u.username || u.email?.split("@")[0] || "");
+      setPhone(u.phone || "");
+      setBio(u.bio || "");
+      setAvatarUrl(u.avatar || undefined);
+      setLocation(u.city_id ? `${u.city?.name}, ${u.state?.name}` : "");
+      
+      if (response.preferences) {
+        setEmailNotif(response.preferences.email_notifications ?? true);
+        setPushNotif(response.preferences.push_notifications ?? true);
+        setMarketingNotif(response.preferences.marketing_notifications ?? false);
+      }
+      
+      if (response.privacy_settings) {
+        setHideInChatrooms(response.privacy_settings.hide_in_chatrooms ?? false);
+        setHideInAttendeeList(response.privacy_settings.hide_in_attendee_list ?? false);
+        setHideAttendedEvents(response.privacy_settings.hide_attended_events ?? false);
+        setHideHostedEvents(response.privacy_settings.hide_hosted_events ?? false);
+        setAllowDMsFromAnyone(response.privacy_settings.allow_dms_from_anyone ?? true);
+        setShowOnlineStatus(response.privacy_settings.show_online_status ?? true);
+      }
+      
+      if (response.payment_methods && Array.isArray(response.payment_methods)) {
+        setPaymentMethods(response.payment_methods.map((pm: any) => ({
+          id: pm.id,
+          brand: pm.brand,
+          last4: pm.last4,
+          expiry: pm.expiry,
+          isDefault: pm.is_default,
+        })));
+      }
+      
+      if (response.recommendations && Array.isArray(response.recommendations)) {
+        setRecommendations(response.recommendations.map((r: any) => ({
+          id: r.id,
+          category: r.category,
+          location: r.location,
+        })));
+      }
+      
+      if (u.two_fa_enabled !== undefined) {
+        setTwoFAEnabled(u.two_fa_enabled ?? false);
+        setTwoFAMethod(u.two_fa_method ?? "app");
+      }
+      
+      updateUser(u);
+
+      if (u.organizer) {
+        const org = u.organizer;
+        const organizerProfile = {
+          name: org.name || "",
+          bio: org.bio || "",
+          logo: org.logo || null,
+          address: org.address || "",
+          state: org.state?.name || "",
+          city: org.city?.name || ""
+        };
+        localStorage.setItem("organizer_profile", JSON.stringify(organizerProfile));
+      }
+    }
+  }, [response]);
 
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -459,6 +467,7 @@ const UserProfile = () => {
         setAvatarPreview(undefined);
         setAvatarFile(null);
         updateUser(data.user);
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
         toast.success("Profile photo updated successfully!");
       }
     } catch (err) {
@@ -479,7 +488,139 @@ const UserProfile = () => {
         .toUpperCase()
     : "??";
 
+  // Live username availability check
+  useEffect(() => {
+    if (!username) {
+      setUsernameAvailable(null);
+      setUsernameError(null);
+      setCheckingUsername(false);
+      return;
+    }
+
+    // Don't check if username is identical to the current user's username
+    if (user && user.username === username) {
+      setUsernameAvailable(true);
+      setUsernameError(null);
+      setCheckingUsername(false);
+      return;
+    }
+
+    // Username validation rules (regex check)
+    const regex = /^[a-zA-Z0-9_]+$/;
+    if (username.length < 3 || username.length > 30) {
+      setUsernameAvailable(false);
+      setUsernameError("Username must be between 3 and 30 characters.");
+      setCheckingUsername(false);
+      return;
+    }
+    if (!regex.test(username)) {
+      setUsernameAvailable(false);
+      setUsernameError("Only letters, numbers, and underscores are allowed.");
+      setCheckingUsername(false);
+      return;
+    }
+
+    // Clear stale validation errors since it passed synchronous checks
+    setUsernameAvailable(null);
+    setUsernameError(null);
+    setCheckingUsername(true);
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await api.get(`profile/check-username?username=${encodeURIComponent(username)}`, undefined, token || undefined);
+        if (res) {
+          setUsernameAvailable(res.available);
+          setUsernameError(res.available ? null : "Username is already taken.");
+        }
+      } catch (err) {
+        console.error("Error checking username availability", err);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [username, user]);
+
+  const requestEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmPassword || !newEmail) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+
+    setVerifyingEmailChange(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await api.post(
+        "profile/email/request",
+        {
+          password: confirmPassword,
+          new_email: newEmail,
+        },
+        token || undefined
+      );
+
+      if (res && res.status === "success") {
+        toast.success(res.message || "Verification code sent.");
+        setEmailChangeStep(2); // Go to OTP verification step
+      } else {
+        toast.error(res?.message || "Failed to request email change.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to request email change.");
+    } finally {
+      setVerifyingEmailChange(false);
+    }
+  };
+
+  const verifyEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailOtp || emailOtp.length !== 6) {
+      toast.error("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    setVerifyingEmailChange(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await api.post(
+        "profile/email/verify",
+        {
+          new_email: newEmail,
+          otp: emailOtp,
+        },
+        token || undefined
+      );
+
+      if (res && res.status === "success") {
+        toast.success(res.message || "Email updated successfully!");
+        setEmail(newEmail);
+        if (res.user) {
+          updateUser(res.user);
+        }
+        // Reset and close
+        setIsChangeEmailOpen(false);
+        setEmailChangeStep(1);
+        setConfirmPassword("");
+        setNewEmail("");
+        setEmailOtp("");
+      } else {
+        toast.error(res?.message || "Verification failed.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setVerifyingEmailChange(false);
+    }
+  };
+
   const savePersonal = async () => {
+    if (usernameError || usernameAvailable === false) {
+      toast.error("Please resolve the username error before saving.");
+      return;
+    }
+
     setSavingPersonal(true);
     try {
       const token = localStorage.getItem("access_token");
@@ -499,6 +640,7 @@ const UserProfile = () => {
         const formData = new FormData();
         formData.append("_method", "PATCH");
         formData.append("name", displayName);
+        formData.append("username", username);
         if (phone) formData.append("phone", phone);
         if (bio) formData.append("bio", bio);
         if (cityName) formData.append("city_name", cityName);
@@ -513,6 +655,7 @@ const UserProfile = () => {
           "profile/personal",
           {
             name: displayName,
+            username: username,
             phone: phone || null,
             bio: bio || null,
             city_name: cityName || null,
@@ -531,6 +674,7 @@ const UserProfile = () => {
       if (updatedUser) {
         updateUser(updatedUser);
       }
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       toast.success("Profile updated successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update profile");
@@ -803,18 +947,60 @@ const UserProfile = () => {
                       </div>
                       <div className="space-y-1.5">
                         <Label>Username</Label>
-                        <Input
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                        />
+                        <div className="relative">
+                          <Input
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value.toLowerCase().trim())}
+                            onFocus={() => setIsUsernameFocused(true)}
+                            onBlur={() => setIsUsernameFocused(false)}
+                            className={
+                              isUsernameFocused && usernameAvailable === true
+                                ? "border-green-500 pr-10"
+                                : usernameAvailable === false
+                                ? "border-red-500 pr-10"
+                                : "pr-10"
+                            }
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                            {isUsernameFocused && checkingUsername && (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            )}
+                            {!checkingUsername && isUsernameFocused && usernameAvailable === true && (
+                              <span className="text-green-500 text-sm">🟢</span>
+                            )}
+                            {!checkingUsername && usernameAvailable === false && (
+                              <span className="text-red-500 text-sm">🔴</span>
+                            )}
+                          </div>
+                        </div>
+                        {usernameError && (
+                          <p className="text-xs text-red-500 mt-1">{usernameError}</p>
+                        )}
+                        {!usernameError && isUsernameFocused && usernameAvailable === true && (
+                          <p className="text-xs text-green-500 mt-1">Username is available!</p>
+                        )}
                       </div>
                       <div className="space-y-1.5">
                         <Label>Email Address</Label>
-                        <Input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                        />
+                        <div className="relative flex items-center">
+                          <Input
+                            type="email"
+                            value={email}
+                            readOnly
+                            className="bg-muted text-muted-foreground cursor-not-allowed pr-20"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              setEmailChangeStep(1);
+                              setIsChangeEmailOpen(true);
+                              setShowConfirmPassword(false);
+                            }}
+                            className="absolute right-1 h-8 px-3 text-xs bg-zinc-800 hover:bg-zinc-700 text-white"
+                          >
+                            Change
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Phone Number</Label>
@@ -1513,6 +1699,119 @@ const UserProfile = () => {
           </main>
         </div>
       </div>
+
+      {/* Change Email Dialog Modal */}
+      <Dialog
+        open={isChangeEmailOpen}
+        onOpenChange={(open) => {
+          setIsChangeEmailOpen(open);
+          if (!open) {
+            setShowConfirmPassword(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Email Address</DialogTitle>
+            <DialogDescription>
+              {emailChangeStep === 1
+                ? "Verify your account password and enter your new email address."
+                : "Enter the 6-digit verification code sent to your new email."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {emailChangeStep === 1 ? (
+            <form onSubmit={requestEmailChange} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="current-password">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    id="current-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-email">New Email Address</Label>
+                <Input
+                  id="new-email"
+                  type="email"
+                  placeholder="newemail@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsChangeEmailOpen(false)}
+                  disabled={verifyingEmailChange}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={verifyingEmailChange}
+                  className="gradient-primary text-primary-foreground"
+                >
+                  {verifyingEmailChange ? "Sending OTP..." : "Send Verification Code"}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form onSubmit={verifyEmailChange} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="otp-code">Verification Code</Label>
+                <Input
+                  id="otp-code"
+                  type="text"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={emailOtp}
+                  onChange={(e) => setEmailOtp(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="text-center text-2xl font-bold tracking-widest"
+                  required
+                />
+              </div>
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEmailChangeStep(1)}
+                  disabled={verifyingEmailChange}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={verifyingEmailChange}
+                  className="gradient-primary text-primary-foreground"
+                >
+                  {verifyingEmailChange ? "Verifying..." : "Verify & Save"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

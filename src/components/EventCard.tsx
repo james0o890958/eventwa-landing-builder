@@ -35,6 +35,8 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
   const { saved, toggleSave } = useBookmark(event.id, event);
 
 
+  const isCancelled = (event as any).status === "cancelled";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -43,22 +45,27 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
       transition={{ delay: index * 0.08 }}
     >
       <Link to={`/event/${event.id}`} className="group block">
-        <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card transition-all duration-300 hover:border-primary/30 hover:shadow-glow/10">
+        <div className={`overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card transition-all duration-300 hover:border-primary/30 hover:shadow-glow/10 ${isCancelled ? "opacity-75" : ""}`}>
           <div className="relative aspect-[16/10] overflow-hidden">
             <img
               src={event.image}
               alt={titleLabel}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isCancelled ? "grayscale-[0.4]" : ""}`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-            {/* Top row: category badge + bookmark */}
+            {/* Top row: category badge + optional Cancelled badge + bookmark */}
             <div className="absolute left-3 top-3 flex items-center gap-2">
               <span className="rounded-full bg-background/80 px-3 py-1 text-xs font-semibold capitalize text-foreground backdrop-blur-sm">
                 {categoryLabel}
               </span>
+              {isCancelled && (
+                <span className="rounded-full bg-destructive px-3 py-1 text-xs font-bold text-white shadow-sm">
+                  Cancelled
+                </span>
+              )}
             </div>
 
             <button

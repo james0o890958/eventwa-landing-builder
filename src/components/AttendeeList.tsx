@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ReportDialog from "@/components/ReportDialog";
 import { getFullAvatarUrl } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AttendeeListProps {
   eventId: string;
@@ -18,6 +19,9 @@ interface AttendeeListProps {
 }
 
 const AttendeeList = ({ eventId, attendees = [], onSelectUser, onViewProfile }: AttendeeListProps) => {
+  const { user: currentUser } = useAuth();
+  const currentUserId = String(currentUser?.id ?? "");
+
   const visibleAttendees = attendees.filter(
     (user: any) => !user?.privacy_settings?.hide_in_attendee_list && !user?.hide_in_attendee_list
   );
@@ -39,24 +43,26 @@ const AttendeeList = ({ eventId, attendees = [], onSelectUser, onViewProfile }: 
       </h2>
       <div className="space-y-4">
         {visibleAttendees.map((user: any) => {
+          const isMe = String(user.id) === currentUserId;
+          const displayName = isMe ? "You" : user.name;
           const userLocation = user.location || (user.city && user.state ? `${user.city.name}, ${user.state.name}` : (user.city?.name || user.state?.name || null));
 
           return (
             <div key={user.id} className="flex items-center justify-between">
               <div
-                onClick={() => onViewProfile?.(user)}
-                className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
-                title={`View ${user.name}'s profile`}
+                onClick={() => !isMe && onViewProfile?.(user)}
+                className={`flex items-center gap-3 group transition-opacity ${isMe ? "" : "cursor-pointer hover:opacity-90"}`}
+                title={isMe ? undefined : `View ${user.name}'s profile`}
               >
-                <Avatar className="h-10 w-10 border border-border/50 group-hover:border-primary transition-colors">
+                <Avatar className={`h-10 w-10 border border-border/50 ${isMe ? "" : "group-hover:border-primary transition-colors"}`}>
                   <AvatarImage src={getFullAvatarUrl(user.avatar || user.avatar_url)} />
                   <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                    {user.name?.slice(0, 2).toUpperCase() || "U"}
+                    {displayName?.slice(0, 2).toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {user.name}
+                  <p className={`text-sm font-semibold text-foreground ${isMe ? "" : "group-hover:text-primary transition-colors"}`}>
+                    {displayName}
                   </p>
                   {userLocation && (
                     <div className="flex items-center gap-1 text-[10px] text-primary font-medium">
@@ -67,41 +73,43 @@ const AttendeeList = ({ eventId, attendees = [], onSelectUser, onViewProfile }: 
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onSelectUser?.(user)}
-                  className="h-8 border-primary/20 text-primary hover:bg-primary/5 gap-1.5"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  <span className="text-xs font-semibold">Message</span>
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => onViewProfile?.(user)}
-                      className="gap-2 cursor-pointer font-medium"
-                    >
-                      View Profile
-                    </DropdownMenuItem>
-                    <ReportDialog targetType="user" targetId={user.id} targetName={user.name}>
+              {!isMe && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onSelectUser?.(user)}
+                    className="h-8 border-primary/20 text-primary hover:bg-primary/5 gap-1.5"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    <span className="text-xs font-semibold">Message</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        className="gap-2 text-destructive focus:text-destructive"
-                        onSelect={(event) => event.preventDefault()}
+                        onClick={() => onViewProfile?.(user)}
+                        className="gap-2 cursor-pointer font-medium"
                       >
-                        <Flag className="h-4 w-4" />
-                        Report account
+                        View Profile
                       </DropdownMenuItem>
-                    </ReportDialog>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                      <ReportDialog targetType="user" targetId={user.id} targetName={user.name}>
+                        <DropdownMenuItem
+                          className="gap-2 text-destructive focus:text-destructive"
+                          onSelect={(event) => event.preventDefault()}
+                        >
+                          <Flag className="h-4 w-4" />
+                          Report account
+                        </DropdownMenuItem>
+                      </ReportDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
           );
         })}

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../eventwa-admin"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../../laragon/www/eventwa-server"
+		}
+	]
+}
