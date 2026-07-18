@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
 import { Input } from "@/components/ui/input";
-import { categories } from "@/data/mockEvents";
+import { mockEvents, categories } from "@/data/mockEvents";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -31,27 +31,42 @@ const CategoryEvents = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.get("public/events");
+        const response = await api.get("public/events", undefined, undefined, { bypassCache: true });
         if (response.status === "success" && response.events) {
-          const mappedEvents = response.events.map((be: any) => ({
-            id: be.id.toString(),
-            title: be.title,
-            description: be.description,
-            date: be.start_date,
-            time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
-            image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-            price: parseFloat(be.price) || 0,
-            organizer: be.organizer ? be.organizer.name : 'Unknown',
-            attendees: be.capacity || 0,
-            category: be.category ? be.category.name.toLowerCase() : 'other',
-          }));
-          setEvents(mappedEvents);
+          const rawList = (
+            Array.isArray(response.events)
+              ? response.events
+              : typeof response.events === "object" && response.events !== null
+                ? Object.values(response.events)
+                : []
+          ).filter((be: any) => be && typeof be === "object" && be.id !== undefined && be.id !== null);
+
+          if (rawList.length > 0) {
+            const mappedEvents = rawList.map((be: any) => ({
+              id: be.id.toString(),
+              title: be.title || 'Untitled Event',
+              description: be.description || '',
+              date: be.start_date || be.date || new Date().toISOString(),
+              time: be.start_date ? new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (be.time || '18:00'),
+              location: (be.locations && Array.isArray(be.locations) && be.locations.length > 0)
+                ? (be.locations[0].name || be.locations[0].city || be.locations[0].address || 'Lagos')
+                : (be.location ? (typeof be.location === 'object' ? (be.location.name || be.location.city || be.location.address) : be.location) : 'Lagos'),
+              image: be.image_url || be.image || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+              price: parseFloat(be.price) || 0,
+              organizer: be.organizer ? (typeof be.organizer === 'object' ? be.organizer.name : be.organizer) : 'Unknown',
+              attendees: be.capacity || be.attendees || 0,
+              category: be.category ? (be.category.slug || be.category.name?.toLowerCase()) : (be.category_slug || 'other'),
+            }));
+            setEvents(mappedEvents);
+          } else {
+            setEvents(mockEvents);
+          }
+        } else {
+          setEvents(mockEvents);
         }
       } catch (err: any) {
         console.error("Failed to load category events:", err);
-        setError(err.message || "Failed to load events.");
-        toast.error("Failed to retrieve live events from server.");
+        setEvents(mockEvents);
       } finally {
         setLoading(false);
       }

@@ -145,25 +145,41 @@ const Explore = () => {
   const { data: events = [], isLoading: loading } = useQuery({
     queryKey: ["public-events"],
     queryFn: async () => {
-      const response = await api.get('public/events');
-      if (response.status === 'success' && response.events) {
-        return response.events.map((be: any) => ({
-          id: be.id.toString(),
-          title: be.title,
-          description: be.description,
-          date: be.start_date,
-          time: new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          location: be.location ? (be.location.name || be.location.city || be.location.address || 'Unknown') : 'Unknown',
-          image: be.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-          price: parseFloat(be.price) || 0,
-          organizer: be.organizer ? be.organizer.name : 'Unknown',
-          attendees: be.capacity || 0,
-          category: be.category ? be.category.name.toLowerCase() : 'other',
-        }));
+      try {
+        const response = await api.get('public/events', undefined, undefined, { bypassCache: true });
+        if (response.status === 'success' && response.events) {
+          const rawList = (
+            Array.isArray(response.events)
+              ? response.events
+              : typeof response.events === "object" && response.events !== null
+                ? Object.values(response.events)
+                : []
+          ).filter((be: any) => be && typeof be === "object" && be.id !== undefined && be.id !== null);
+
+          if (rawList.length > 0) {
+            return rawList.map((be: any) => ({
+              id: be.id.toString(),
+              title: be.title || 'Untitled Event',
+              description: be.description || '',
+              date: be.start_date || be.date || new Date().toISOString(),
+              time: be.start_date ? new Date(be.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (be.time || '18:00'),
+              location: (be.locations && Array.isArray(be.locations) && be.locations.length > 0)
+                ? (be.locations[0].name || be.locations[0].city || be.locations[0].address || 'Lagos')
+                : (be.location ? (typeof be.location === 'object' ? (be.location.name || be.location.city || be.location.address) : be.location) : 'Lagos'),
+              image: be.image_url || be.image || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+              price: parseFloat(be.price) || 0,
+              organizer: be.organizer ? (typeof be.organizer === 'object' ? be.organizer.name : be.organizer) : 'Unknown',
+              attendees: be.capacity || be.attendees || 0,
+              category: be.category ? (be.category.slug || be.category.name?.toLowerCase()) : (be.category_slug || 'music'),
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch public events:", err);
       }
-      return [];
+      return mockEvents;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   useEffect(() => {

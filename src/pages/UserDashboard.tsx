@@ -120,15 +120,15 @@ const UserDashboard = () => {
       try {
         const token = localStorage.getItem("access_token") || "";
         const [publicRes, savedRes, myEventsRes, messagesRes, notificationsRes] = await Promise.all([
-          api.get("public/events"),
+          api.get("public/events", undefined, undefined, { bypassCache: true }),
           Promise.resolve({ events: [] }),
           token ? api.get("user-events", undefined, token) : Promise.resolve({ events: [] }),
           token ? api.get("user-messages", undefined, token) : Promise.resolve({ conversations: [], users: [] }),
           token ? api.get("notifications", undefined, token).catch(() => ({ notifications: [] })) : Promise.resolve({ notifications: [] })
         ]);
         
-        if (publicRes?.events) setAllEvents(publicRes.events);
-        if (myEventsRes?.events) setUserEvents(myEventsRes.events);
+        if (publicRes?.events) setAllEvents(Array.isArray(publicRes.events) ? publicRes.events : typeof publicRes.events === 'object' ? Object.values(publicRes.events) : []);
+        if (myEventsRes?.events) setUserEvents(Array.isArray(myEventsRes.events) ? myEventsRes.events : typeof myEventsRes.events === 'object' ? Object.values(myEventsRes.events) : []);
         if (messagesRes?.conversations) setConversations(messagesRes.conversations);
         if (messagesRes?.users) setUsers(messagesRes.users);
         if (notificationsRes?.notifications) setNotifications(notificationsRes.notifications);
