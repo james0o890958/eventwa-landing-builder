@@ -147,7 +147,8 @@ const Explore = () => {
     queryFn: async () => {
       try {
         const response = await api.get('public/events', undefined, undefined, { bypassCache: true });
-        if (response.status === 'success' && response.events) {
+        console.log("[Explore Debug] API response:", response);
+        if (response?.status === 'success' && response?.events) {
           const rawList = (
             Array.isArray(response.events)
               ? response.events
@@ -156,8 +157,10 @@ const Explore = () => {
                 : []
           ).filter((be: any) => be && typeof be === "object" && be.id !== undefined && be.id !== null);
 
+          console.log("[Explore Debug] Parsed rawList count:", rawList.length, rawList);
+
           if (rawList.length > 0) {
-            return rawList.map((be: any) => ({
+            const mapped = rawList.map((be: any) => ({
               id: be.id.toString(),
               title: be.title || 'Untitled Event',
               description: be.description || '',
@@ -172,11 +175,14 @@ const Explore = () => {
               attendees: be.capacity || be.attendees || 0,
               category: be.category ? (be.category.slug || be.category.name?.toLowerCase()) : (be.category_slug || 'music'),
             }));
+            console.log("[Explore Debug] Successfully returning mapped events:", mapped);
+            return mapped;
           }
         }
       } catch (err) {
-        console.error("Failed to fetch public events:", err);
+        console.error("[Explore Debug] Failed to fetch public events:", err);
       }
+      console.warn("[Explore Debug] Falling back to mockEvents (count: 40)");
       return mockEvents;
     },
     staleTime: 0,
