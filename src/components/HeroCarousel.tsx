@@ -6,26 +6,33 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockEvents } from "@/data/mockEvents";
+import { useSponsored } from "@/hooks/useSponsored";
 import { Link } from "react-router-dom";
 
-const featured = mockEvents.filter((e) => e.featured);
-
 const HeroCarousel = () => {
+  const { data: events = [], isLoading } = useSponsored();
   const [current, setCurrent] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
-  const goNext = () => setCurrent((p) => (p + 1) % featured.length);
+  // Reset to first slide when event list changes (e.g. after fetch)
+  useEffect(() => {
+    setCurrent(0);
+  }, [events.length]);
+
+  const goNext = () =>
+    setCurrent((p) => (p + 1) % Math.max(events.length, 1));
   const goPrev = () =>
-    setCurrent((p) => (p - 1 + featured.length) % featured.length);
+    setCurrent((p) => (p - 1 + Math.max(events.length, 1)) % Math.max(events.length, 1));
 
   useEffect(() => {
+    if (events.length <= 1) return;
     const timer = setInterval(goNext, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [events.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -36,7 +43,6 @@ const HeroCarousel = () => {
     if (touchStartX.current === null || touchStartY.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Only trigger if horizontal swipe is dominant and long enough
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
       if (dx < 0) goNext();
       else goPrev();
@@ -45,7 +51,33 @@ const HeroCarousel = () => {
     touchStartY.current = null;
   };
 
-  const event = featured[current];
+  // ── Loading skeleton ────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <section className="relative h-[85vh] min-h-[500px] w-full overflow-hidden bg-secondary/30">
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-t from-background/80 via-secondary/40 to-secondary/20" />
+        <div className="container relative mx-auto flex h-full items-end px-4 pb-20">
+          <div className="max-w-2xl space-y-4">
+            <div className="h-6 w-28 rounded-full bg-secondary animate-pulse" />
+            <div className="h-14 w-3/4 rounded-xl bg-secondary animate-pulse" />
+            <div className="h-4 w-1/2 rounded bg-secondary/70 animate-pulse" />
+            <div className="flex gap-3 pt-2">
+              <div className="h-12 w-36 rounded-full bg-secondary animate-pulse" />
+              <div className="h-12 w-28 rounded-full bg-secondary animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <Loader2 className="h-10 w-10 text-muted-foreground/30 animate-spin" />
+        </div>
+      </section>
+    );
+  }
+
+  // ── No events guard (should never happen due to fallback, but just in case) ─
+  if (events.length === 0) return null;
+
+  const event = events[Math.min(current, events.length - 1)];
 
   return (
     <section
@@ -106,7 +138,7 @@ const HeroCarousel = () => {
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4 text-primary" />
-                {event.attendees.toLocaleString()} attending
+                {(event.attendees ?? 0).toLocaleString()} attending
               </span>
             </div>
             <div className="flex items-center gap-4">
@@ -134,30 +166,34 @@ const HeroCarousel = () => {
         </AnimatePresence>
       </div>
 
-      {/* Controls */}
-      <div className="absolute bottom-6 right-6 flex items-center gap-2">
-        <button
-          onClick={goPrev}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="flex gap-1.5 px-2">
-          {featured.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrent(i)}
-              className={`h-1.5 rounded-full transition-all ${i === current ? "w-8 bg-primary" : "w-1.5 bg-muted-foreground/40"}`}
-            />
-          ))}
+      {/* Controls — only shown when there are multiple slides */}
+      {events.length > 1 && (
+        <div className="absolute bottom-6 right-6 flex items-center gap-2">
+          <button
+            onClick={goPrev}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex gap-1.5 px-2">
+            {events.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === current ? "w-8 bg-primary" : "w-1.5 bg-muted-foreground/40"
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={goNext}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          onClick={goNext}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+      )}
     </section>
   );
 };
