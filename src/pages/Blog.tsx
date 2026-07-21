@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 
 import { api } from "@/lib/api";
 
@@ -20,6 +21,9 @@ const Blog = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
   // ── scroll detection for sticky header ────────────────────────────────────────────
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,6 +45,8 @@ const Blog = () => {
   // Fetch blogs from API and merge
   useEffect(() => {
     const fetchApiBlogs = async () => {
+      setIsError(false);
+      setIsLoading(true);
       try {
         // Typically, GET /blogs or GET /organizer/blogs (for public feed, we can try organizer/blogs if public not exposed, or blogs)
         const res = await api.get("organizer/blogs").catch(() => null) || await api.get("blogs").catch(() => null);
@@ -70,6 +76,9 @@ const Blog = () => {
         }
       } catch (err) {
         console.error("Failed to load backend blogs:", err);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchApiBlogs();
@@ -118,7 +127,8 @@ const Blog = () => {
     }`;
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <div className="min-h-screen bg-background">
       <Navbar />
 
       <div className="container mx-auto px-4 pt-6 pb-16">
@@ -138,11 +148,9 @@ const Blog = () => {
         {/* Sticky header with Filter button + results count */}
         <div
           ref={containerRef}
-          className={`sticky top-16 z-30 mb-6 transition-all ${
-            isScrolled
+          className={`sticky top-16 z-30 mb-6 transition-all ${isScrolled
               ? "-mx-4 bg-background/95 px-4 py-3 backdrop-blur-sm border-b border-border/50"
-              : ""
-          }`}
+              : ""}`}
         >
           <div className="flex items-center justify-between gap-4">
             <Dialog open={filterOverlayOpen} onOpenChange={setFilterOverlayOpen}>
@@ -183,8 +191,7 @@ const Blog = () => {
                       placeholder="Search articles…"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="border-0 bg-transparent pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
-                    />
+                      className="border-0 bg-transparent pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0" />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery("")}
@@ -210,9 +217,7 @@ const Blog = () => {
                       {blogCategories.map((cat) => (
                         <button
                           key={cat}
-                          onClick={() =>
-                            setSelectedCategory(cat === selectedCategory ? null : cat)
-                          }
+                          onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
                           className={pill(selectedCategory === cat)}
                         >
                           {cat}
@@ -236,9 +241,7 @@ const Blog = () => {
                       {authors.map((author) => (
                         <button
                           key={author}
-                          onClick={() =>
-                            setSelectedAuthor(author === selectedAuthor ? null : author)
-                          }
+                          onClick={() => setSelectedAuthor(author === selectedAuthor ? null : author)}
                           className={pill(selectedAuthor === author)}
                         >
                           {author}
@@ -272,8 +275,13 @@ const Blog = () => {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="py-20 text-center">
+        <DataStateWrapper
+          isLoading={isLoading}
+          isError={isError}
+          isEmpty={filtered.length === 0}
+          emptyIcon={<span className="text-5xl">📝</span>}
+          emptyMessage="No articles found"
+          emptyComponent={<div className="py-20 text-center">
             <span className="mb-4 block text-5xl">📝</span>
             <p className="font-display text-xl font-semibold text-foreground">
               No articles found
@@ -285,124 +293,120 @@ const Blog = () => {
               </button>
               .
             </p>
-          </div>
-        ) : (
-          <>
-            {/* Featured posts */}
-            {featured.length > 0 && (
-              <div className="mb-12 grid gap-6 lg:grid-cols-2">
-                {featured.map((post, i) => (
-                  <Link key={post.id} to={`/blog/${post.id}`}>
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="group relative h-80 overflow-hidden rounded-2xl border border-border/50"
-                    >
+          </div>}
+        >
+          {/* Featured posts */}
+          {featured.length > 0 && (
+            <div className="mb-12 grid gap-6 lg:grid-cols-2">
+              {featured.map((post, i) => (
+                <Link key={post.id} to={`/blog/${post.id}`}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="group relative h-80 overflow-hidden rounded-2xl border border-border/50"
+                  >
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                      <span className="mb-2 inline-block rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary">
+                        {post.category}
+                      </span>
+                      <h2 className="mb-2 font-display text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
+                        {post.title}
+                      </h2>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {post.excerpt}
+                      </p>
+                      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedAuthor(
+                              post.author === selectedAuthor
+                                ? null
+                                : post.author
+                            );
+                          } }
+                          className="flex items-center gap-1 hover:text-primary transition-colors"
+                        >
+                          <User className="h-3 w-3" />
+                          {post.author}
+                        </button>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {post.readTime}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* All posts */}
+          {rest.length > 0 && (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {rest.map((post, i) => (
+                <Link key={post.id} to={`/blog/${post.id}`}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group overflow-hidden rounded-2xl border border-border/50 bg-card transition-all hover:border-primary/30 hover:shadow-card"
+                  >
+                    <div className="h-48 overflow-hidden">
                       <img
                         src={post.image}
                         alt={post.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-6">
-                        <span className="mb-2 inline-block rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary">
-                          {post.category}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    </div>
+                    <div className="p-5">
+                      <span className="mb-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                        {post.category}
+                      </span>
+                      <h3 className="mb-2 font-display text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {post.title}
+                      </h3>
+                      <p className="mb-3 text-sm text-muted-foreground line-clamp-2">
+                        {post.excerpt}
+                      </p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedAuthor(
+                              post.author === selectedAuthor
+                                ? null
+                                : post.author
+                            );
+                          } }
+                          className="flex items-center gap-1 hover:text-primary transition-colors"
+                        >
+                          <User className="h-3 w-3" />
+                          {post.author}
+                        </button>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {post.readTime}
                         </span>
-                        <h2 className="mb-2 font-display text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
-                          {post.title}
-                        </h2>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {post.excerpt}
-                        </p>
-                        <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSelectedAuthor(
-                                post.author === selectedAuthor
-                                  ? null
-                                  : post.author,
-                              );
-                            }}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                          >
-                            <User className="h-3 w-3" />
-                            {post.author}
-                          </button>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {post.readTime}
-                          </span>
-                        </div>
                       </div>
-                    </motion.div>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* All posts */}
-            {rest.length > 0 && (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {rest.map((post, i) => (
-                  <Link key={post.id} to={`/blog/${post.id}`}>
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.05 }}
-                      className="group overflow-hidden rounded-2xl border border-border/50 bg-card transition-all hover:border-primary/30 hover:shadow-card"
-                    >
-                      <div className="h-48 overflow-hidden">
-                        <img
-                          src={post.image}
-                          alt={post.title}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      </div>
-                      <div className="p-5">
-                        <span className="mb-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                          {post.category}
-                        </span>
-                        <h3 className="mb-2 font-display text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                          {post.title}
-                        </h3>
-                        <p className="mb-3 text-sm text-muted-foreground line-clamp-2">
-                          {post.excerpt}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSelectedAuthor(
-                                post.author === selectedAuthor
-                                  ? null
-                                  : post.author,
-                              );
-                            }}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                          >
-                            <User className="h-3 w-3" />
-                            {post.author}
-                          </button>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {post.readTime}
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </DataStateWrapper>
       </div>
-
-      <Footer />
     </div>
+    <Footer />
+    </>
   );
 };
 

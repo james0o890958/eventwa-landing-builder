@@ -14,6 +14,7 @@ import {
   Settings,
   ArrowLeft,
 } from "lucide-react";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -295,19 +296,25 @@ const Notifications = () => {
         </div>
 
         {/* Notification list */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Bell className="mb-4 h-16 w-16 text-muted-foreground/20" />
-            <h2 className="font-display text-xl font-semibold text-foreground">
-              No notifications
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {activeFilter === "all"
-                ? "You're all caught up! No new notifications."
-                : `No ${activeFilter} notifications yet.`}
-            </p>
-          </div>
-        ) : (
+        <DataStateWrapper
+          isLoading={isLoading}
+          isError={!!error}
+          error={error}
+          isEmpty={filtered.length === 0}
+          emptyComponent={
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <Bell className="mb-4 h-16 w-16 text-muted-foreground/20" />
+              <h2 className="font-display text-xl font-semibold text-foreground">
+                No notifications
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {activeFilter === "all"
+                  ? "You're all caught up! No new notifications."
+                  : `No ${activeFilter} notifications yet.`}
+              </p>
+            </div>
+          }
+        >
           <div className="space-y-2">
             <AnimatePresence initial={false}>
               {filtered.map((notif, i) => {
@@ -401,7 +408,7 @@ const Notifications = () => {
               })}
             </AnimatePresence>
           </div>
-        )}
+        </DataStateWrapper>
       </div>
     </div>
   );

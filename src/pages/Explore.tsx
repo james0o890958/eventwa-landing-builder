@@ -12,6 +12,7 @@ import {
   ListFilter,
   Filter,
 } from "lucide-react";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
@@ -142,7 +143,7 @@ const Explore = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ── fetch backend events with React Query caching ────────────────────────────
-  const { data: events = [], isLoading: loading } = useQuery({
+  const { data: events = [], isLoading: loading, isError } = useQuery({
     queryKey: ["public-events"],
     queryFn: async () => {
       try {
@@ -694,11 +695,28 @@ const Explore = () => {
         </div>
 
         {/* ── Event grid ──────────────────────────────────────────────────────── */}
-        {loading ? (
-          <div className="py-20 flex justify-center items-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : filtered.length > 0 ? (
+        <DataStateWrapper
+          isLoading={loading}
+          isError={isError}
+          isEmpty={filtered.length === 0}
+          emptyIcon={<SlidersHorizontal className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />}
+          emptyMessage="No events match your filters"
+          emptyComponent={
+            <div className="py-20 text-center">
+              <SlidersHorizontal className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
+              <p className="text-lg font-semibold text-foreground">
+                No events match your filters
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try adjusting your search or{" "}
+                <button onClick={clearFilters} className="text-primary underline">
+                  clear all filters
+                </button>
+                .
+              </p>
+            </div>
+          }
+        >
           <motion.div
             key={`${city}-${selectedCategory}-${dateFilter}-${priceFilter}-${typeFilter}-${sortOption}`}
             initial={{ opacity: 0 }}
@@ -710,21 +728,7 @@ const Explore = () => {
               <EventCard key={event.id} event={event} index={i} />
             ))}
           </motion.div>
-        ) : (
-          <div className="py-20 text-center">
-            <SlidersHorizontal className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="text-lg font-semibold text-foreground">
-              No events match your filters
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Try adjusting your search or{" "}
-              <button onClick={clearFilters} className="text-primary underline">
-                clear all filters
-              </button>
-              .
-            </p>
-          </div>
-        )}
+        </DataStateWrapper>
       </div>
 
       <Footer />

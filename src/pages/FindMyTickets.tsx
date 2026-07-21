@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { mockEvents } from "@/data/mockEvents";
@@ -138,6 +139,7 @@ const FindMyTickets = () => {
     }
 
     setSearching(true);
+    setSearched(true); // Show the results section immediately so the skeleton renders
 
     const token = localStorage.getItem("access_token") || "";
 
@@ -476,7 +478,7 @@ const FindMyTickets = () => {
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="font-display text-xl font-bold text-foreground">
-                    {results.length > 0
+                    {searching ? "Searching..." : results.length > 0
                       ? `${results.length} Ticket${results.length !== 1 ? "s" : ""} Found`
                       : "No Tickets Found"}
                   </h2>
@@ -497,40 +499,47 @@ const FindMyTickets = () => {
                 </Button>
               </div>
 
-              {results.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-border/50 bg-card py-16 text-center shadow-card">
-                  <Ticket className="mb-4 h-14 w-14 text-muted-foreground/20" />
-                  <h3 className="font-display text-lg font-semibold text-foreground">
-                    No tickets found
-                  </h3>
-                  <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                    We couldn't find any tickets matching your details. Please
-                    double-check your{" "}
-                    {searchMethod === "email"
-                      ? "email address"
-                      : "reference number"}{" "}
-                    and try again.
-                  </p>
-                  <div className="mt-6 flex flex-col gap-2 items-center">
-                    <Button
-                      size="sm"
-                      onClick={resetSearch}
-                      className="gradient-primary text-primary-foreground shadow-glow"
-                    >
-                      Try Again
-                    </Button>
-                    <Link to="/help">
+              <DataStateWrapper
+                isLoading={searching}
+                isError={false}
+                isEmpty={results.length === 0}
+                emptyIcon={<Ticket className="mb-4 h-14 w-14 text-muted-foreground/20" />}
+                emptyMessage="No tickets found"
+                emptyComponent={
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-border/50 bg-card py-16 text-center shadow-card">
+                    <Ticket className="mb-4 h-14 w-14 text-muted-foreground/20" />
+                    <h3 className="font-display text-lg font-semibold text-foreground">
+                      No tickets found
+                    </h3>
+                    <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                      We couldn't find any tickets matching your details. Please
+                      double-check your{" "}
+                      {searchMethod === "email"
+                        ? "email address"
+                        : "reference number"}{" "}
+                      and try again.
+                    </p>
+                    <div className="mt-6 flex flex-col gap-2 items-center">
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground text-xs"
+                        onClick={resetSearch}
+                        className="gradient-primary text-primary-foreground shadow-glow"
                       >
-                        Contact Support
+                        Try Again
                       </Button>
-                    </Link>
+                      <Link to="/help">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground text-xs"
+                        >
+                          Contact Support
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ) : (
+                }
+              >
                 <div className="space-y-4">
                   {results.map((ticket, i) => {
                     const event = ticket.realEvent || mockEvents.find(
@@ -722,7 +731,7 @@ const FindMyTickets = () => {
                     );
                   })}
                 </div>
-              )}
+              </DataStateWrapper>
 
               {/* Sign in prompt */}
               {results.length > 0 && (

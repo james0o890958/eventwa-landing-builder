@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -416,24 +417,31 @@ const MyTickets = () => {
         </div>
 
         {/* Ticket list */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Ticket className="mb-4 h-16 w-16 text-muted-foreground/30" />
-            <p className="font-display text-xl font-semibold text-foreground">
-              No tickets found
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {searchQuery
-                ? "Try a different search term."
-                : "You haven't purchased any tickets yet."}
-            </p>
-            <Link to="/explore">
-              <Button className="mt-6 gradient-primary text-primary-foreground shadow-glow">
-                Browse Events
-              </Button>
-            </Link>
-          </div>
-        ) : (
+        <DataStateWrapper
+          isLoading={isLoading}
+          isError={!!error}
+          isEmpty={filtered.length === 0}
+          emptyIcon={<Ticket className="h-16 w-16 text-muted-foreground/30" />}
+          emptyMessage="No tickets found"
+          emptyComponent={
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <Ticket className="mb-4 h-16 w-16 text-muted-foreground/30" />
+              <p className="font-display text-xl font-semibold text-foreground">
+                No tickets found
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {searchQuery
+                  ? "Try a different search term."
+                  : "You haven't purchased any tickets yet."}
+              </p>
+              <Link to="/explore">
+                <Button className="mt-6 gradient-primary text-primary-foreground shadow-glow">
+                  Browse Events
+                </Button>
+              </Link>
+            </div>
+          }
+        >
           <div className="space-y-4">
             {filtered.map((ticket, i) => {
               const ev = ticket.event!;
@@ -633,7 +641,7 @@ const MyTickets = () => {
               );
             })}
           </div>
-        )}
+        </DataStateWrapper>
       </div>
     </div>
   );

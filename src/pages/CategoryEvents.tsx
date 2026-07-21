@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Search, X, ChevronDown, Loader2, AlertCircle } from "lucide-react";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventCard from "@/components/EventCard";
@@ -275,16 +276,33 @@ const CategoryEvents = () => {
             </div>
 
             {/* Events grid */}
-            {loading ? (
-              <div className="py-20 flex justify-center items-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : error ? (
-              <div className="py-20 flex flex-col items-center gap-3 text-center">
-                <AlertCircle className="h-8 w-8 text-destructive" />
-                <p className="text-sm text-muted-foreground">{error}</p>
-              </div>
-            ) : filtered.length > 0 ? (
+            <DataStateWrapper
+              isLoading={loading}
+              isError={!!error}
+              error={error}
+              isEmpty={filtered.length === 0}
+              emptyComponent={
+                <div className="py-20 text-center">
+                  <span className="mb-4 block text-5xl">{category.icon}</span>
+                  <p className="font-display text-xl font-semibold text-foreground">
+                    No events found
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Try adjusting your search or filters.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setPriceFilter("all");
+                      setSortOption("soonest");
+                    }}
+                    className="mt-4 text-sm font-medium text-primary hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              }
+            >
               <motion.div
                 key={`${searchQuery}-${priceFilter}-${sortOption}`}
                 initial={{ opacity: 0 }}
@@ -296,27 +314,7 @@ const CategoryEvents = () => {
                   <EventCard key={event.id} event={event} index={i} />
                 ))}
               </motion.div>
-            ) : (
-              <div className="py-20 text-center">
-                <span className="mb-4 block text-5xl">{category.icon}</span>
-                <p className="font-display text-xl font-semibold text-foreground">
-                  No events found
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Try adjusting your search or filters.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setPriceFilter("all");
-                    setSortOption("soonest");
-                  }}
-                  className="mt-4 text-sm font-medium text-primary hover:underline"
-                >
-                  Clear all filters
-                </button>
-              </div>
-            )}
+            </DataStateWrapper>
           </>
         ) : (
           <div className="text-center py-20">

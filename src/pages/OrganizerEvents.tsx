@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, Plus, Edit, Users, Copy, Megaphone, MessagesSquare, Trash2 } from "lucide-react";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import DashboardLayout from "@/components/DashboardLayout";
 import { organizerMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,11 @@ import { toast } from "sonner";
 const OrganizerEvents = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
   const fetchEvents = async () => {
     try {
+      setIsError(false);
       const token = localStorage.getItem("access_token");
       if (!token) {
         setLoading(false);
@@ -43,6 +46,7 @@ const OrganizerEvents = () => {
       }
     } catch (error) {
       console.error("Failed to load organizer events:", error);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
@@ -108,34 +112,28 @@ const OrganizerEvents = () => {
       </div>
 
       <div className="space-y-4">
-        {loading ? (
-          [1, 2, 3].map((n) => (
-            <div key={n} className="rounded-2xl border border-border/50 bg-card p-5 shadow-card animate-pulse flex flex-col gap-4 sm:flex-row">
-              <div className="h-24 w-full rounded-xl bg-muted sm:w-32" />
-              <div className="flex-1 space-y-3">
-                <div className="h-4 bg-muted rounded w-1/3" />
-                <div className="h-3 bg-muted rounded w-1/4" />
-                <div className="h-3 bg-muted rounded w-1/2" />
+        <DataStateWrapper
+          isLoading={loading}
+          isError={isError}
+          isEmpty={events.length === 0}
+          emptyComponent={
+            <div className="rounded-2xl border border-border/50 bg-card p-12 text-center shadow-card flex flex-col items-center justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                <Calendar className="h-8 w-8 text-primary" />
               </div>
+              <h3 className="font-display text-xl font-bold text-foreground mb-2">No Events Found</h3>
+              <p className="text-muted-foreground max-w-sm mb-6 text-sm">
+                It looks like you haven't created any events yet. Share your next experience with the world today!
+              </p>
+              <Link to="/organizer/create-event">
+                <Button className="gradient-primary text-primary-foreground shadow-glow">
+                  <Plus className="mr-2 h-4 w-4" /> Create First Event
+                </Button>
+              </Link>
             </div>
-          ))
-        ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-border/50 bg-card p-12 text-center shadow-card flex flex-col items-center justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-              <Calendar className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="font-display text-xl font-bold text-foreground mb-2">No Events Found</h3>
-            <p className="text-muted-foreground max-w-sm mb-6 text-sm">
-              It looks like you haven't created any events yet. Share your next experience with the world today!
-            </p>
-            <Link to="/organizer/create-event">
-              <Button className="gradient-primary text-primary-foreground shadow-glow">
-                <Plus className="mr-2 h-4 w-4" /> Create First Event
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          events.map((event, i) => (
+          }
+        >
+          {events.map((event, i) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, y: 12 }}
@@ -185,8 +183,8 @@ const OrganizerEvents = () => {
                 </div>
               </div>
             </motion.div>
-          ))
-        )}
+          ))}
+        </DataStateWrapper>
       </div>
     </DashboardLayout>
   );

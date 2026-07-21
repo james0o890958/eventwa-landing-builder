@@ -23,9 +23,9 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
-  SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateEventSuggestions } from "@/lib/eventSuggestions";
 import { api, getFullAvatarUrl } from "@/lib/api";
@@ -113,6 +113,7 @@ const UserDashboard = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string>("");
 
   useEffect(() => {
@@ -135,6 +136,7 @@ const UserDashboard = () => {
       } catch (err) {
         console.error("Failed to load dashboard data", err);
         setNotificationsError("Failed to load data");
+        setIsError(true);
       } finally {
         setIsLoading(false);
       }
@@ -238,9 +240,7 @@ const UserDashboard = () => {
     [allEvents, allSavedIds.join(","), upcomingEventIds.join(","), pastEventIds.join(",")]
   );
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
-  }
+  // Loading and Error states are handled by DataStateWrapper below
 
   const TABS: {
     id: Tab;
@@ -288,8 +288,14 @@ const UserDashboard = () => {
 
   return (
     <>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Profile header */}
+      <DataStateWrapper 
+        isLoading={isLoading} 
+        isError={isError} 
+        isEmpty={false} 
+        emptyMessage="No dashboard data found"
+      >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          {/* Profile header */}
         <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start max-w-full">
           <div className="relative shrink-0">
               <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-primary/30">
@@ -654,9 +660,9 @@ const UserDashboard = () => {
             )}
           </Button>
         </motion.div>
-
-      </>
-    );
+      </DataStateWrapper>
+    </>
+  );
 };
 
 export default UserDashboard;

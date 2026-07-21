@@ -18,6 +18,7 @@ import { organizerMenu } from "@/config/dashboardMenus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DataStateWrapper } from "@/components/ui/DataStateWrapper";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockEvents } from "@/data/mockEvents";
 import type { Event } from "@/data/mockEvents";
@@ -98,6 +99,7 @@ const OrganizerDashboard = () => {
   } | null>(null);
   const [orgEvents, setOrgEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     const syncOrganizerProfile = async () => {
@@ -180,6 +182,7 @@ const OrganizerDashboard = () => {
         }
       } catch (error) {
         console.error("Failed to fetch events:", error);
+        setIsError(true);
       } finally {
         setLoading(false);
       }
@@ -389,82 +392,79 @@ const OrganizerDashboard = () => {
                         : "Your account is pending admin approval. Once approved, you'll be able to create and manage events here."}
                     </p>
                   </div>
-                ) : loading ? (
-                  <div className="p-8 space-y-4">
-                    {[1, 2, 3].map((n) => (
-                      <div key={n} className="flex items-center justify-between animate-pulse">
-                        <div className="space-y-2 flex-1">
-                          <div className="h-4 bg-muted rounded w-1/3" />
-                          <div className="h-3 bg-muted rounded w-1/4" />
-                        </div>
-                        <div className="h-4 bg-muted rounded w-16" />
-                      </div>
-                    ))}
-                  </div>
-                ) : orgEvents.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-16 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                      <Calendar className="h-8 w-8 text-primary" />
-                    </div>
-                    <h3 className="font-display text-xl font-bold text-foreground mb-2">No Events Found</h3>
-                    <p className="text-muted-foreground max-w-sm mb-6 text-sm">
-                      You haven't created any events yet. Share your next experience with the world today!
-                    </p>
-                    <Link to="/organizer/create-event">
-                      <Button className="gradient-primary text-primary-foreground shadow-glow">
-                        <Plus className="mr-2 h-4 w-4" /> Create Event
-                      </Button>
-                    </Link>
-                  </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border/50">
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground">Event</th>
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden sm:table-cell">Date</th>
-                          <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden md:table-cell">Location</th>
-                          <th className="px-5 py-4 text-right font-medium text-muted-foreground">Attendees</th>
-                          <th className="px-5 py-4 text-right font-medium text-muted-foreground">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orgEvents.map((event) => {
-                          const status = getStatus(event.date);
-                          return (
-                            <tr
-                              key={event.id}
-                              className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors"
-                            >
-                              <td className="px-5 py-4">
-                                <Link
-                                  to={`/event/${event.id}`}
-                                  className="font-medium text-foreground hover:text-primary transition-colors"
-                                >
-                                  {event.title}
-                                </Link>
-                                <p className="text-xs text-muted-foreground capitalize">{event.category}</p>
-                              </td>
-                              <td className="px-5 py-4 text-muted-foreground hidden sm:table-cell">
-                                {event.date ? new Date(event.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
-                              </td>
-                              <td className="px-5 py-4 text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
-                                {event.location}
-                              </td>
-                              <td className="px-5 py-4 text-right text-foreground">
-                                {event.attendees.toLocaleString()}
-                              </td>
-                              <td className="px-5 py-4 text-right">
-                                <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.cls}`}>
-                                  {status.label}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataStateWrapper
+                    isLoading={loading}
+                    isError={isError}
+                    isEmpty={orgEvents.length === 0}
+                    emptyIcon={<Calendar className="h-8 w-8 text-primary" />}
+                    emptyMessage="No Events Found"
+                    emptyComponent={
+                      <div className="flex flex-col items-center justify-center p-16 text-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                          <Calendar className="h-8 w-8 text-primary" />
+                        </div>
+                        <h3 className="font-display text-xl font-bold text-foreground mb-2">No Events Found</h3>
+                        <p className="text-muted-foreground max-w-sm mb-6 text-sm">
+                          You haven't created any events yet. Share your next experience with the world today!
+                        </p>
+                        <Link to="/organizer/create-event">
+                          <Button className="gradient-primary text-primary-foreground shadow-glow">
+                            <Plus className="mr-2 h-4 w-4" /> Create Event
+                          </Button>
+                        </Link>
+                      </div>
+                    }
+                  >
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/50">
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground">Event</th>
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden sm:table-cell">Date</th>
+                            <th className="px-5 py-4 text-left font-medium text-muted-foreground hidden md:table-cell">Location</th>
+                            <th className="px-5 py-4 text-right font-medium text-muted-foreground">Attendees</th>
+                            <th className="px-5 py-4 text-right font-medium text-muted-foreground">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orgEvents.map((event) => {
+                            const status = getStatus(event.date);
+                            return (
+                              <tr
+                                key={event.id}
+                                className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors"
+                              >
+                                <td className="px-5 py-4">
+                                  <Link
+                                    to={`/event/${event.id}`}
+                                    className="font-medium text-foreground hover:text-primary transition-colors"
+                                  >
+                                    {event.title}
+                                  </Link>
+                                  <p className="text-xs text-muted-foreground capitalize">{event.category}</p>
+                                </td>
+                                <td className="px-5 py-4 text-muted-foreground hidden sm:table-cell">
+                                  {event.date ? new Date(event.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
+                                </td>
+                                <td className="px-5 py-4 text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
+                                  {event.location}
+                                </td>
+                                <td className="px-5 py-4 text-right text-foreground">
+                                  {event.attendees.toLocaleString()}
+                                </td>
+                                <td className="px-5 py-4 text-right">
+                                  <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.cls}`}>
+                                    {status.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </DataStateWrapper>
                 )}
               </div>
             )}
