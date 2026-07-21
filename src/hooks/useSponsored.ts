@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { mockEvents } from "@/data/mockEvents";
 import type { Event } from "@/data/mockEvents";
 
 /**
@@ -65,12 +64,6 @@ export function normaliseEvent(be: any): Event {
 
 /**
  * Fetches sponsored events from GET /public/sponsored-events.
- *
- * Falls back to the top 6 most-attended mockEvents when:
- *   - The API call fails (network error, server down)
- *   - The server itself returns no sponsored events and fell back to most-viewed
- *
- * This means the HeroCarousel and home page are NEVER empty.
  */
 export function useSponsored() {
   return useQuery<Event[]>({
@@ -79,20 +72,9 @@ export function useSponsored() {
       try {
         const res = await api.get("public/sponsored-events");
         const raw: any[] = res?.events ?? [];
-
-        if (raw.length === 0) {
-          // Server returned nothing at all — use mock fallback
-          return [...mockEvents]
-            .sort((a, b) => b.attendees - a.attendees)
-            .slice(0, 6);
-        }
-
         return raw.map(normaliseEvent);
       } catch {
-        // Network / server error — silently fall back to mock data
-        return [...mockEvents]
-          .sort((a, b) => b.attendees - a.attendees)
-          .slice(0, 6);
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000,   // 5 min — matches server cache TTL

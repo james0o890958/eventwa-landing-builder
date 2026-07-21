@@ -1,8 +1,41 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { categories, mockEvents } from "@/data/mockEvents";
+import { categories as staticCategories, mockEvents } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
 const CategoryBrowser = () => {
+  const [categoriesList, setCategoriesList] = useState<any[]>(() =>
+    staticCategories.map((sc) => ({
+      ...sc,
+      count: mockEvents.filter((e) => e.category === sc.id).length,
+    }))
+  );
+
+  useEffect(() => {
+    api.get("categories")
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data || res?.categories || []);
+        if (list && list.length > 0) {
+          const mapped = list.map((cat: any) => {
+            const matchStatic = staticCategories.find(sc => sc.id === String(cat.id) || sc.label.toLowerCase() === (cat.name || '').toLowerCase());
+            const catId = matchStatic?.id || String(cat.id);
+            const mockCount = mockEvents.filter((e) => e.category === catId).length;
+
+            return {
+              id: String(cat.id),
+              label: cat.name || cat.label,
+              icon: matchStatic?.icon || "✨",
+              color: matchStatic?.color || "from-blue-500/20 to-indigo-500/20 text-blue-500",
+              count: cat.events_count && cat.events_count > 0 ? cat.events_count : mockCount,
+            };
+          });
+          setCategoriesList(mapped);
+        }
+      })
+      .catch((err) => console.error("Failed to load categories:", err));
+  }, []);
+
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">
@@ -14,10 +47,8 @@ const CategoryBrowser = () => {
         </p>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-7">
-          {categories.map((cat, i) => {
-            const count = mockEvents.filter(
-              (e) => e.category === cat.id,
-            ).length;
+          {categoriesList.map((cat, i) => {
+            const count = cat.count ?? 0;
             return (
               <Link key={cat.id} to={`/category/${cat.id}`}>
                 <motion.div

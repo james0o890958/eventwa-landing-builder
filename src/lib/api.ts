@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://eventwaversion3-production.up.railway.app/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://panl1cp657.onrender.com/api';
 
 export const getFullAvatarUrl = (url?: string) => {
   if (!url) return undefined;

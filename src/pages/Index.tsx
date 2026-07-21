@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import HeroCarousel from "@/components/HeroCarousel";
 import CategoryBrowser from "@/components/CategoryBrowser";
@@ -9,38 +9,51 @@ import PopularOrganizers from "@/components/PopularOrganizers";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
 import { mockEvents } from "@/data/mockEvents";
-import { useSponsored } from "@/hooks/useSponsored";
+import { useSponsored, normaliseEvent } from "@/hooks/useSponsored";
+import { api } from "@/lib/api";
 
 const Index = () => {
   const [selectedLocation, setSelectedLocation] = useState<string>("Victoria Island, Lagos");
+  const [publicEvents, setPublicEvents] = useState<any[]>([]);
 
   // Real sponsored / most-viewed events from the API
   const { data: sponsoredEvents = [] } = useSponsored();
 
+  useEffect(() => {
+    api.get("public/events")
+      .then((res: any) => {
+        const raw = res?.events || res?.data || (Array.isArray(res) ? res : []);
+        if (raw && raw.length > 0) {
+          setPublicEvents(raw.map(normaliseEvent));
+        }
+      })
+      .catch((err) => console.error("Failed to load public events on Index page:", err));
+  }, []);
+
+  const allEvents = publicEvents.length > 0 ? publicEvents : mockEvents;
+
   const filteredEvents = useMemo(() => {
-    if (!selectedLocation) return mockEvents;
-    return mockEvents.filter((event) =>
-      event.location.toLowerCase().includes(selectedLocation.toLowerCase())
+    if (!selectedLocation) return allEvents;
+    return allEvents.filter((event) =>
+      (event.location || "").toLowerCase().includes(selectedLocation.toLowerCase())
     );
-  }, [selectedLocation]);
+  }, [selectedLocation, allEvents]);
 
   const recommended = useMemo(() =>
-    filteredEvents.filter((e) => !e.featured).slice(0, 6),
-    [filteredEvents]
+    (filteredEvents.length > 0 ? filteredEvents : allEvents).filter((e) => !e.featured).slice(0, 6),
+    [filteredEvents, allEvents]
   );
 
-  const displayEvents = filteredEvents.length > 0 ? filteredEvents : mockEvents;
-
-  // Trending: sponsored events first, filled up with mock events if needed
+  // Trending: sponsored events first, filled up with public events if needed
   const trendingEvents = useMemo(() => {
     if (sponsoredEvents.length >= 6) return sponsoredEvents.slice(0, 6);
     const sponsoredIds = new Set(sponsoredEvents.map((e) => e.id));
-    const mockFill = [...mockEvents]
+    const fill = [...allEvents]
       .filter((e) => !sponsoredIds.has(e.id))
-      .sort((a, b) => b.attendees - a.attendees)
+      .sort((a, b) => (b.attendees || 0) - (a.attendees || 0))
       .slice(0, 6 - sponsoredEvents.length);
-    return [...sponsoredEvents, ...mockFill];
-  }, [sponsoredEvents]);
+    return [...sponsoredEvents, ...fill];
+  }, [sponsoredEvents, allEvents]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,7 +72,7 @@ const Index = () => {
         />
         <div className="border-t border-border/30" />
         <EventsNearYou
-          events={mockEvents}
+          events={allEvents}
           city={selectedLocation}
           onCityChange={(city) => setSelectedLocation(city || "Lagos")}
         />

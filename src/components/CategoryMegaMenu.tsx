@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, MapPin, ArrowRight, ChevronDown } from "lucide-react";
 // CHANGED: Removed mockEvents and Event imports — no longer needed for counts or preview
-import { categories as staticCategories } from "@/data/mockEvents";
+import { categories as staticCategories, mockEvents } from "@/data/mockEvents";
 import { api } from "@/lib/api";
 
 interface CategoryMegaMenuProps {
@@ -46,31 +46,38 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
       try {
         const data = await api.get("categories");
         const categoriesData = Array.isArray(data) ? data : data.categories || [];
-        if (categoriesData.length > 0) {
+        if (categoriesData && categoriesData.length > 0) {
           const mapped: Category[] = categoriesData.map((cat: any) => {
             const slug = cat.slug || cat.name?.toLowerCase().replace(/\s+/g, "-") || "";
             const matchedStatic = staticCategories.find(
               (c) => c.id === slug || c.label.toLowerCase() === cat.name?.toLowerCase()
             );
+            const catId = matchedStatic?.id || slug;
+            const mockCount = mockEvents.filter((e) => e.category === catId).length;
+
             return {
               id: slug,
-              // CHANGED: store numeric DB id — needed for categories/{id}/events API call
               numericId: cat.id,
               label: cat.name,
               icon: matchedStatic?.icon || "🎫",
               color: matchedStatic?.color || "from-slate-500 to-gray-600",
-              // CHANGED: events_count from API instead of mockEvents.filter().length
-              events_count: cat.events_count ?? 0,
+              events_count: cat.events_count && cat.events_count > 0 ? cat.events_count : mockCount,
             };
           });
           setCategories(mapped);
+        } else {
+          const fallback: Category[] = staticCategories.map((c, i) => ({
+            ...c,
+            numericId: i + 1,
+            events_count: mockEvents.filter((e) => e.category === c.id).length,
+          }));
+          setCategories(fallback);
         }
       } catch (err) {
-        // CHANGED: fallback maps staticCategories to Category[] shape with numericId: 0
         const fallback: Category[] = staticCategories.map((c, i) => ({
           ...c,
           numericId: i + 1,
-          events_count: 0,
+          events_count: mockEvents.filter((e) => e.category === c.id).length,
         }));
         setCategories(fallback);
         console.error("Failed to load categories:", err);
@@ -97,19 +104,46 @@ const CategoryMegaMenu = ({ sidebar = false }: CategoryMegaMenuProps) => {
         const data = await api.get(`categories/${identifier}/events`);
         // CHANGED: normalises response — handles array, data.events, or data.data shapes
         const events = Array.isArray(data) ? data : data.events || data.data || [];
-        // CHANGED: maps API fields to PreviewEvent shape
-        setPreviewEvents(
-          events.slice(0, 3).map((e: any) => ({
-            id: e.id,
-            title: e.title ?? e.name,
-            date: e.start_date ?? e.date,
-            location: e.location ?? e.locations?.[0]?.name ?? e.locations?.[0]?.address ?? e.venue ?? "",
-            price: e.price ?? 0,
-            image: e.banner_image ?? e.image_url ?? e.image ?? "",
-          }))
-        );
+        if (events.length > 0) {
+          setPreviewEvents(
+            events.slice(0, 3).map((e: any) => ({
+              id: e.id,
+              title: e.title ?? e.name,
+              date: e.start_date ?? e.date,
+              location: e.location ?? e.locations?.[0]?.name ?? e.locations?.[0]?.address ?? e.venue ?? "",
+              price: e.price ?? 0,
+              image: e.banner_image ?? e.image_url ?? e.image ?? "",
+            }))
+          );
+        } else {
+          const categoryObj = categories.find((c) => c.id === activeCategory);
+          const fallbackEvents = mockEvents
+            .filter((e) => e.category === activeCategory || e.category === categoryObj?.id)
+            .slice(0, 3)
+            .map((e) => ({
+              id: e.id,
+              title: e.title,
+              date: e.date,
+              location: e.location,
+              price: e.price,
+              image: e.image,
+            }));
+          setPreviewEvents(fallbackEvents);
+        }
       } catch (err) {
-        setPreviewEvents([]);
+        const categoryObj = categories.find((c) => c.id === activeCategory);
+        const fallbackEvents = mockEvents
+          .filter((e) => e.category === activeCategory || e.category === categoryObj?.id)
+          .slice(0, 3)
+          .map((e) => ({
+            id: e.id,
+            title: e.title,
+            date: e.date,
+            location: e.location,
+            price: e.price,
+            image: e.image,
+          }));
+        setPreviewEvents(fallbackEvents);
         console.error("Failed to load category events:", err);
       } finally {
         setPreviewLoading(false);

@@ -1,18 +1,32 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import EventCard from "@/components/EventCard";
-import { mockEvents, type Event } from "@/data/mockEvents";
+import { api } from "@/lib/api";
 
 interface TrendingEventsProps {
-  events?: Event[];
+  events?: any[];
 }
 
-const TrendingEvents = ({ events = mockEvents }: TrendingEventsProps) => {
+const TrendingEvents = ({ events: propEvents }: TrendingEventsProps) => {
+  const [apiEvents, setApiEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (propEvents) return;
+    api.get("public/events")
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.events || res?.data || []);
+        if (list && list.length > 0) setApiEvents(list);
+      })
+      .catch((err) => console.error("Failed to load trending events:", err));
+  }, [propEvents]);
+
+  const activeEvents = propEvents || apiEvents;
+
   const trending = useMemo(() => 
-    [...events].sort((a, b) => b.attendees - a.attendees).slice(0, 6),
-    [events]
+    [...activeEvents].sort((a, b) => (b.views || b.attendees || 0) - (a.views || a.attendees || 0)).slice(0, 6),
+    [activeEvents]
   );
   return (
     <section className="py-16">

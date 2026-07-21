@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { MapPin, Search, ChevronRight, LocateFixed, Globe } from "lucide-react";
 import { toast } from "sonner";
-import { locations as staticLocations } from "@/data/mockLocations";
 import {
   Dialog,
   DialogContent,
@@ -18,31 +17,126 @@ interface LocationMenuProps {
   onLocationSelect?: (location: string) => void;
 }
 
+const DEFAULT_LOCATIONS = [
+  {
+    id: "1",
+    name: "Lagos",
+    cities: [
+      { id: "101", name: "Victoria Island", state: "Lagos" },
+      { id: "102", name: "Lekki", state: "Lagos" },
+      { id: "103", name: "Ikeja", state: "Lagos" },
+      { id: "104", name: "Lagos Island", state: "Lagos" },
+      { id: "105", name: "Surulere", state: "Lagos" },
+      { id: "106", name: "Yaba", state: "Lagos" },
+    ],
+  },
+  {
+    id: "2",
+    name: "Abuja (FCT)",
+    cities: [
+      { id: "201", name: "Maitama", state: "Abuja (FCT)" },
+      { id: "202", name: "Wuse", state: "Abuja (FCT)" },
+      { id: "203", name: "Garki", state: "Abuja (FCT)" },
+      { id: "204", name: "Asokoro", state: "Abuja (FCT)" },
+      { id: "205", name: "Gwarinpa", state: "Abuja (FCT)" },
+    ],
+  },
+  {
+    id: "3",
+    name: "Rivers",
+    cities: [
+      { id: "301", name: "Port Harcourt", state: "Rivers" },
+      { id: "302", name: "Obio-Akpor", state: "Rivers" },
+      { id: "303", name: "Eleme", state: "Rivers" },
+      { id: "304", name: "Bonny", state: "Rivers" },
+    ],
+  },
+  {
+    id: "4",
+    name: "Oyo",
+    cities: [
+      { id: "401", name: "Ibadan", state: "Oyo" },
+      { id: "402", name: "Ogbomosho", state: "Oyo" },
+      { id: "403", name: "Oyo Town", state: "Oyo" },
+    ],
+  },
+  {
+    id: "5",
+    name: "Kano",
+    cities: [
+      { id: "501", name: "Kano City", state: "Kano" },
+      { id: "502", name: "Ungogo", state: "Kano" },
+      { id: "503", name: "Kumbotso", state: "Kano" },
+    ],
+  },
+  {
+    id: "6",
+    name: "Enugu",
+    cities: [
+      { id: "601", name: "Enugu City", state: "Enugu" },
+      { id: "602", name: "Nsukka", state: "Enugu" },
+    ],
+  },
+  {
+    id: "7",
+    name: "Edo",
+    cities: [
+      { id: "701", name: "Benin City", state: "Edo" },
+      { id: "702", name: "Ekpoma", state: "Edo" },
+    ],
+  },
+];
+
 const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [locations, setLocations] = useState<any[]>(staticLocations);
-  const [hoveredState, setHoveredState] = useState<string>(staticLocations[0].id);
+  const [locations, setLocations] = useState<any[]>(DEFAULT_LOCATIONS);
+  const [hoveredState, setHoveredState] = useState<string>(DEFAULT_LOCATIONS[0].id);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const data = await api.get("states_cities");
-        if (data && data.states && data.cities) {
-          const mapped = data.states.map((state: any) => {
-            const stateCities = data.cities
-              .filter((city: any) => city.state_id === state.id)
-              .map((city: any) => ({
-                id: String(city.id),
-                name: city.name,
-                state: state.name,
-              }));
-            return {
-              id: String(state.id),
-              name: state.name,
-              cities: stateCities,
-            };
-          });
+        const res = await api.get("states_cities");
+        const data = res?.data || res;
+        const rawStates = data?.states;
+        const rawCities = data?.cities;
+
+        const statesList: any[] = Array.isArray(rawStates)
+          ? rawStates
+          : rawStates && typeof rawStates === "object" && !("javascript" in rawStates) && !("__PHP_Incomplete_Class_Name" in rawStates)
+          ? Object.values(rawStates)
+          : [];
+
+        const citiesList: any[] = Array.isArray(rawCities)
+          ? rawCities
+          : rawCities && typeof rawCities === "object" && !("__PHP_Incomplete_Class_Name" in rawCities)
+          ? Object.values(rawCities)
+          : [];
+
+        if (statesList.length > 0) {
+          const mapped = statesList
+            .map((state: any) => {
+              if (!state || typeof state !== "object") return null;
+              const stateName = typeof state.name === "string" ? state.name : (state.state_name || state.title || "");
+              if (!stateName) return null;
+
+              const stateCities = citiesList
+                .filter((city: any) => city && typeof city === "object" && (city.state_id === state.id || String(city.state_id) === String(state.id)))
+                .map((city: any) => ({
+                  id: String(city.id),
+                  name: typeof city.name === "string" ? city.name : (city.city_name || city.title || ""),
+                  state: stateName,
+                }))
+                .filter((c: any) => Boolean(c.name));
+
+              return {
+                id: String(state.id),
+                name: stateName,
+                cities: stateCities,
+              };
+            })
+            .filter((s: any) => Boolean(s && s.name));
+
           if (mapped.length > 0) {
             setLocations(mapped);
             setHoveredState(String(mapped[0].id));
@@ -74,12 +168,15 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
     }
   };
 
-  const currentStateData = locations.find((s) => s.id === hoveredState) || locations[0] || staticLocations[0];
+  const currentStateData = locations.find((s) => s.id === hoveredState) || locations[0];
   
-  const filteredStates = locations.filter(state => 
-    state.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    state.cities.some((city: any) => city.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredStates = locations.filter(state => {
+    const stateMatch = (state?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const cityMatch = Array.isArray(state?.cities) && state.cities.some((city: any) =>
+      (city?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return stateMatch || cityMatch;
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -120,7 +217,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                 toast.loading("Detecting your location…", { id: "geo" });
                 navigator.geolocation.getCurrentPosition(
                   () => {
-                    const lagosState = locations.find((l) => l.name.toLowerCase() === "lagos");
+                    const lagosState = locations.find((l) => (l?.name || '').toLowerCase() === "lagos");
                     if (lagosState) {
                       handleLocationSelect(lagosState.name, lagosState.id);
                     } else {
@@ -176,48 +273,56 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           <div className="flex-1 bg-background/50">
             <ScrollArea className="h-full">
               <div className="p-6">
-                <div className="mb-6 flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    Cities in <span className="text-primary">{currentStateData.name}</span>
-                  </h3>
-                  <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-full">
-                    {currentStateData.cities.length} available
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {/* All <state> option */}
-                  <button
-                    key={`all-${currentStateData.id}`}
-                    onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id)}
-                    className="col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
-                  >
-                    <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Globe className="h-4 w-4 text-primary" />
-                    </div>
-                    <span className="text-sm font-semibold text-foreground">
-                      All {currentStateData.name}
-                    </span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Anywhere in {currentStateData.name}
-                    </span>
-                  </button>
-
-                  {currentStateData.cities.map((city: any) => (
-                    <button
-                      key={city.id}
-                      onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id, city.name, city.id)}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-md transition-all duration-200 group text-left"
-                    >
-                      <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">
-                        <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                      <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                        {city.name}
+                {currentStateData ? (
+                  <>
+                    <div className="mb-6 flex items-center gap-3">
+                      <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                        Cities in <span className="text-primary">{currentStateData.name}</span>
+                      </h3>
+                      <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-full">
+                        {currentStateData.cities?.length || 0} available
                       </span>
-                    </button>
-                  ))}
-                </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* All <state> option */}
+                      <button
+                        key={`all-${currentStateData.id}`}
+                        onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id)}
+                        className="col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
+                      >
+                        <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                          <Globe className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="text-sm font-semibold text-foreground">
+                          All {currentStateData.name}
+                        </span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          Anywhere in {currentStateData.name}
+                        </span>
+                      </button>
+
+                      {currentStateData.cities?.map((city: any) => (
+                        <button
+                          key={city.id}
+                          onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id, city.name, city.id)}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-md transition-all duration-200 group text-left"
+                        >
+                          <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">
+                            <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          </div>
+                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                            {city.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
+                    Select a state to view cities
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </div>

@@ -21,7 +21,6 @@ import startupWeekImg from "@/assets/events/startup-week.jpg";
 import fintechSummitImg from "@/assets/events/fintech-summit.jpg";
 import rccgCongressImg from "@/assets/events/rccg-congress.jpg";
 import jumahPrayerImg from "@/assets/events/jumah-prayer.jpg";
-import shilohImg from "@/assets/events/shiloh.jpg";
 import owambeImg from "@/assets/events/owambe.jpg";
 import rooftopVibesImg from "@/assets/events/rooftop-vibes.jpg";
 import dettyDecemberImg from "@/assets/events/detty-december.jpg";
@@ -702,20 +701,6 @@ export const mockEvents: Event[] = [
     price: 0,
     organizer: "Abuja Muslim Community",
     attendees: 10000,
-    category: "religious",
-  },
-  {
-    id: "27",
-    title: "Shiloh 2026 – Turnahat",
-    description:
-      "The annual Shiloh conference by Living Faith Church (Winners Chapel). Four days of worship, prophetic declarations, and life-changing encounters.",
-    date: "2026-12-15",
-    time: "6:00 PM",
-    location: "Faith Tabernacle, Ota, Ogun State",
-    image: shilohImg,
-    price: 0,
-    organizer: "Winners Chapel International",
-    attendees: 300000,
     category: "religious",
   },
   // SOCIAL
