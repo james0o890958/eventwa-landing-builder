@@ -37,7 +37,7 @@ const CategoryBrowser = () => {
   }, []);
 
   return (
-    <section className="py-16">
+    <section className="pt-6 sm:pt-8 pb-12 sm:pb-16">
       <div className="container mx-auto px-4">
         <h2 className="mb-2 font-display text-2xl font-bold text-foreground sm:text-3xl">
           Browse by Category

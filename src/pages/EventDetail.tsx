@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -135,13 +135,13 @@ function Stars({
 
 // ─── Social share helpers ─────────────────────────────────────────────────────
 
-function buildShareLinks(title: string, url: string) {
+function buildShareLinks(title: string, url: string, location?: string, date?: string) {
   const encoded = encodeURIComponent(url);
-  const text = encodeURIComponent(title + " — Check this out!");
+  const text = encodeURIComponent(`🎉 Join me at "${title}" on Evently!${date ? `\n📅 Date: ${date}` : ""}${location ? `\n📍 Location: ${location}` : ""}\n👉 Get tickets here: `);
   return {
-    whatsapp: `https://wa.me/?text=${text}%20${encoded}`,
+    whatsapp: `https://api.whatsapp.com/send?text=${text}%20${encoded}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encoded}`,
-    twitter: `https://twitter.com/intent/tweet?text=${text}&url=${encoded}`,
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out "${title}" on Evently!`)}&url=${encoded}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encoded}`,
   };
 }
@@ -472,7 +472,7 @@ const EventDetail = () => {
   // ── share / social share ──────────────────────────────────────────────────
   const [showShareMenu, setShowShareMenu] = useState(false);
   const shareLinks = event
-    ? buildShareLinks(event.title, window.location.href)
+    ? buildShareLinks(event.title, window.location.href, event.location, event.date)
     : null;
 
   const handleAddToCalendar = () => {
@@ -589,6 +589,53 @@ const EventDetail = () => {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [isFreeRegistering, setIsFreeRegistering] = useState(false);
   const [freeTicketResult, setFreeTicketResult] = useState<{ ticket_code: string; event_title: string } | null>(null);
+  const [paidTicketResult, setPaidTicketResult] = useState<{ ticket_code: string; event_title: string } | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // ── Paystack callback: auto-verify when Paystack redirects back ──────────
+  useEffect(() => {
+    const reference = searchParams.get("reference") || searchParams.get("trxref") || localStorage.getItem("pending_paystack_ref");
+    const status = searchParams.get("status");
+    if (!reference || status === "cancelled") {
+      if (status === "cancelled") {
+        localStorage.removeItem("pending_paystack_ref");
+        toast.error("Payment was cancelled.");
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("reference"); newParams.delete("trxref"); newParams.delete("status");
+        setSearchParams(newParams, { replace: true });
+      }
+      return;
+    }
+    const tkn = localStorage.getItem("access_token");
+    if (!tkn) return;
+
+    setIsVerifyingPayment(true);
+    api.post("user/tickets/verify-payment", { reference }, tkn)
+      .then((res) => {
+        localStorage.removeItem("pending_paystack_ref");
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("reference"); newParams.delete("trxref"); newParams.delete("status");
+        setSearchParams(newParams, { replace: true });
+        if (res?.status === "success") {
+          const ticket = res?.ticket ?? {};
+          setPaidTicketResult({
+            ticket_code: ticket?.ticket_code ?? reference,
+            event_title: event?.title ?? ticket?.event?.title ?? "",
+          });
+          setUserTickets((prev: any[]) => [...prev, ticket]);
+          toast.success("Payment verified! Your ticket is ready. 🎉");
+        } else {
+          toast.error(res?.message ?? "Payment verification failed.");
+        }
+      })
+      .catch((err) => {
+        console.error("Payment verification error:", err);
+        toast.error("Could not verify payment. Contact support.");
+      })
+      .finally(() => setIsVerifyingPayment(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── sponsorship modal ─────────────────────────────────────────────────────
   const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
@@ -720,14 +767,33 @@ const EventDetail = () => {
       return;
     }
 
-    // Paid event — proceed to checkout
-    const ticketType = event?.ticketTypes?.[selectedTicket];
-    const params = new URLSearchParams({
-      eventId: event?.id ?? "",
-      ticketType: ticketType?.name ?? "General Admission",
-      qty: qty.toString(),
-    });
-    navigate(`/checkout/${event?.id}?${params.toString()}`);
+    // Paid event — initialize Paystack payment
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      toast.error("Please log in to purchase tickets.");
+      return;
+    }
+
+    setIsFreeRegistering(true);
+    try {
+      const res = await api.post(
+        `user/events/${event?.id}/initialize-payment`,
+        { quantity: qty, ticket_tier_id: activeTicketType?.name, callback_url: window.location.href },
+        token
+      );
+
+      if (res?.authorization_url) {
+        localStorage.setItem("pending_paystack_ref", res.reference);
+        window.location.href = res.authorization_url;
+      } else {
+        throw new Error(res?.message || "Payment initialization failed");
+      }
+    } catch (err: any) {
+      console.error("Paystack initialization error:", err);
+      toast.error(err?.message || "Failed to initialize payment. Please try again.");
+    } finally {
+      setIsFreeRegistering(false);
+    }
   };
 
   const handleDownloadFreeTicket = () => {
@@ -1053,10 +1119,10 @@ const EventDetail = () => {
                 className="w-full"
                 onValueChange={setActiveTab}
               >
-                <TabsList className="w-full flex rounded-xl bg-muted/50 py-1 px-3 mb-8">
+                <TabsList className="w-full flex overflow-x-auto no-scrollbar flex-nowrap rounded-xl bg-muted/50 py-1 px-2 mb-8 gap-1 justify-start sm:justify-center">
                   <TabsTrigger
                     value="details"
-                    className="flex-1 rounded-lg py-2.5 transition-all"
+                    className="flex-1 min-w-[90px] shrink-0 rounded-lg py-2.5 transition-all text-xs sm:text-sm"
                   >
                     Details
                   </TabsTrigger>
@@ -1920,7 +1986,7 @@ const EventDetail = () => {
           if (!open) setFreeTicketResult(null);
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto w-[92vw] rounded-2xl sm:w-full">
           {freeTicketResult ? (
             /* ── Free-ticket success state ────────────────── */
             <div className="flex flex-col items-center gap-5 py-4 text-center">
@@ -1935,11 +2001,21 @@ const EventDetail = () => {
                   A confirmation has been sent to <strong>{purchaserEmail}</strong>.
                 </DialogDescription>
               </DialogHeader>
-              <div className="w-full rounded-xl border border-border/50 bg-secondary/50 p-4 text-sm">
-                <p className="text-muted-foreground">Your Ticket Code</p>
-                <p className="mt-1 font-mono text-xl font-bold tracking-widest text-primary">
-                  {freeTicketResult.ticket_code}
-                </p>
+              <div className="w-full rounded-2xl border border-border/50 bg-secondary/40 p-4 text-sm flex flex-col items-center gap-3">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-border/40">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(freeTicketResult.ticket_code)}`}
+                    alt="Ticket QR Code"
+                    className="h-36 w-36 object-contain"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Your Ticket Code</p>
+                  <p className="mt-0.5 font-mono text-2xl font-bold tracking-widest text-primary">
+                    {freeTicketResult.ticket_code}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Show this QR code at the event entrance for instant verification</p>
+                </div>
               </div>
               <div className="flex w-full gap-3">
                 <Button
@@ -2055,6 +2131,76 @@ const EventDetail = () => {
           navigate(`/dashboard/messages?user=${u.id}`);
         }}
       />
+
+      {/* ── Paystack Payment Verifying Overlay ─────────────────────────── */}
+      {isVerifyingPayment && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm gap-4">
+          <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="text-base font-semibold text-foreground">Verifying your payment…</p>
+          <p className="text-sm text-muted-foreground">Please wait while we confirm your ticket.</p>
+        </div>
+      )}
+
+      {/* ── Paid Ticket Success Dialog ──────────────────────────────────── */}
+      <Dialog open={!!paidTicketResult} onOpenChange={(open) => { if (!open) setPaidTicketResult(null); }}>
+        <DialogContent className="max-w-sm w-[92vw] sm:w-full rounded-2xl">
+          <div className="flex flex-col items-center gap-5 py-4 text-center">
+            {/* Success icon */}
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-green-500/15">
+              <CheckCircle className="h-10 w-10 text-green-500" />
+              <span className="absolute -right-1 -top-1 text-2xl">🎟️</span>
+            </div>
+
+            <DialogHeader>
+              <DialogTitle className="font-display text-2xl font-bold">
+                Payment Successful! 🎉
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                Your paid ticket for <strong>{paidTicketResult?.event_title}</strong> is confirmed.
+                A confirmation email has been sent to you.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* QR Code card */}
+            <div className="w-full rounded-2xl border border-border/50 bg-secondary/40 p-4 flex flex-col items-center gap-3">
+              <div className="bg-white p-3 rounded-xl shadow-sm border border-border/40">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(paidTicketResult?.ticket_code ?? "")}`}
+                  alt="Ticket QR Code"
+                  className="h-36 w-36 object-contain"
+                />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
+                  Your Ticket Code
+                </p>
+                <p className="mt-0.5 font-mono text-xl font-bold tracking-widest text-primary">
+                  {paidTicketResult?.ticket_code}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Show this QR code at the event entrance for instant verification
+                </p>
+              </div>
+            </div>
+
+            <div className="flex w-full gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setPaidTicketResult(null)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1 gradient-primary text-primary-foreground shadow-glow"
+                onClick={() => navigate("/dashboard/tickets")}
+              >
+                View My Tickets
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

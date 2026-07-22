@@ -44,7 +44,7 @@ const Messages = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <div className="flex h-[calc(100vh-4rem-6rem)] overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
+          <div className="flex h-[calc(100dvh-10rem)] min-h-[500px] overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card">
             {/* Conversation List */}
             <div
               className={`w-full border-r border-border/50 lg:w-80 lg:block ${

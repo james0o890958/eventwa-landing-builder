@@ -20,6 +20,7 @@ import {
   WifiOff,
   Handshake,
   Palette,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,6 +170,7 @@ const CreateEvent = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(INITIAL);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const set = (field: keyof FormData, value: unknown) =>
@@ -324,23 +326,43 @@ const CreateEvent = () => {
       const calculatedCapacity = Number(form.totalCapacity) || 
         form.ticketTiers.reduce((acc, t) => acc + (Number(t.quantity) || 0), 0) || 100;
 
-      const payload = {
-        title: form.title,
-        description: form.description,
-        start_date: startDateTime,
-        end_date: endDateTime,
-        category: form.category,
-        location_type: form.locationType,
-        location_name: form.locationType === "physical" ? form.location : "Online",
-        location_address: form.locationType === "physical" ? form.location : (form.onlineLink || "Online"),
-        online_link: form.locationType === "online" ? form.onlineLink : undefined,
-        price: calculatedPrice,
-        capacity: calculatedCapacity,
-        image_url: form.bannerUrl.trim() || null,
-        status: "published",
-      };
+      if (coverImageFile) {
+        const formData = new FormData();
+        formData.append("title", form.title);
+        formData.append("description", form.description);
+        formData.append("start_date", startDateTime);
+        formData.append("end_date", endDateTime);
+        formData.append("category", form.category);
+        formData.append("location_type", form.locationType);
+        formData.append("location_name", form.locationType === "physical" ? form.location : "Online");
+        formData.append("location_address", form.locationType === "physical" ? form.location : (form.onlineLink || "Online"));
+        if (form.locationType === "online" && form.onlineLink) {
+          formData.append("online_link", form.onlineLink);
+        }
+        formData.append("price", String(calculatedPrice));
+        formData.append("capacity", String(calculatedCapacity));
+        formData.append("status", "published");
+        formData.append("image", coverImageFile);
 
-      await api.post("events", payload, token);
+        await api.post("events", formData, token);
+      } else {
+        const payload = {
+          title: form.title,
+          description: form.description,
+          start_date: startDateTime,
+          end_date: endDateTime,
+          category: form.category,
+          location_type: form.locationType,
+          location_name: form.locationType === "physical" ? form.location : "Online",
+          location_address: form.locationType === "physical" ? form.location : (form.onlineLink || "Online"),
+          online_link: form.locationType === "online" ? form.onlineLink : undefined,
+          price: calculatedPrice,
+          capacity: calculatedCapacity,
+          image_url: form.bannerUrl.trim() || null,
+          status: "published",
+        };
+        await api.post("events", payload, token);
+      }
 
       toast.success("Event created successfully! 🎉", {
         description: "Your event is now live on Evently.",
@@ -394,6 +416,13 @@ const CreateEvent = () => {
         <p className="mb-10 text-muted-foreground">
           Fill in the details below to publish your event on Evently.
         </p>
+
+        {/* Mobile Step Header */}
+        <div className="mb-4 sm:hidden text-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+            Step {step} of {STEPS.length}: {STEPS.find((s) => s.id === step)?.label}
+          </span>
+        </div>
 
         {/* Step indicator */}
         <div className="mb-10 flex items-center gap-0">
@@ -874,19 +903,43 @@ const CreateEvent = () => {
 
                 {/* Banner image */}
                 {field(
-                  "Banner Image URL",
+                  "Banner / Cover Image",
                   <div className="space-y-3">
-                    <div className="relative">
-                      <Image className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="https://example.com/banner.jpg"
-                        value={form.bannerUrl}
-                        onChange={(e) => set("bannerUrl", e.target.value)}
-                        className={`${inputCls} pl-10`}
-                      />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <label className="flex-1 cursor-pointer">
+                        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-primary/50 bg-primary/5 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
+                          <Upload className="h-4 w-4" />
+                          {coverImageFile ? coverImageFile.name : "Upload Image File"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setCoverImageFile(file);
+                                set("bannerUrl", URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </div>
+                      </label>
+                      <span className="text-xs text-muted-foreground text-center">or paste URL:</span>
+                      <div className="relative flex-[2]">
+                        <Image className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="https://example.com/banner.jpg"
+                          value={form.bannerUrl}
+                          onChange={(e) => {
+                            setCoverImageFile(null);
+                            set("bannerUrl", e.target.value);
+                          }}
+                          className={`${inputCls} pl-10`}
+                        />
+                      </div>
                     </div>
                     {form.bannerUrl && (
-                      <div className="h-40 overflow-hidden rounded-xl border border-border/50">
+                      <div className="h-40 overflow-hidden rounded-xl border border-border/50 relative group">
                         <img
                           src={form.bannerUrl}
                           alt="Banner preview"
@@ -899,7 +952,7 @@ const CreateEvent = () => {
                       </div>
                     )}
                   </div>,
-                  "Recommended size: 1920×1080px (16:9 ratio).",
+                  "Recommended size: 1920×1080px (16:9 ratio). Uploaded images are stored securely on Cloudinary.",
                 )}
 
                 {/* Website */}

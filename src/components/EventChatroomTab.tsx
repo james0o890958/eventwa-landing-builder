@@ -142,6 +142,32 @@ export const EventChatroomTab = ({
     };
   }, [chatroomId]);
 
+  // ── Auto-sync messages on mobile app resume / window focus ───────────────
+  useEffect(() => {
+    if (!chatroomId || !token) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const msgRes = await api.get(`chatrooms/${chatroomId}/messages`, undefined, token, { bypassCache: true });
+          if (msgRes?.messages) {
+            setMessages(msgRes.messages);
+          }
+        } catch (err) {
+          console.error("Failed to auto-sync messages on resume", err);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [chatroomId, token]);
+
   // ── Auto-scroll to bottom on new messages ─────────────────────────────────
   useEffect(() => {
     const viewport = bottomRef.current?.closest('[data-radix-scroll-area-viewport]');

@@ -249,10 +249,29 @@ const PLANS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+
 const OrganizersPage = () => {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
+
+  const token = localStorage.getItem("access_token");
+  const { data: profileRes } = useQuery({
+    queryKey: ["user-profile"],
+    queryFn: () => (token ? api.get("profile", undefined, token) : null),
+    enabled: !!token,
+  });
+
+  const isOrganizer = !!(
+    user?.organizer ||
+    profileRes?.user?.organizer ||
+    profileRes?.organizer ||
+    (session?.user as any)?.is_organizer ||
+    session?.user?.user_metadata?.is_organizer ||
+    localStorage.getItem("organizer_profile")
+  );
 
   const toggleFollow = (name: string) => {
     setFollowed((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -260,18 +279,13 @@ const OrganizersPage = () => {
 
   // Handler for "Start Hosting" and "Create Event" buttons
   const handleStartHosting = () => {
-    if (!session) {
+    if (!token && !session) {
       // Not logged in - go to auth page with redirect to become organizer
       navigate('/login?redirect=/become-organizer');
+    } else if (isOrganizer) {
+      navigate('/organizer/dashboard');
     } else {
-      // Logged in - check if user is organizer (for now, go to create event)
-      // TODO: Add logic to check if user is organizer from user metadata
-      const isOrganizer = (session.user as any).is_organizer || session.user.user_metadata?.is_organizer || !!(session.user as any).organizer || !!localStorage.getItem("organizer_profile");
-      if (isOrganizer) {
-        navigate('/organizer/create-event');
-      } else {
-        navigate('/become-organizer');
-      }
+      navigate('/become-organizer');
     }
   };
 
@@ -309,7 +323,7 @@ const OrganizersPage = () => {
                 onClick={handleStartHosting}
                 className="gradient-primary px-8 text-primary-foreground shadow-glow hover:opacity-90 text-base"
               >
-                Start Hosting for Free
+                {isOrganizer ? "Go to Organizer Dashboard" : "Start Hosting for Free"}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Link to="/organizer/pricing">

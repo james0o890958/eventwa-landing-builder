@@ -81,7 +81,7 @@ const HeroCarousel = () => {
 
   return (
     <section
-      className="relative h-[65vh] sm:h-[75vh] md:h-[85vh] min-h-[420px] sm:min-h-[500px] w-full max-w-full overflow-hidden"
+      className="relative h-[55vh] sm:h-[65vh] md:h-[75vh] min-h-[380px] sm:min-h-[460px] w-full max-w-full overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -104,7 +104,7 @@ const HeroCarousel = () => {
         </motion.div>
       </AnimatePresence>
 
-      <div className="container relative mx-auto flex h-full items-end px-4 sm:px-6 pb-20 sm:pb-20 max-w-full">
+      <div className="container relative mx-auto flex h-full items-end px-4 sm:px-6 pb-12 sm:pb-14 max-w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={event.id + "-content"}
@@ -181,7 +181,7 @@ const HeroCarousel = () => {
             );
 
         return (
-          <div className="absolute bottom-3 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 flex items-center justify-between sm:justify-end gap-2 max-w-full z-20 pointer-events-auto">
+          <div className="absolute bottom-2.5 sm:bottom-4 inset-x-3 sm:inset-x-auto sm:right-6 flex items-center justify-between sm:justify-end gap-2 max-w-full z-20 pointer-events-auto">
             {/* Left Chevron Arrow */}
             <button
               onClick={goPrev}
