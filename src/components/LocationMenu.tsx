@@ -191,9 +191,9 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
         </button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-3xl p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+      <DialogContent className="w-[94vw] sm:max-w-3xl max-h-[90vh] p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl">
+        <DialogHeader className="p-4 sm:p-6 pb-0">
+          <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             Select your location
           </DialogTitle>
@@ -202,7 +202,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search for a state or city..."
-                className="pl-10 bg-secondary/50 border-border/30 focus-visible:ring-primary/30"
+                className="pl-10 bg-secondary/50 border-border/30 focus-visible:ring-primary/30 text-xs sm:text-sm h-9 sm:h-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -232,7 +232,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                   { timeout: 8000 },
                 );
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
             >
               <LocateFixed className="h-4 w-4" />
               Use my location
@@ -240,9 +240,9 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           </div>
         </DialogHeader>
 
-        <div className="flex h-[450px] mt-6 border-t border-border/30">
+        <div className="flex flex-col sm:flex-row h-[420px] sm:h-[450px] mt-4 sm:mt-6 border-t border-border/30">
           {/* Left Panel - States */}
-          <div className="w-[240px] border-r border-border/30 bg-secondary/20">
+          <div className="w-full sm:w-[220px] md:w-[240px] h-[130px] sm:h-full border-b sm:border-b-0 sm:border-r border-border/30 bg-secondary/20 shrink-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-1">
                 <p className="px-2 mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">

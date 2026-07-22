@@ -348,19 +348,19 @@ const OrganizerDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <div className="mb-8 flex gap-2">
+        <div className="mb-8 flex gap-2 overflow-x-auto no-scrollbar max-w-full flex-nowrap pb-2 pt-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200",
+                "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 shrink-0 whitespace-nowrap",
                 activeTab === tab.id
                   ? "gradient-primary text-white shadow-glow"
                   : "bg-secondary text-muted-foreground hover:text-foreground",
               ].join(" ")}
             >
-              <tab.Icon className="h-4 w-4" />
+              <tab.Icon className="h-4 w-4 shrink-0" />
               {tab.label}
             </button>
           ))}

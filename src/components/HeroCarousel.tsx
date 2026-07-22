@@ -81,7 +81,7 @@ const HeroCarousel = () => {
 
   return (
     <section
-      className="relative h-[85vh] min-h-[500px] w-full overflow-hidden"
+      className="relative h-[65vh] sm:h-[75vh] md:h-[85vh] min-h-[420px] sm:min-h-[500px] w-full max-w-full overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -92,19 +92,19 @@ const HeroCarousel = () => {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.7 }}
-          className="absolute inset-0"
+          className="absolute inset-0 max-w-full"
         >
           <img
             src={event.image}
             alt={event.title}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover max-w-full"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-transparent" />
         </motion.div>
       </AnimatePresence>
 
-      <div className="container relative mx-auto flex h-full items-end px-4 pb-20">
+      <div className="container relative mx-auto flex h-full items-end px-4 sm:px-6 pb-20 sm:pb-20 max-w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={event.id + "-content"}
@@ -112,40 +112,40 @@ const HeroCarousel = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="max-w-2xl"
+            className="max-w-2xl w-full"
           >
-            <span className="mb-3 inline-block rounded-full gradient-primary px-4 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground">
+            <span className="mb-2 sm:mb-3 inline-block rounded-full gradient-primary px-3 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-primary-foreground">
               {event.category}
             </span>
-            <h1 className="mb-4 font-display text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="mb-2 sm:mb-4 font-display text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-foreground line-clamp-2">
               {event.title}
             </h1>
-            <p className="mb-6 max-w-lg text-base text-secondary-foreground/80 line-clamp-2">
+            <p className="mb-4 sm:mb-6 max-w-lg text-xs sm:text-base text-secondary-foreground/80 line-clamp-2">
               {event.description}
             </p>
-            <div className="mb-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <div className="mb-4 sm:mb-8 flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4 text-primary" />
+                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                 {new Date(event.date).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
                 })}
               </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-primary" />
-                {event.location}
+              <span className="flex items-center gap-1.5 truncate max-w-[180px] sm:max-w-none">
+                <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                <span className="truncate">{event.location}</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <Users className="h-4 w-4 text-primary" />
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                 {(event.attendees ?? 0).toLocaleString()} attending
               </span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Link to={`/event/${event.id}`}>
                 <Button
                   size="lg"
-                  className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90 text-base px-8"
+                  className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90 text-xs sm:text-base px-5 sm:px-8 h-10 sm:h-11"
                 >
                   {event.price === 0
                     ? "Join Free"
@@ -156,7 +156,7 @@ const HeroCarousel = () => {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-border/50 text-foreground hover:bg-secondary"
+                  className="border-border/50 text-foreground hover:bg-secondary text-xs sm:text-base px-4 sm:px-6 h-10 sm:h-11"
                 >
                   Learn More
                 </Button>
@@ -166,31 +166,36 @@ const HeroCarousel = () => {
         </AnimatePresence>
       </div>
 
-      {/* Controls — only shown when there are multiple slides */}
+      {/* Controls — fitting 100% perfectly within mobile bounds */}
       {events.length > 1 && (
-        <div className="absolute bottom-6 right-6 flex items-center gap-2">
+        <div className="absolute bottom-3 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 flex items-center justify-between sm:justify-end gap-2 max-w-full z-20 pointer-events-auto">
           <button
             onClick={goPrev}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
+            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
+            aria-label="Previous slide"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
-          <div className="flex gap-1.5 px-2">
+
+          <div className="flex gap-1.5 px-2 items-center">
             {events.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === current ? "w-8 bg-primary" : "w-1.5 bg-muted-foreground/40"
+                  i === current ? "w-6 sm:w-8 bg-primary" : "w-1.5 bg-muted-foreground/50"
                 }`}
+                aria-label={`Go to slide ${i + 1}`}
               />
             ))}
           </div>
+
           <button
             onClick={goNext}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground backdrop-blur-sm transition-colors hover:bg-secondary"
+            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
+            aria-label="Next slide"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
       )}
