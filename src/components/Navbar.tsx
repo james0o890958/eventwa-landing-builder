@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, ChevronDown, Menu, Grid } from "lucide-react";
+import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, ChevronDown, Menu, Grid, Home, Compass, Users, FileText, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -160,18 +160,25 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 p-0 text-foreground">
+                <button
+                  type="button"
+                  className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center text-primary-foreground shadow-glow hover:opacity-90 transition-opacity focus:outline-none"
+                  aria-label="Toggle navigation menu"
+                >
                   <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle navigation menu</span>
-                </Button>
+                </button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[350px] bg-background border-border/50 p-0 flex flex-col justify-between">
-                <SheetHeader className="p-4 border-b border-border/40 text-left flex flex-row items-center justify-between">
+              <SheetContent
+                side="right"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                className="w-[82%] sm:w-[350px] bg-card border-border/50 p-0 flex flex-col justify-between shadow-2xl"
+              >
+                <SheetHeader className="px-5 py-4 border-b border-border/50 text-left flex flex-row items-center justify-between">
                   <Logo iconSize={28} />
                   <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
                   {/* Search Bar for Mobile */}
                   <form
                     onSubmit={(e) => {
@@ -183,44 +190,48 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                     }}
                     className="relative"
                   >
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search events..."
                       value={mobileSearchQuery}
                       onChange={(e) => setMobileSearchQuery(e.target.value)}
-                      className="pl-9 bg-secondary/50 border-border/40 text-sm h-9"
+                      className="pl-9 bg-secondary/80 border-border/60 text-sm h-10 rounded-xl placeholder:text-muted-foreground focus-visible:ring-primary/50"
                     />
                   </form>
 
                   {/* Navigation Links */}
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-                      Menu
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">
+                      MENU
                     </p>
+                    
                     <Link
                       to="/"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
                     >
-                      Home
+                      <Home className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>Home</span>
                     </Link>
+
                     <Link
                       to="/explore"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
                     >
-                      Explore Events
+                      <Compass className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>Explore Events</span>
                     </Link>
 
-                    {/* Collapsible Categories Dropdown (Matching DashboardLayout style) */}
-                    <div className="py-1">
+                    {/* Collapsible Categories Dropdown */}
+                    <div className="py-0.5">
                       <button
                         type="button"
                         onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
-                        className="flex w-full items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors text-left"
+                        className="flex w-full items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors text-left"
                       >
-                        <div className="flex items-center gap-2">
-                          <Grid className="h-4 w-4 text-primary shrink-0" />
+                        <div className="flex items-center gap-3">
+                          <Grid className="h-4 w-4 text-muted-foreground shrink-0" />
                           <span>Categories</span>
                         </div>
                         <ChevronDown
@@ -232,46 +243,46 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                       </button>
 
                       {categoriesDropdownOpen && (
-                        <div className="mt-1 ml-3 pl-3 border-l-2 border-primary/20 space-y-1 py-1">
+                        <div className="mt-1 ml-4 pl-3 border-l-2 border-primary/30 space-y-1 py-1">
                           <Link
                             to="/category/music"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           >
                             <span>🎵</span> Music & Concerts
                           </Link>
                           <Link
                             to="/category/nightlife"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           >
                             <span>🍸</span> Nightlife & Parties
                           </Link>
                           <Link
                             to="/category/sports"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           >
                             <span>⚽</span> Sports & Fitness
                           </Link>
                           <Link
                             to="/category/conferences"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           >
                             <span>💼</span> Tech & Business
                           </Link>
                           <Link
                             to="/category/festivals"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           >
                             <span>🎪</span> Festivals & Culture
                           </Link>
                           <Link
                             to="/explore"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-semibold text-primary hover:bg-primary/10 transition-colors mt-1"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-colors mt-1"
                           >
                             <span>✨</span> View All Categories
                           </Link>
@@ -282,25 +293,30 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                     <Link
                       to="/organizers"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
                     >
-                      Organizers
+                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>Organizers</span>
                     </Link>
+
                     <Link
                       to="/blog"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
                     >
-                      Blog
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>Blog</span>
                     </Link>
                   </div>
 
+                  <div className="h-[1px] bg-border/60 my-4" />
+
                   {/* Location Selector */}
-                  <div className="pt-2 border-t border-border/40">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-                      Location
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
+                      LOCATION
                     </p>
-                    <div className="px-3">
+                    <div className="px-1">
                       <LocationMenu
                         selectedLocation={usercity}
                         onLocationSelect={(location) => {
@@ -311,12 +327,13 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                   </div>
                 </div>
 
-                {/* Footer User Info / Sign Out */}
-                <div className="p-4 border-t border-border/40 bg-secondary/30">
+                {/* Sheet Footer: Signed In vs Signed Out */}
+                <div className="p-4 border-t border-border/50 bg-secondary/20">
                   {user ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
+                      {/* User Info Header */}
                       <div className="flex items-center gap-3 px-2 py-1">
-                        <Avatar className="h-8 w-8 border border-border/50">
+                        <Avatar className="h-10 w-10 border border-primary/30 shadow-sm shrink-0">
                           <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
                           <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                             {user?.user_metadata?.display_name
@@ -326,29 +343,43 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                               : "?"}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="truncate">
-                          <p className="text-xs font-medium text-foreground truncate">
+                        <div className="truncate flex-1">
+                          <p className="text-sm font-semibold text-foreground truncate">
                             {user.user_metadata?.display_name || "User"}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 pt-2">
+
+                      {/* Prominent Dashboard Button */}
+                      <Button
+                        className="w-full gradient-primary text-primary-foreground shadow-glow h-10 font-semibold gap-2"
+                        onClick={() => {
+                          navigate("/dashboard");
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        My Dashboard
+                      </Button>
+
+                      {/* Quick Links: Profile, Messages, Sign Out */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-xs justify-start"
+                          className="text-xs justify-start border-border/60"
                           onClick={() => {
-                            navigate("/dashboard");
+                            navigate("/profile/me");
                             setMobileMenuOpen(false);
                           }}
                         >
-                          <BookOpen className="mr-2 h-3.5 w-3.5" /> Dashboard
+                          <User className="mr-2 h-3.5 w-3.5" /> Profile
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-xs justify-start text-destructive hover:text-destructive"
+                          className="text-xs justify-start text-destructive hover:text-destructive border-border/60"
                           onClick={() => {
                             handleSignOut();
                             setMobileMenuOpen(false);
@@ -359,15 +390,28 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                       </div>
                     </div>
                   ) : (
-                    <Button
-                      className="w-full gradient-primary text-primary-foreground shadow-glow"
-                      onClick={() => {
-                        navigate("/login");
-                        setMobileMenuOpen(false);
-                      }}
-                    >
-                      Sign In
-                    </Button>
+                    <div className="space-y-2.5">
+                      <Button
+                        className="w-full gradient-primary text-primary-foreground shadow-glow h-10 font-semibold"
+                        onClick={() => {
+                          navigate("/login");
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        Sign In
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full h-10 font-semibold border-border/60 text-foreground"
+                        onClick={() => {
+                          navigate("/register");
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Create Account
+                      </Button>
+                    </div>
                   )}
                 </div>
               </SheetContent>
