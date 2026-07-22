@@ -166,39 +166,66 @@ const HeroCarousel = () => {
         </AnimatePresence>
       </div>
 
-      {/* Controls — fitting 100% perfectly within mobile bounds */}
-      {events.length > 1 && (
-        <div className="absolute bottom-3 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 flex items-center justify-between sm:justify-end gap-2 max-w-full z-20 pointer-events-auto">
-          <button
-            onClick={goPrev}
-            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-          </button>
+      {/* Controls — fitting 100% perfectly within mobile bounds with capped dots */}
+      {events.length > 1 && (() => {
+        const MAX_DOTS = 5;
+        const totalEvents = events.length;
+        const visibleDotCount = Math.min(totalEvents, MAX_DOTS);
 
-          <div className="flex gap-1.5 px-2 items-center">
-            {events.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrent(i)}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === current ? "w-6 sm:w-8 bg-primary" : "w-1.5 bg-muted-foreground/50"
-                }`}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
+        // Map current slide index to the corresponding dot index (0..visibleDotCount-1)
+        const activeDotIndex = totalEvents <= MAX_DOTS
+          ? current
+          : Math.min(
+              Math.round((current / (totalEvents - 1)) * (MAX_DOTS - 1)),
+              MAX_DOTS - 1
+            );
+
+        return (
+          <div className="absolute bottom-3 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 flex items-center justify-between sm:justify-end gap-2 max-w-full z-20 pointer-events-auto">
+            {/* Left Chevron Arrow */}
+            <button
+              onClick={goPrev}
+              className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+
+            {/* Capped Dots Row (Max 5 dots) */}
+            <div className="flex gap-1.5 px-2 items-center shrink-0">
+              {Array.from({ length: visibleDotCount }).map((_, dotIdx) => {
+                const isActive = dotIdx === activeDotIndex;
+                return (
+                  <button
+                    key={dotIdx}
+                    onClick={() => {
+                      if (totalEvents <= MAX_DOTS) {
+                        setCurrent(dotIdx);
+                      } else {
+                        const targetSlide = Math.round((dotIdx / (MAX_DOTS - 1)) * (totalEvents - 1));
+                        setCurrent(targetSlide);
+                      }
+                    }}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      isActive ? "w-5 sm:w-7 bg-primary" : "w-1.5 bg-muted-foreground/50"
+                    }`}
+                    aria-label={`Go to slide section ${dotIdx + 1}`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Right Chevron Arrow */}
+            <button
+              onClick={goNext}
+              className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
+              aria-label="Next slide"
+            >
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
           </div>
-
-          <button
-            onClick={goNext}
-            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur-md transition-colors hover:bg-secondary shrink-0 shadow-lg"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-          </button>
-        </div>
-      )}
+        );
+      })()}
     </section>
   );
 };
