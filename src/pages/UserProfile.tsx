@@ -439,7 +439,7 @@ const UserProfile = () => {
 
 
 
-  const handleAvatarUpload = async (file: File) => {
+  const handleAvatarSelect = (file: File) => {
     if (file.size > 3 * 1024 * 1024) {
       toast.error("Image must be under 3MB.");
       return;
@@ -447,36 +447,18 @@ const UserProfile = () => {
 
     const previewUrl = URL.createObjectURL(file);
     setAvatarPreview(previewUrl);
-    setUploadingAvatar(true);
+    setAvatarFile(file);
+    toast.info("Photo selected. Click 'Save Changes' to update your profile.");
+  };
 
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        toast.error("Not authenticated");
-        setAvatarPreview(undefined);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      const data = await api.post("profile/avatar", formData, token);
-
-      if (data?.user) {
-        setAvatarUrl(data.user.avatar);
-        setAvatarPreview(undefined);
-        setAvatarFile(null);
-        updateUser(data.user);
-        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-        toast.success("Profile photo updated successfully!");
-      }
-    } catch (err) {
-      setAvatarPreview(undefined);
-      toast.error(err instanceof Error ? err.message : "Failed to upload avatar");
-    } finally {
-      setUploadingAvatar(false);
+  const handleCancelAvatarSelect = () => {
+    setAvatarPreview(undefined);
+    setAvatarFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
+
 
   const initials = displayName
     ? displayName
@@ -887,9 +869,9 @@ const UserProfile = () => {
                     {/* Avatar */}
                     <div className="flex items-center gap-5">
                       <div
-                        onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+                        onClick={() => fileInputRef.current?.click()}
                         className="relative h-20 w-20 cursor-pointer group rounded-full overflow-hidden border-2 border-border transition-all hover:border-primary hover:shadow-glow shrink-0"
-                        title="Click circle to upload profile photo"
+                        title="Click circle to select profile photo"
                       >
                         <Avatar className="h-full w-full">
                           <AvatarImage src={avatarPreview ?? getFullAvatarUrl(avatarUrl)} alt={displayName} />
@@ -897,15 +879,9 @@ const UserProfile = () => {
                             {initials}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white transition-opacity ${uploadingAvatar ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                          {uploadingAvatar ? (
-                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          ) : (
-                            <>
-                              <Camera className="h-5 w-5" />
-                              <span className="text-[9px] font-semibold mt-0.5">Upload</span>
-                            </>
-                          )}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Camera className="h-5 w-5" />
+                          <span className="text-[9px] font-semibold mt-0.5">Select</span>
                         </div>
                       </div>
 
@@ -917,22 +893,37 @@ const UserProfile = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleAvatarUpload(file);
+                            if (file) handleAvatarSelect(file);
                           }}
                         />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          type="button"
-                          disabled={uploadingAvatar}
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <Camera className="h-4 w-4" />
-                          {uploadingAvatar ? "Uploading..." : "Change Photo"}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Camera className="h-4 w-4" />
+                            {avatarFile ? "Change Selection" : "Select Photo"}
+                          </Button>
+                          {avatarFile && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              type="button"
+                              onClick={handleCancelAvatarSelect}
+                            >
+                              Undo
+                            </Button>
+                          )}
+                        </div>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Click circle or button to upload JPG, PNG or WebP. Max 3MB.
+                          {avatarFile 
+                            ? "Photo selected (unsaved). Click 'Save Changes' below to apply."
+                            : "Click circle or button to select JPG, PNG or WebP (max 3MB)."
+                          }
                         </p>
                       </div>
                     </div>

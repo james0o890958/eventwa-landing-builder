@@ -57,13 +57,17 @@ const Login = () => {
         localStorage.setItem("access_token", token);
         if (userData) {
           const isOrganizer = data.is_organizer || data.data?.is_organizer || !!userData.organizer;
+          const avatarUrl = userData.avatar || userData.avatar_url || userData.user_metadata?.avatar || userData.user_metadata?.avatar_url || null;
           const mappedUser = {
             ...userData,
+            avatar: avatarUrl,
             is_organizer: isOrganizer,
             user_metadata: {
               ...userData.user_metadata,
               display_name: userData.name || userData.user_metadata?.display_name || userData.email?.split("@")[0] || "User",
               full_name: userData.name || userData.user_metadata?.full_name || userData.name || "User",
+              avatar: avatarUrl,
+              avatar_url: avatarUrl,
               is_organizer: isOrganizer
             }
           };

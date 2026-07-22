@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, ChevronDown } from "lucide-react";
+import { Search, X, Ticket, LogOut, User, MapPin, MessageCircle, BookOpen, ChevronDown, Menu, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFullAvatarUrl } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import CategoryMegaMenu from "@/components/CategoryMegaMenu";
 import LocationMenu from "@/components/LocationMenu";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "./Logo";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface NavbarProps {
   selectedLocation?: string;
@@ -25,6 +27,9 @@ interface NavbarProps {
 
 const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
   const [localCity, setLocalCity] = useState<string>("Lagos");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
@@ -151,11 +156,229 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
 
           <ThemeToggle />
 
-          {/* User Menu */}
+          {/* Mobile Navigation Drawer */}
+          <div className="md:hidden">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 p-0 text-foreground">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[350px] bg-background border-border/50 p-0 flex flex-col justify-between">
+                <SheetHeader className="p-4 border-b border-border/40 text-left flex flex-row items-center justify-between">
+                  <Logo iconSize={28} />
+                  <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+                  {/* Search Bar for Mobile */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (mobileSearchQuery.trim()) {
+                        navigate(`/explore?search=${encodeURIComponent(mobileSearchQuery.trim())}`);
+                        setMobileMenuOpen(false);
+                      }
+                    }}
+                    className="relative"
+                  >
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search events..."
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                      className="pl-9 bg-secondary/50 border-border/40 text-sm h-9"
+                    />
+                  </form>
+
+                  {/* Navigation Links */}
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                      Menu
+                    </p>
+                    <Link
+                      to="/"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                    >
+                      Home
+                    </Link>
+                    <Link
+                      to="/explore"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                    >
+                      Explore Events
+                    </Link>
+
+                    {/* Collapsible Categories Dropdown (Matching DashboardLayout style) */}
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
+                        className="flex w-full items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Grid className="h-4 w-4 text-primary shrink-0" />
+                          <span>Categories</span>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                            categoriesDropdownOpen && "rotate-180"
+                          )}
+                        />
+                      </button>
+
+                      {categoriesDropdownOpen && (
+                        <div className="mt-1 ml-3 pl-3 border-l-2 border-primary/20 space-y-1 py-1">
+                          <Link
+                            to="/category/music"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <span>🎵</span> Music & Concerts
+                          </Link>
+                          <Link
+                            to="/category/nightlife"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <span>🍸</span> Nightlife & Parties
+                          </Link>
+                          <Link
+                            to="/category/sports"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <span>⚽</span> Sports & Fitness
+                          </Link>
+                          <Link
+                            to="/category/conferences"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <span>💼</span> Tech & Business
+                          </Link>
+                          <Link
+                            to="/category/festivals"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <span>🎪</span> Festivals & Culture
+                          </Link>
+                          <Link
+                            to="/explore"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-semibold text-primary hover:bg-primary/10 transition-colors mt-1"
+                          >
+                            <span>✨</span> View All Categories
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    <Link
+                      to="/organizers"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                    >
+                      Organizers
+                    </Link>
+                    <Link
+                      to="/blog"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"
+                    >
+                      Blog
+                    </Link>
+                  </div>
+
+                  {/* Location Selector */}
+                  <div className="pt-2 border-t border-border/40">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                      Location
+                    </p>
+                    <div className="px-3">
+                      <LocationMenu
+                        selectedLocation={usercity}
+                        onLocationSelect={(location) => {
+                          setUsercity(location);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer User Info / Sign Out */}
+                <div className="p-4 border-t border-border/40 bg-secondary/30">
+                  {user ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 px-2 py-1">
+                        <Avatar className="h-8 w-8 border border-border/50">
+                          <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
+                          <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                            {user?.user_metadata?.display_name
+                              ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
+                              : user?.email
+                              ? user.email.slice(0, 2).toUpperCase()
+                              : "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="truncate">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {user.user_metadata?.display_name || "User"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs justify-start"
+                          onClick={() => {
+                            navigate("/dashboard");
+                            setMobileMenuOpen(false);
+                          }}
+                        >
+                          <BookOpen className="mr-2 h-3.5 w-3.5" /> Dashboard
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs justify-start text-destructive hover:text-destructive"
+                          onClick={() => {
+                            handleSignOut();
+                            setMobileMenuOpen(false);
+                          }}
+                        >
+                          <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      className="w-full gradient-primary text-primary-foreground shadow-glow"
+                      onClick={() => {
+                        navigate("/login");
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Sign In
+                    </Button>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          {/* Desktop User Menu */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
+                <button className="hidden sm:flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
                   <Avatar className="h-8 w-8 border border-border/50">
                     <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
@@ -198,7 +421,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
           ) : (
             <Button
               size="sm"
-              className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+              className="hidden sm:inline-flex gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
               onClick={() => navigate("/login")}
             >
               Sign In

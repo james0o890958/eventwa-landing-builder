@@ -126,15 +126,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         currentStoredUser = JSON.parse(customUserStr);
       } catch (e) {}
     }
+    const resolvedAvatar = updatedUser.avatar || updatedUser.user_metadata?.avatar || updatedUser.user_metadata?.avatar_url || (currentStoredUser as any).avatar || (currentStoredUser as any).user_metadata?.avatar || (currentStoredUser as any).user_metadata?.avatar_url;
     const mergedUser = {
       ...currentStoredUser,
       ...updatedUser,
+      avatar: resolvedAvatar,
       user_metadata: {
         ...(currentStoredUser as any).user_metadata,
         ...updatedUser.user_metadata,
         display_name: updatedUser.name || updatedUser.user_metadata?.display_name || (currentStoredUser as any).user_metadata?.display_name,
-        avatar: updatedUser.avatar || updatedUser.user_metadata?.avatar || (currentStoredUser as any).user_metadata?.avatar,
-        avatar_url: updatedUser.avatar || updatedUser.user_metadata?.avatar_url || (currentStoredUser as any).user_metadata?.avatar_url
+        avatar: resolvedAvatar,
+        avatar_url: resolvedAvatar
       }
     };
     localStorage.setItem("user", JSON.stringify(mergedUser));
