@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -96,10 +97,24 @@ type TypeFilter = "all" | "physical" | "online";
 type SortOption = "trending" | "soonest" | "popular" | "newest";
 
 const Explore = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // ── search ──────────────────────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Sync state when URL params change
+  useEffect(() => {
+    const urlSearch = searchParams.get("search");
+    if (urlSearch !== null) {
+      setSearchQuery(urlSearch);
+    }
+    const urlCategory = searchParams.get("category");
+    if (urlCategory !== null) {
+      setSelectedCategory(urlCategory);
+    }
+  }, [searchParams]);
 
   // ── location ─────────────────────────────────────────────────────────────────
   const [city, setCity] = useState<string | null>(null);
@@ -228,11 +243,17 @@ const Explore = () => {
   // ── filtering pipeline ───────────────────────────────────────────────────────
   let filtered = [...events];
 
-  // 1. search
+  // 1. search across title, description, location, category, organizer
   if (searchQuery.trim()) {
-    filtered = filtered.filter((e) =>
-      e.title.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    const q = searchQuery.toLowerCase().trim();
+    filtered = filtered.filter((e) => {
+      const titleMatch = (e.title || "").toLowerCase().includes(q);
+      const descMatch = (e.description || "").toLowerCase().includes(q);
+      const locMatch = (typeof e.location === "string" ? e.location : String((e.location as any)?.name || (e.location as any)?.city || "")).toLowerCase().includes(q);
+      const catMatch = (typeof e.category === "string" ? e.category : String((e.category as any)?.name || (e.category as any)?.slug || "")).toLowerCase().includes(q);
+      const orgMatch = (typeof e.organizer === "string" ? e.organizer : String((e.organizer as any)?.name || "")).toLowerCase().includes(q);
+      return titleMatch || descMatch || locMatch || catMatch || orgMatch;
+    });
   }
 
   // 2. city
