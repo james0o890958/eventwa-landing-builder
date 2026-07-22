@@ -62,114 +62,22 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 md:px-6">
-        {/* Logo */}
-        <Link to="/" className="flex items-center mr-8">
-          <Logo iconSize={32} />
-        </Link>
-
-        {/* Navigation Menus (Left) */}
-        <div className="hidden md:flex items-center gap-1">
-          <Link
-            to="/"
-            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Home
-          </Link>
-          <Link
-            to="/explore"
-            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Explore
-          </Link>
-
-          <CategoryMegaMenu sidebar={false} />
-
-          <Link
-            to="/organizers"
-            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Organizers
-          </Link>
-
-          <Link
-            to="/blog"
-            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Blog
-          </Link>
-
-          {/* Search Section */}
-          <div className="flex items-center ml-2">
-            <AnimatePresence mode="wait">
-              {!searchOpen ? (
-                <motion.button
-                  key="search-icon"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={() => setSearchOpen(true)}
-                  className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Search className="h-4 w-4" />
-                </motion.button>
-              ) : (
-                <motion.div
-                  key="search-input"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 240, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary px-3 py-1.5 ml-2"
-                >
-                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    ref={searchInputRef}
-                    placeholder="Search events..."
-                    className="border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0 h-5"
-                    onBlur={() => {
-                      if (!searchInputRef.current?.value) setSearchOpen(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") setSearchOpen(false);
-                    }}
-                  />
-                  <button
-                    onClick={() => setSearchOpen(false)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Right Section */}
-        <div className="ml-auto flex items-center gap-4">
-          {/* Location */}
-          <div className="hidden sm:flex items-center">
-            <LocationMenu
-              selectedLocation={usercity}
-              onLocationSelect={(location) => setUsercity(location)}
-            />
-          </div>
-
-          <ThemeToggle />
-
-          {/* Mobile Navigation Drawer */}
+        {/* Left Section: Mobile Navigation Drawer Icon (Top Left) + Logo */}
+        <div className="flex items-center gap-2 mr-4 md:mr-8">
+          {/* Mobile Hamburger Menu Icon on Left */}
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center text-primary-foreground shadow-glow hover:opacity-90 transition-opacity focus:outline-none"
-                  aria-label="Toggle navigation menu"
+                  className="h-9 w-9 rounded-lg bg-secondary/80 hover:bg-secondary text-foreground flex items-center justify-center transition-colors focus:outline-none border border-border/50"
+                  aria-label="Open navigation menu"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
               </SheetTrigger>
               <SheetContent
-                side="right"
+                side="left"
                 onOpenAutoFocus={(e) => e.preventDefault()}
                 className="w-[82%] sm:w-[350px] bg-card border-border/50 p-0 flex flex-col justify-between shadow-2xl"
               >
@@ -179,7 +87,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                 </SheetHeader>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-                  {/* Search Bar for Mobile */}
+                  {/* Search Bar */}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -204,7 +112,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                     <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">
                       MENU
                     </p>
-                    
+
                     <Link
                       to="/"
                       onClick={() => setMobileMenuOpen(false)}
@@ -326,103 +234,109 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Sheet Footer: Signed In vs Signed Out */}
-                <div className="p-4 border-t border-border/50 bg-secondary/20">
-                  {user ? (
-                    <div className="space-y-3">
-                      {/* User Info Header */}
-                      <div className="flex items-center gap-3 px-2 py-1">
-                        <Avatar className="h-10 w-10 border border-primary/30 shadow-sm shrink-0">
-                          <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
-                          <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                            {user?.user_metadata?.display_name
-                              ? user.user_metadata.display_name.slice(0, 2).toUpperCase()
-                              : user?.email
-                              ? user.email.slice(0, 2).toUpperCase()
-                              : "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="truncate flex-1">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            {user.user_metadata?.display_name || "User"}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        </div>
-                      </div>
-
-                      {/* Prominent Dashboard Button */}
-                      <Button
-                        className="w-full gradient-primary text-primary-foreground shadow-glow h-10 font-semibold gap-2"
-                        onClick={() => {
-                          navigate("/dashboard");
-                          setMobileMenuOpen(false);
-                        }}
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        My Dashboard
-                      </Button>
-
-                      {/* Quick Links: Profile, Messages, Sign Out */}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs justify-start border-border/60"
-                          onClick={() => {
-                            navigate("/profile/me");
-                            setMobileMenuOpen(false);
-                          }}
-                        >
-                          <User className="mr-2 h-3.5 w-3.5" /> Profile
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs justify-start text-destructive hover:text-destructive border-border/60"
-                          onClick={() => {
-                            handleSignOut();
-                            setMobileMenuOpen(false);
-                          }}
-                        >
-                          <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      <Button
-                        className="w-full gradient-primary text-primary-foreground shadow-glow h-10 font-semibold"
-                        onClick={() => {
-                          navigate("/login");
-                          setMobileMenuOpen(false);
-                        }}
-                      >
-                        Sign In
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full h-10 font-semibold border-border/60 text-foreground"
-                        onClick={() => {
-                          navigate("/register");
-                          setMobileMenuOpen(false);
-                        }}
-                      >
-                        <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Create Account
-                      </Button>
-                    </div>
-                  )}
-                </div>
               </SheetContent>
             </Sheet>
           </div>
 
-          {/* Desktop User Menu */}
+          <Link to="/" className="flex items-center">
+            <Logo iconSize={32} />
+          </Link>
+        </div>
+
+        {/* Navigation Menus (Desktop) */}
+        <div className="hidden md:flex items-center gap-1">
+          <Link
+            to="/"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Home
+          </Link>
+          <Link
+            to="/explore"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Explore
+          </Link>
+
+          <CategoryMegaMenu sidebar={false} />
+
+          <Link
+            to="/organizers"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Organizers
+          </Link>
+
+          <Link
+            to="/blog"
+            className="px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Blog
+          </Link>
+
+          {/* Search Section */}
+          <div className="flex items-center ml-2">
+            <AnimatePresence mode="wait">
+              {!searchOpen ? (
+                <motion.button
+                  key="search-icon"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  onClick={() => setSearchOpen(true)}
+                  className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Search className="h-4 w-4" />
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="search-input"
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 240, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary px-3 py-1.5 ml-2"
+                >
+                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    ref={searchInputRef}
+                    placeholder="Search events..."
+                    className="border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0 h-5"
+                    onBlur={() => {
+                      if (!searchInputRef.current?.value) setSearchOpen(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setSearchOpen(false);
+                    }}
+                  />
+                  <button
+                    onClick={() => setSearchOpen(false)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Right Section: Location, Theme Toggle & User Avatar Dropdown (Mobile & Desktop) */}
+        <div className="ml-auto flex items-center gap-3">
+          {/* Location */}
+          <div className="hidden sm:flex items-center">
+            <LocationMenu
+              selectedLocation={usercity}
+              onLocationSelect={(location) => setUsercity(location)}
+            />
+          </div>
+
+          <ThemeToggle />
+
+          {/* User Avatar Dropdown Menu (Accessible on mobile and desktop) */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="hidden sm:flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1">
+                <button className="flex items-center gap-2 rounded-full hover:bg-secondary transition-colors focus:outline-none p-1 border border-border/40">
                   <Avatar className="h-8 w-8 border border-border/50">
                     <AvatarImage src={getFullAvatarUrl(userAvatar)} alt={user?.user_metadata?.display_name || user?.name} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
@@ -435,29 +349,33 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-card border-border/50 mt-2">
+              <DropdownMenuContent align="end" className="w-56 bg-card border-border/50 mt-2 z-50">
                 <div className="px-3 py-2 border-b border-border/30">
-                  <p className="text-xs font-medium text-foreground truncate">
+                  <p className="text-xs font-semibold text-foreground truncate">
                     {user.user_metadata?.display_name || "User"}
                   </p>
                   <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                 </div>
+
+                <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
+                  <BookOpen className="mr-2 h-4 w-4 text-primary" /> User Dashboard
+                </DropdownMenuItem>
+
+                {((user.user_metadata as any)?.is_organizer || user.app_metadata?.app_role === "organizer" || (user as any).organizer) && (
+                  <DropdownMenuItem onClick={() => navigate("/organizer")} className="cursor-pointer">
+                    <Ticket className="mr-2 h-4 w-4 text-primary" /> Organizer Panel
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem onClick={() => navigate("/profile/me")} className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" /> Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
-                  <BookOpen className="mr-2 h-4 w-4" /> Dashboard
-                </DropdownMenuItem>
-                {((user.user_metadata as any)?.is_organizer || user.app_metadata?.app_role === "organizer" || (user as any).organizer) && (
-                  <DropdownMenuItem onClick={() => navigate("/organizer")} className="cursor-pointer">
-                    <Ticket className="mr-2 h-4 w-4" /> Organizer Panel
-                  </DropdownMenuItem>
-                )}
 
                 <DropdownMenuItem onClick={() => navigate("/messages")} className="cursor-pointer">
                   <MessageCircle className="mr-2 h-4 w-4" /> Messages
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
+
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" /> Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -465,7 +383,7 @@ const Navbar = ({ selectedLocation, onLocationSelect }: NavbarProps) => {
           ) : (
             <Button
               size="sm"
-              className="hidden sm:inline-flex gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+              className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90 text-xs px-3"
               onClick={() => navigate("/login")}
             >
               Sign In
