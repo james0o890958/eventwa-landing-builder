@@ -3,8 +3,9 @@ import { Calendar, MapPin, Users, Bookmark, BookmarkCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Event } from "@/data/mockEvents";
 import { useBookmark } from "@/hooks/useBookmark";
+import { getFullAvatarUrl } from "@/lib/api";
 
-
+const DEFAULT_EVENT_IMAGE = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80";
 
 type EventCardProps = {
   event: Event;
@@ -34,8 +35,10 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
 
   const { saved, toggleSave } = useBookmark(event.id, event);
 
-
   const isCancelled = (event as any).status === "cancelled";
+
+  const rawImg = event.image || (event as any).image_url || (event as any).banner_image || (event as any).bannerUrl;
+  const eventImage = getFullAvatarUrl(rawImg) || DEFAULT_EVENT_IMAGE;
 
   return (
     <motion.div
@@ -46,12 +49,16 @@ const EventCard = ({ event, index = 0, initialSaved, onToggleSave }: EventCardPr
     >
       <Link to={`/event/${event.id}`} className="group block">
         <div className={`overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card transition-all duration-300 hover:border-primary/30 hover:shadow-glow/10 ${isCancelled ? "opacity-75" : ""}`}>
-          <div className="relative aspect-[16/10] overflow-hidden">
+          <div className="relative aspect-[16/10] overflow-hidden bg-secondary/50">
             <img
-              src={event.image}
+              src={eventImage}
               alt={titleLabel}
               loading="lazy"
               decoding="async"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = DEFAULT_EVENT_IMAGE;
+              }}
               className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isCancelled ? "grayscale-[0.4]" : ""}`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />

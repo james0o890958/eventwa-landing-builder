@@ -240,9 +240,29 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col sm:flex-row h-[420px] sm:h-[450px] mt-4 sm:mt-6 border-t border-border/30">
-          {/* Left Panel - States */}
-          <div className="w-full sm:w-[220px] md:w-[240px] h-[130px] sm:h-full border-b sm:border-b-0 sm:border-r border-border/30 bg-secondary/20 shrink-0">
+        {/* Mobile Horizontal State Selector Bar */}
+        <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar px-4 py-3 border-t border-b border-border/30 bg-secondary/20 shrink-0">
+          {filteredStates.map((state) => {
+            const isActive = hoveredState === state.id;
+            return (
+              <button
+                key={state.id}
+                onClick={() => setHoveredState(state.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0 ${
+                  isActive
+                    ? "gradient-primary text-white shadow-glow"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {state.name}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col sm:flex-row h-[380px] sm:h-[450px]">
+          {/* Left Panel - States (Desktop Only) */}
+          <div className="hidden sm:block sm:w-[220px] md:w-[240px] h-full border-r border-border/30 bg-secondary/20 shrink-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-1">
                 <p className="px-2 mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
@@ -254,6 +274,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                     <button
                       key={state.id}
                       onMouseEnter={() => setHoveredState(state.id)}
+                      onClick={() => setHoveredState(state.id)}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                         isActive 
                           ? "bg-primary text-white shadow-lg shadow-primary/20 font-medium" 
@@ -269,37 +290,39 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
             </ScrollArea>
           </div>
 
-          {/* Right Panel - Cities */}
-          <div className="flex-1 bg-background/50">
+          {/* Right Panel - Cities (Mobile & Desktop) */}
+          <div className="flex-1 bg-background/50 overflow-hidden">
             <ScrollArea className="h-full">
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {currentStateData ? (
                   <>
-                    <div className="mb-6 flex items-center gap-3">
-                      <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <div className="mb-4 sm:mb-6 flex items-center justify-between gap-3">
+                      <h3 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
                         Cities in <span className="text-primary">{currentStateData.name}</span>
                       </h3>
-                      <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-full">
+                      <span className="text-[11px] sm:text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 sm:py-1 rounded-full shrink-0">
                         {currentStateData.cities?.length || 0} available
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                       {/* All <state> option */}
                       <button
                         key={`all-${currentStateData.id}`}
                         onClick={() => handleLocationSelect(currentStateData.name, currentStateData.id)}
-                        className="col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
+                        className="col-span-1 sm:col-span-2 flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all duration-200 group text-left"
                       >
                         <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                           <Globe className="h-4 w-4 text-primary" />
                         </div>
-                        <span className="text-sm font-semibold text-foreground">
-                          All {currentStateData.name}
-                        </span>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          Anywhere in {currentStateData.name}
-                        </span>
+                        <div className="truncate flex-1">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            All {currentStateData.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            Anywhere in {currentStateData.name}
+                          </p>
+                        </div>
                       </button>
 
                       {currentStateData.cities?.map((city: any) => (
@@ -311,7 +334,7 @@ const LocationMenu = ({ selectedLocation, onLocationSelect }: LocationMenuProps)
                           <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">
                             <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                           </div>
-                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                          <span className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                             {city.name}
                           </span>
                         </button>
